@@ -13,8 +13,8 @@ export const API_ENDPOINTS = {
   TUTORIAL_GET_ALL: "/tutorial/all", // Assuming you'll add this
 
   // User & Progress
-  USER_LOGIN: "/user/login", // Assuming
-  USER_SIGNUP: "/user/signup", // Assuming
+  USER_LOGIN: "/login", // Assuming
+  USER_SIGNUP: "/signup", // Assuming
   USER_PROGRESS: "/user/progress",
 
   // Authoring

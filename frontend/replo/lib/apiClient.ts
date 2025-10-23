@@ -11,42 +11,33 @@ const apiClient = axios.create({
     "Content-Type": "application/json",
   },
 });
-
-// 2. Request Interceptor (Middleware)
-// This runs BEFORE any request is sent
 apiClient.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
-    const { isAuthenticated, user } = useGlobalStore.getState();
-
-    if (isAuthenticated && user?.token) {
-      config.headers = config.headers ?? {};
-      (config.headers as Record<string, string>)["Authorization"] = `Bearer ${user.token}`;
+  (config) => {
+    // 1. Get state from Zustand
+    const { token } = useGlobalStore.getState() as { token?: string }; 
+    
+    // 2. If token exists (from login OR refresh), add it
+    if (token) {
+      config.headers["Authorization"] = `Bearer ${token}`;
     }
     return config;
   },
-  (error: AxiosError) => {
-    return Promise.reject(error);
-  }
+  // ... (error handler)
 );
 
-// 3. Response Interceptor (Middleware)
-// This runs AFTER a response is received
 apiClient.interceptors.response.use(
-  (response) => {
-    return response.data;
-  },
-  (error: AxiosError) => {
-    const status = error.response?.status;
-
-    if (status === 401) {
-      const { logout } = useGlobalStore.getState();
-      logout();
-
+  (response) => response.data,
+  (error) => {
+    // 3. This part is now CRITICAL
+    if (error.response && error.response.status === 401) {
+      // Token is invalid or expired
+      const { logout } = useGlobalStore.getState() as { logout: () => void };
+      logout(); // This clears the persisted state
+      
       if (typeof window !== "undefined") {
-        window.location.href = "/login";
+        window.location.href = "/login"; // Redirect to login
       }
     }
-
     return Promise.reject(error);
   }
 );

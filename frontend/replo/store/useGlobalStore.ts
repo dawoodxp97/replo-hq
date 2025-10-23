@@ -1,40 +1,70 @@
-// ./frontend/src/store/useGlobalStore.js
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import Cookies from 'js-cookie';
 
 export interface AuthUser {
   id?: string;
+  email?: string;
   username?: string;
-  token?: string;
 }
 
 export interface GlobalState {
-  // --- 1. State ---
+  // --- State ---
   user: AuthUser | null;
+  token: string | null;
   isAuthenticated: boolean;
   isSidebarOpen: boolean;
 
-  // --- 2. Actions ---
-  login: (userData: AuthUser) => void;
+  // --- Actions ---
+  login: (userData: AuthUser, token: string) => void;
   logout: () => void;
   toggleSidebar: () => void;
 }
 
-export const useGlobalStore = create<GlobalState>((set) => ({
-  // --- 1. State ---
+export const useGlobalStore = create(
+  persist(
+    (set) => ({
+      // --- State ---
+      user: null,
+      // We no longer need to store the token here, the cookie is the source of truth
+      isAuthenticated: false,
 
-  // Auth State
-  user: null,
-  isAuthenticated: false,
+      // --- Actions ---
+      login: (userData: AuthUser, token: string) => {
+        // 2. Set the token in a secure cookie
+        Cookies.set('auth_token', token, { 
+          expires: 1, // Expires in 1 day
+          secure: process.env.NODE_ENV === 'production', // Only send over HTTPS in production
+          sameSite: 'strict'
+        });
+        set({
+          user: userData,
+          isAuthenticated: true,
+        });
+      },
 
-  // UI State
-  isSidebarOpen: true,
+      logout: () => {
+        // 3. Remove the cookie
+        Cookies.remove('auth_token');
+        set({
+          user: null,
+          isAuthenticated: false,
+        });
+      },
 
-  // --- 2. Actions ---
-
-  // Auth Actions
-  login: (userData) => set({ user: userData, isAuthenticated: true }),
-  logout: () => set({ user: null, isAuthenticated: false }),
-
-  // UI Actions
-  toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
-}));
+      // This action is new: it will be used to initialize the store on app load
+      hydrateAuth: () => {
+        const token = Cookies.get('auth_token');
+        if (token) {
+          // Here you might want to fetch the user data if it's not in the store
+          // For now, we'll just set isAuthenticated
+          set({ isAuthenticated: true });
+        }
+      }
+    }),
+    {
+      name: 'user-storage', // Persist the 'user' object and 'isAuthenticated' flag
+      partialize: (state) => ({ user: (state as GlobalState).user, isAuthenticated: (state as GlobalState).isAuthenticated }),
+    }
+  )
+);
