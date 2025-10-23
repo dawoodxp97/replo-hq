@@ -1,0 +1,15 @@
+# ./.gitignore
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Node.js
+node_modules/
+.next/
+npm-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store

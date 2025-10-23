@@ -1,0 +1,23 @@
+# ./backend/requirements.txt
+
+# Server
+fastapi
+uvicorn[standard]
+
+# Database (PostgreSQL)
+psycopg2-binary
+sqlalchemy
+
+# Job Queue (Redis)
+arq
+redis
+
+# AI & Code Analysis
+openai               # For GPT-4
+transformers         # For CodeBERT
+torch                # For CodeBERT
+tree-sitter          # For AST Parsing
+
+# Other
+python-dotenv        # For managing environment variables
+python-github        # For GitHub API
