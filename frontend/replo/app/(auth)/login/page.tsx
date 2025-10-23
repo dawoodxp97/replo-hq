@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { AxiosError } from "axios";
+import { toast } from "sonner";
 
 import { login as loginService } from "@/services/authService"; // Import your service
 import { useGlobalStore } from "@/store/useGlobalStore"; // Import your store
@@ -12,7 +13,8 @@ import { useGlobalStore } from "@/store/useGlobalStore"; // Import your store
 // Local types for strong typing
 type Credentials = { email: string; password: string };
 type LoginResponse = {
-  token: { access_token: string };
+  access_token: string;
+  token_type: string;
   user: { id?: string; email?: string; username?: string };
 };
 
@@ -27,26 +29,24 @@ export default function LoginPage() {
 
   const loginMutation = useMutation<LoginResponse, AxiosError, Credentials>({
     mutationFn: async (credentials: Credentials) => {
-      const response = await loginService(credentials.email, credentials.password);
-      return response.data; // Extract the actual data from AxiosResponse
+      // apiClient returns response.data already
+      return loginService(credentials.email, credentials.password);
     },
     
     onSuccess: (data: LoginResponse) => {
-      // 'data' is the response: { token: {...}, user: {...} }
-      // 1. Call your Zustand action to save state
-      loginAction(data.user, data.token.access_token);
+        toast.success("Login successful! Redirecting...");
+      // 1. Save user and token
+      loginAction(data.user, data.access_token);
       
       // 2. Redirect to the dashboard
       router.push("/dashboard");
     },
     
     onError: (error: AxiosError) => {
-      // React Query's 'error' object
       console.error("Login failed:", error);
-      // You can show an error message to the user here
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const detail = (error.response?.data as any)?.detail;
-      alert(detail || "Login failed");
+      toast.error(detail || "An unknown error occurred");
     },
   });
 

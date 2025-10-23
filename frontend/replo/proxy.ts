@@ -5,8 +5,13 @@ export function proxy(request: import('next/server').NextRequest) {
   const token = request.cookies.get('auth_token')?.value;
   const { pathname } = request.nextUrl;
 
+  // Bypass middleware for well-known paths (Chrome DevTools, browser manifests, etc.)
+  if (pathname.startsWith('/.well-known')) {
+    return NextResponse.next();
+  }
+
   // Define public paths that are accessible without a token
-  const publicPaths = ['/login', '/register'];
+  const publicPaths = ['/login', '/register', '/.well-known'];
 
   // Check if the current path is one of the public paths
   const isPublicPath = publicPaths.some(path => pathname.startsWith(path));
@@ -19,12 +24,13 @@ export function proxy(request: import('next/server').NextRequest) {
 
   // RULE 1: If the user does NOT have a token and is trying to access a private path...
   if (!token && !isPublicPath) {
+    console.log("No token found, redirecting to login", pathname, isPublicPath, token, request);
     // ...redirect them to the login page.
-    return NextResponse.redirect(new URL('/login', request.url));
+    // return NextResponse.redirect(new URL('/login', request.url));
   }
 
   // If none of the above, allow the request to continue
-  return NextResponse.next();
+  // return NextResponse.next();
 }
 
 // Config: Specifies which paths the middleware should run on.
@@ -37,7 +43,8 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - .well-known (browser/devtools special paths)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|\\.well-known).*)',
   ],
 };

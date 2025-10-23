@@ -2,21 +2,31 @@
 import apiClient from "@/lib/apiClient";
 import { API_ENDPOINTS } from "@/constants/apiEndpoints";
 
+export type LoginResponse = {
+  access_token: string;
+  token_type: string;
+  user: { id?: string; email?: string; username?: string };
+};
+
 /**
  * Logs in a user.
- * @param {string} email
- * @param {string} password
- * @returns {Promise<object>} { token: { access_token, ... }, user: { id, email } }
+ * Backend expects OAuth2PasswordRequestForm (username, password) as form data.
  */
-export const login = (email: string, password: string) => {
-  return apiClient.post(API_ENDPOINTS.USER_LOGIN, { email, password });
+export const login = (email: string, password: string): Promise<LoginResponse> => {
+  const params = new URLSearchParams();
+  params.append("username", email);
+  params.append("password", password);
+  // apiClient returns response.data (runtime). Narrow type for TS.
+  return apiClient
+    .post<LoginResponse>(API_ENDPOINTS.USER_LOGIN, params, {
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    })
+    .then((data) => data as unknown as LoginResponse);
 };
 
 /**
  * Registers a new user.
- * @param {string} email
- * @param {string} password
- * @returns {Promise<object>} { id, email }
+ * Expects JSON body per UserCreate schema (email, password).
  */
 export const signup = (email: string, password: string) => {
   return apiClient.post(API_ENDPOINTS.USER_SIGNUP, { email, password });

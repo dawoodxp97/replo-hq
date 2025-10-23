@@ -1,4 +1,4 @@
-export const BASE_URL = "http://localhost:8000/api/v1";
+export const BASE_URL = "http://localhost:8000";
 
 
 export const API_ENDPOINTS = {
@@ -13,10 +13,10 @@ export const API_ENDPOINTS = {
   TUTORIAL_GET_ALL: "/tutorial/all", // Assuming you'll add this
 
   // User & Progress
-  USER_LOGIN: "/login", // Assuming
-  USER_SIGNUP: "/signup", // Assuming
-  USER_PROGRESS: "/user/progress",
+  USER_LOGIN: "/api/user/login", // Assuming
+  USER_SIGNUP: "/api/user/signup", // Assuming
+  USER_PROGRESS: "/api/user/progress",
 
   // Authoring
-  AUTHOR_UPDATE_TUTORIAL: (id: number) => `/author/tutorial/${id}`,
+  AUTHOR_UPDATE_TUTORIAL: (id: number) => `/api/author/tutorial/${id}`,
 };

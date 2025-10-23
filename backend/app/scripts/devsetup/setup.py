@@ -1,9 +1,8 @@
 import sys
 import os
 
-# This is a bit of a hack to make the script runnable from the 'backend' directory
-# It adds the 'backend' directory to the Python path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# Ensure 'backend' is on sys.path so 'app' package is importable
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
 
 from app.db.session import engine, Base
 from app.models import user, tutorial # 1. IMPORTANT: Import ALL your model files here

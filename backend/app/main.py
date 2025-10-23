@@ -22,10 +22,11 @@ app.add_middleware(
 
 # --- Include Routers ---
 # Include each feature router with a prefix
-app.include_router(repo.router, prefix="/api/v1/repo", tags=["Repository"])
-app.include_router(tutorial.router, prefix="/api/v1/tutorial", tags=["Tutorials"])
-app.include_router(user.router, prefix="/api/v1/user", tags=["User & Progress"])
-app.include_router(author.router, prefix="/api/v1/author", tags=["Authoring"])
+app.include_router(repo.router, prefix="/api/repo", tags=["Repository"])
+app.include_router(tutorial.router, prefix="/api/tutorial", tags=["Tutorials"])
+app.include_router(user.router, prefix="/api/user", tags=["User & Progress"])
+app.include_router(author.router, prefix="/api/author", tags=["Authoring"])
+
 
 
 # --- Root & Health Check ---

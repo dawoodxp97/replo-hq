@@ -9,7 +9,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 
 router = APIRouter()
 
-@router.post("/signup", response_model=schemas.UserPublic)
+@router.post("/api/signup", response_model=schemas.UserPublic)
 def create_user(
     user_in: schemas.UserCreate, # 'user_in' is the Pydantic model from the request
     db: Session = Depends(get_db)  # This is the database session
@@ -57,6 +57,7 @@ def login_for_access_token(
     # Get the user by their email.
     # .first() returns the first result or None
     user = db.query(models.User).filter(models.User.email == form_data.username).first()
+    print(user, "user", form_data)
     # ---------------------------------
     
     # 2. Check if user exists and verify password
