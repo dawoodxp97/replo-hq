@@ -44,7 +44,7 @@ install-deps: ## Install all dependencies
 	@echo "Installing backend dependencies..."
 	@cd $(BACKEND_DIR) && pip install -r requirements.txt -r requirements-dev.txt
 	@echo "Installing frontend dependencies..."
-	@cd $(FRONTEND_DIR) && $(NPM) ci
+	@cd $(FRONTEND_DIR) && $(NPM) install --force
 	@echo "$(GREEN)Dependencies installed!$(NC)"
 
 pre-commit-install: ## Install pre-commit hooks
@@ -72,11 +72,16 @@ dev-db: ## Start development database services
 
 dev-frontend: ## Start frontend development server
 	@echo "$(BLUE)Starting frontend development server...$(NC)"
+	@echo "$(YELLOW)Installing/updating dependencies with force flag...$(NC)"
+	@cd $(FRONTEND_DIR) && $(NPM) install --force
+	@echo "$(YELLOW)Starting development server...$(NC)"
 	@cd $(FRONTEND_DIR) && $(NPM) run dev
 
 dev-backend: ## Start backend development server
 	@echo "$(BLUE)Starting backend development server...$(NC)"
-	@cd $(BACKEND_DIR) && uvicorn main:app --reload --host 0.0.0.0 --port 8000
+	@echo "$(YELLOW)Make sure you have activated your virtual environment first:$(NC)"
+	@echo "$(YELLOW)  cd backend && source venv/bin/activate$(NC)"
+	@cd $(BACKEND_DIR) && source venv/bin/activate && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 # Build Commands
 build: ## Build all Docker images
@@ -109,7 +114,7 @@ test-frontend: ## Run frontend tests
 
 test-backend: ## Run backend tests
 	@echo "$(BLUE)Running backend tests...$(NC)"
-	@cd $(BACKEND_DIR) && $(PYTHON) -m pytest tests/ -v --cov=. --cov-report=html
+	@cd $(BACKEND_DIR) && $(PYTHON) -m pytest . -v --cov=app --cov-report=html --cov-report=term-missing
 
 # Linting Commands
 lint: ## Run all linting
@@ -165,7 +170,7 @@ performance-test: ## Run performance tests
 	@echo "Running Lighthouse CI..."
 	@cd $(FRONTEND_DIR) && npx lhci autorun
 	@echo "Running k6 load tests..."
-	@k6 run tests/load/api-test.js
+	@k6 run ./tests/load/api-test.js
 	@echo "$(GREEN)Performance tests completed!$(NC)"
 
 # Deployment Commands
@@ -203,9 +208,10 @@ logs-prod: ## Show production logs
 # Database Commands
 backup: ## Backup development database
 	@echo "$(BLUE)Creating database backup...$(NC)"
+	@mkdir -p ./backups
 	@docker exec $$($(DOCKER_COMPOSE_DEV) ps -q postgres) \
-		pg_dump -U replo_user replo_db > backup_$$(date +%Y%m%d_%H%M%S).sql
-	@echo "$(GREEN)Database backup created!$(NC)"
+		pg_dump -U replo_user replo_db > ./backups/backup_$$(date +%Y%m%d_%H%M%S).sql
+	@echo "$(GREEN)Database backup created in ./backups/ directory!$(NC)"
 
 restore: ## Restore database from backup (requires BACKUP_FILE variable)
 	@echo "$(BLUE)Restoring database from backup...$(NC)"
@@ -247,8 +253,8 @@ status: ## Show status of all services
 health: ## Check health of all services
 	@echo "$(BLUE)Checking service health...$(NC)"
 	@echo "$(YELLOW)Database Health:$(NC)"
-	@curl -f http://localhost:5432 > /dev/null 2>&1 && echo "✓ PostgreSQL" || echo "✗ PostgreSQL"
-	@curl -f http://localhost:6379 > /dev/null 2>&1 && echo "✓ Redis" || echo "✗ Redis"
+	@pg_isready -h localhost -p 5432 > /dev/null 2>&1 && echo "✓ PostgreSQL" || echo "✗ PostgreSQL"
+	@redis-cli -h localhost -p 6379 ping > /dev/null 2>&1 && echo "✓ Redis" || echo "✗ Redis"
 	@echo "$(YELLOW)Application Health:$(NC)"
 	@curl -f http://localhost:8000/health > /dev/null 2>&1 && echo "✓ Backend API" || echo "✗ Backend API"
 	@curl -f http://localhost:3000 > /dev/null 2>&1 && echo "✓ Frontend" || echo "✗ Frontend"
