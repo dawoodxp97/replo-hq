@@ -8,7 +8,7 @@ mypy==1.8.0
 
 # Security and safety checks
 bandit==1.7.5
-safety==3.0.1
+safety==3.6.2
 
 # Testing
 pytest==7.4.4
