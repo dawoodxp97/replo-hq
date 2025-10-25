@@ -60,6 +60,7 @@ def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
+    print(form_data, "form_data")
     # 1. --- THIS IS THE SELECT QUERY ---
     # Get the user by their email.
     # .first() returns the first result or None
