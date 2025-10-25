@@ -5,7 +5,7 @@
         test test-frontend test-backend lint lint-frontend lint-backend format \
         format-frontend format-backend clean clean-docker deploy-staging deploy-prod \
         logs logs-dev logs-prod backup restore security-scan performance-test \
-        setup-dev install-deps pre-commit-install
+        setup-dev install-deps pre-commit-install devsetup
 
 # Default target
 .DEFAULT_GOAL := help
@@ -53,6 +53,25 @@ pre-commit-install: ## Install pre-commit hooks
 	@pre-commit install
 	@pre-commit install --hook-type commit-msg
 	@echo "$(GREEN)Pre-commit hooks installed!$(NC)"
+
+devsetup: ## Reset database and reinstall packages (requires .venv activation)
+	@echo "$(BLUE)Starting development setup with database reset...$(NC)"
+	@echo "$(RED)WARNING: This will delete all database tables and data!$(NC)"
+	@cd $(BACKEND_DIR) && \
+		if [ ! -d ".venv" ]; then \
+			echo "$(RED)Error: .venv not found. Please create a virtual environment first.$(NC)"; \
+			echo "$(YELLOW)Run: cd backend && python3 -m venv .venv$(NC)"; \
+			exit 1; \
+		fi && \
+		source .venv/bin/activate && \
+		echo "$(YELLOW)Virtual environment activated$(NC)" && \
+		echo "$(BLUE)Installing/updating packages...$(NC)" && \
+		pip install -r requirements.txt -r requirements-dev.txt && \
+		echo "$(GREEN)Packages installed successfully!$(NC)" && \
+		echo "$(BLUE)Resetting database (dropping and recreating all tables)...$(NC)" && \
+		echo "yes" | python app/scripts/devsetup/setup.py && \
+		echo "$(GREEN)Database reset complete!$(NC)" && \
+		echo "$(GREEN)Development setup complete! 🚀$(NC)"
 
 dev: ## Start full development environment
 	@echo "$(BLUE)Starting development environment...$(NC)"
