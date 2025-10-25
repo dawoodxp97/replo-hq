@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, ConfigDict
+from pydantic import BaseModel, EmailStr, ConfigDict, Field
 
 # Schema for token response
 class Token(BaseModel):
@@ -16,9 +16,9 @@ class UserPublic(BaseModel):
 # Schema for creating a new user (registration)
 class UserCreate(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(min_length=8, max_length=72)
 
 # Schema for user login
 class UserLogin(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(min_length=8, max_length=72)

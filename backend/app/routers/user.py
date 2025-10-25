@@ -16,11 +16,22 @@ from fastapi.security import OAuth2PasswordRequestForm
 
 router = APIRouter()
 
-@router.post("/api/signup", response_model=schemas.UserPublic)
+@router.post("/signup", response_model=schemas.UserPublic)
 def create_user(
     user_in: schemas.UserCreate, # 'user_in' is the Pydantic model from the request
     db: Session = Depends(get_db)  # This is the database session
 ):
+    # Basic password length validation (characters and bytes)
+    if len(user_in.password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Password must be at least 8 characters long",
+        )
+    if len(user_in.password.encode("utf-8")) > 72:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Password must be at most 72 bytes (UTF-8)",
+        )
     # 1. Check if user already exists (This is a SELECT query)
     db_user = db.query(models.User).filter(models.User.email == user_in.email).first()
     if db_user:
@@ -60,12 +71,23 @@ def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
-    print(form_data, "form_data")
+    # Basic password length validation (characters and bytes)
+    if not form_data.password or len(form_data.password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Password must be at least 8 characters long",
+        )
+    if len(form_data.password.encode("utf-8")) > 72:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Password must be at most 72 bytes (UTF-8)",
+        )
+    print(f"Login attempt - Username: {form_data.username}, Password provided: {'Yes' if form_data.password else 'No'}")
     # 1. --- THIS IS THE SELECT QUERY ---
     # Get the user by their email.
     # .first() returns the first result or None
     user = db.query(models.User).filter(models.User.email == form_data.username).first()
-    print(user, "user", form_data)
+    print(f"User found: {user.email if user else 'None'}, User ID: {user.id if user else 'N/A'}")
     # ---------------------------------
     
     # 2. Check if user exists and verify password
@@ -75,6 +97,16 @@ def login_for_access_token(
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    # 2b. Upgrade legacy bcrypt hashes to bcrypt_sha256 on successful login
+    try:
+        if security.pwd_context.needs_update(user.hashed_password):
+            user.hashed_password = security.get_password_hash(form_data.password)
+            db.commit()
+            db.refresh(user)
+    except Exception:
+        # If upgrade fails, continue without blocking login
+        pass
     
     # 3. Create the JWT token
     # The 'sub' (subject) of the token is the user's email

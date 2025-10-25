@@ -243,6 +243,20 @@ restore: ## Restore database from backup (requires BACKUP_FILE variable)
 		psql -U replo_user -d replo_db < $(BACKUP_FILE)
 	@echo "$(GREEN)Database restored!$(NC)"
 
+# Convenience: Database access
+db-open: ## Open interactive psql shell for dev DB
+	@echo "$(BLUE)Opening psql shell for development database...$(NC)"
+	@docker exec -it $$($(DOCKER_COMPOSE_DEV) ps -q postgres) \
+		psql -U tutorial_user -d tutorial_db
+
+db-query: ## Execute SQL on dev DB (usage: make psql-dev-query SQL="SELECT 1;")
+	@if [ -z "$(SQL)" ]; then \
+		echo "$(RED)Error: Please specify SQL=\"<query>\"$(NC)"; \
+		exit 1; \
+	fi
+	@docker exec -i $$($(DOCKER_COMPOSE_DEV) ps -q postgres) \
+		psql -U tutorial_user -d tutorial_db -c "$(SQL)"
+
 # Cleanup Commands
 clean: ## Clean up development environment
 	@echo "$(BLUE)Cleaning up development environment...$(NC)"

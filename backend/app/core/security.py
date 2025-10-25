@@ -11,13 +11,14 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30 # 30 minutes
 
 # Password Hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["bcrypt_sha256", "bcrypt"], deprecated="auto")
 
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
 def get_password_hash(password):
-    return pwd_context.hash(password)
+    # Force bcrypt_sha256 to avoid 72-byte limit issues
+    return pwd_context.hash(password, scheme="bcrypt_sha256")
 
 # JWT Token
 class TokenData(BaseModel):
