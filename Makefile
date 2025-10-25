@@ -80,8 +80,8 @@ dev-frontend: ## Start frontend development server
 dev-backend: ## Start backend development server
 	@echo "$(BLUE)Starting backend development server...$(NC)"
 	@echo "$(YELLOW)Make sure you have activated your virtual environment first:$(NC)"
-	@echo "$(YELLOW)  cd backend && source venv/bin/activate$(NC)"
-	@cd $(BACKEND_DIR) && source venv/bin/activate && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+	@echo "$(YELLOW)  cd backend && source .venv/bin/activate$(NC)"
+	@cd $(BACKEND_DIR) && source .venv/bin/activate && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 # Build Commands
 build: ## Build all Docker images
