@@ -1,0 +1,98 @@
+# Development Docker Compose - Database Services Only
+# Frontend and Backend run locally for faster development
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    restart: always
+    container_name: replo-postgres-dev
+    environment:
+      POSTGRES_USER: tutorial_user
+      POSTGRES_PASSWORD: tutorial_password
+      POSTGRES_DB: tutorial_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./backend/scripts/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tutorial_user -d tutorial_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - replo-dev-network
+
+  # Redis for job queue
+  redis:
+    image: redis:7-alpine
+    restart: always
+    container_name: replo-redis-dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_dev_data:/data
+      - ./redis.conf:/usr/local/etc/redis/redis.conf:ro
+    command: redis-server /usr/local/etc/redis/redis.conf
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - replo-dev-network
+
+  # Optional: Database Admin Tool (pgAdmin)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: replo-pgadmin-dev
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@replo.dev
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_dev_data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - replo-dev-network
+    profiles:
+      - admin
+
+  # Optional: Redis Admin Tool (RedisInsight)
+  redis-insight:
+    image: redislabs/redisinsight:latest
+    container_name: replo-redis-insight-dev
+    ports:
+      - "8001:8001"
+    volumes:
+      - redis_insight_data:/db
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - replo-dev-network
+    profiles:
+      - admin
+
+volumes:
+  postgres_dev_data:
+    driver: local
+  redis_dev_data:
+    driver: local
+  pgadmin_dev_data:
+    driver: local
+  redis_insight_data:
+    driver: local
+
+networks:
+  replo-dev-network:
+    driver: bridge
+    name: replo-dev-network
