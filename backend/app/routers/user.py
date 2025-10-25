@@ -87,7 +87,7 @@ def login_for_access_token(
     # Get the user by their email.
     # .first() returns the first result or None
     user = db.query(models.User).filter(models.User.email == form_data.username).first()
-    print(f"User found: {user.email if user else 'None'}, User ID: {user.id if user else 'N/A'}")
+    print(f"User found: {user.email if user else 'None'}, User ID: {user.user_id if user else 'N/A'}")
     # ---------------------------------
     
     # 2. Check if user exists and verify password
