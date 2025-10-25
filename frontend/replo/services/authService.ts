@@ -1,4 +1,3 @@
-// ./frontend/src/services/authService.js
 import apiClient from "@/lib/apiClient";
 import { API_ENDPOINTS } from "@/constants/apiEndpoints";
 

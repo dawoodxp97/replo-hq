@@ -2,8 +2,13 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-# TODO: Move this to a .env file
-SQLALCHEMY_DATABASE_URL = "postgresql://tutorial_user:tutorial_password@localhost/tutorial_db"
+import os
+
+# Read from environment when available, fallback to local default
+SQLALCHEMY_DATABASE_URL = os.getenv(
+    "SQLALCHEMY_DATABASE_URL",
+    "postgresql://tutorial_user:tutorial_password@localhost/tutorial_db"
+)
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

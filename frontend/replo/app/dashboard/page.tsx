@@ -1,15 +1,22 @@
+'use client';
+
+import RepoSubmitForm from '@/components/dashboard/RepoSubmitForm';
+import RepoList from '@/components/dashboard/RepoList';
+
 export default function DashboardPage() {
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-4">Dashboard</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="border rounded p-4">
-          <h2 className="font-semibold mb-2">Overview</h2>
-          <p className="text-sm text-gray-600">Quick stats and summaries.</p>
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold mb-8">ReploAI Dashboard</h1>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left column - Submit form */}
+        <div className="lg:col-span-1">
+          <RepoSubmitForm />
         </div>
-        <div className="border rounded p-4">
-          <h2 className="font-semibold mb-2">Recent Activity</h2>
-          <p className="text-sm text-gray-600">Latest changes and updates.</p>
+        
+        {/* Right column - Repository list */}
+        <div className="lg:col-span-2">
+          <RepoList />
         </div>
       </div>
     </div>

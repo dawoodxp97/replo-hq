@@ -1,23 +1,33 @@
 # ./backend/requirements.txt
 
 # Server
-fastapi
-uvicorn[standard]
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.4.2
+email-validator==2.1.0
 
 # Database (PostgreSQL)
-psycopg2-binary
-sqlalchemy
+psycopg2-binary==2.9.9
+sqlalchemy==2.0.23
+alembic==1.12.1
 
 # Job Queue (Redis)
-arq
-redis
+arq==0.25.0
+redis==5.0.1
 
 # AI & Code Analysis
-openai               # For GPT-4
-transformers         # For CodeBERT
-torch                # For CodeBERT
-tree-sitter          # For AST Parsing
+openai==1.3.5               # For GPT-4
+transformers==4.35.2        # For CodeBERT
+torch==2.1.1                # For CodeBERT
+tree-sitter==0.20.2         # For AST Parsing
+
+# GitHub Integration
+gitpython==3.1.40           # For cloning repositories
+pygithub==2.1.1             # For GitHub API
 
 # Other
-python-dotenv        # For managing environment variables
-python-github        # For GitHub API
+python-dotenv==1.0.0        # For managing environment variables
+python-multipart==0.0.6     # For handling form data
+pyjwt==2.8.0                # For JWT authentication
+passlib[bcrypt]==1.7.4
+python-jose[cryptography]==3.3.0

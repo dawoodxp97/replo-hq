@@ -1,9 +1,16 @@
+# ./backend/app/routers/user.py
+import uuid
+from datetime import datetime
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
 
 from .. import models, schemas
 from ..core import security
 from ..db.session import get_db
+from ..models.user_progress import UserProgress
+from ..models.quizzes import Quiz
 
 from fastapi.security import OAuth2PasswordRequestForm
 

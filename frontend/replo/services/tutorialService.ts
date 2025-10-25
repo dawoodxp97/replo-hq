@@ -16,7 +16,7 @@ export const analyzeRepo = (githubUrl: string) => {
  * @param {number} tutorialId - The ID of the tutorial.
  * @returns {Promise<object>} The tutorial data.
  */
-export const getTutorialById = (tutorialId: number) => {
+export const getTutorialById = (tutorialId: string) => {
   return apiClient.get(API_ENDPOINTS.TUTORIAL_GET_BY_ID(tutorialId));
 };
 

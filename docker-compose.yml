@@ -1,9 +1,11 @@
 # ./docker-compose.yml
 version: '3.8'
 services:
+  # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
     restart: always
+    container_name: replo-postgres
     environment:
       POSTGRES_USER: tutorial_user
       POSTGRES_PASSWORD: tutorial_password
@@ -12,14 +14,85 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tutorial_user -d tutorial_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # Redis for job queue
   redis:
     image: redis:7-alpine
     restart: always
+    container_name: replo-redis
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: replo-backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - SQLALCHEMY_DATABASE_URL=postgresql://tutorial_user:tutorial_password@postgres/tutorial_db
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Worker for processing jobs
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: replo-worker
+    command: python run_worker.py
+    volumes:
+      - ./backend:/app
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - SQLALCHEMY_DATABASE_URL=postgresql://tutorial_user:tutorial_password@postgres/tutorial_db
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend/replo
+      dockerfile: Dockerfile
+    container_name: replo-frontend
+    command: npm run dev
+    volumes:
+      - ./frontend/replo:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      - backend
 
 volumes:
   postgres_data:
