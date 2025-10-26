@@ -3,6 +3,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { BASE_URL, API_ENDPOINTS } from "@/constants/apiEndpoints";
 import { useGlobalStore } from "@/store/useGlobalStore";
+import Cookies from "js-cookie";
 
 // 1. Create the axios instance
 const apiClient = axios.create({
@@ -13,12 +14,10 @@ const apiClient = axios.create({
 });
 apiClient.interceptors.request.use(
   (config) => {
-    // 1. Get state from Zustand
-    const { token } = useGlobalStore.getState() as { token?: string };
-    
-    // 2. If token exists (from login OR refresh), add it
+    // Prefer cookie-based token for requests
+    const token = typeof window !== "undefined" ? Cookies.get("auth_token") : undefined;
     if (token) {
-      config.headers["Authorization"] = `Bearer ${token}`;
+      (config.headers as any)["Authorization"] = `Bearer ${token}`;
     }
     return config;
   },
@@ -28,7 +27,7 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response.data,
   (error: AxiosError) => {
-    // 3. Handle 401s without redirecting on /login or for login/signup requests
+    // Handle 401s without redirecting on /login or for login/signup requests
     if (error.response && error.response.status === 401) {
       const requestUrl = (error.config?.url || "").toString();
       const isAuthEndpoint =
@@ -42,10 +41,10 @@ apiClient.interceptors.response.use(
       // Only force logout+redirect for protected requests
       if (!isAuthEndpoint && !isOnLoginPage) {
         const { logout } = useGlobalStore.getState() as { logout: () => void };
-        logout(); // Clear any persisted auth state
+        logout(); // Clear any persisted auth state and cookie
 
         if (typeof window !== "undefined") {
-          window.location.href = "/login"; // Redirect to login
+          window.location.href = "/login?error=expired"; // Redirect with expired flag
         }
       }
     }
