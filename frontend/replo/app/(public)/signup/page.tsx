@@ -4,7 +4,7 @@ import { useState } from "react";
 import { AxiosError } from "axios";
 
 import Link from "next/link";
-import Button from "@/components/Button";
+import Button from "@/components/ui/button/Button.jsx";
 // import { useGlobalStore } from "@/store/useGlobalStore"; // Removed: no signUp action in store
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
@@ -91,7 +91,7 @@ export default function RegisterPage() {
               required
             />
           </div>
-          <Button type="submit" className="w-full" disabled={signUpMutation.isPending}>Create Account</Button>
+          <Button type="primary" htmlType="submit" className="w-full" disabled={signUpMutation.isPending}>Create Account</Button>
         </form>
         <p className="text-sm mt-4">
           Already have an account? <Link className="text-blue-600" href="/login">Login</Link>

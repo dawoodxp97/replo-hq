@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 import { AxiosError } from "axios";
 import { toast } from "sonner";
+import { DotLottieReact } from '@lottiefiles/dotlottie-react';
+
 
 import { login as loginService } from "@/services/authService"; // Import your service
 import { useGlobalStore } from "@/store/useGlobalStore"; // Import your store
@@ -22,7 +24,7 @@ type LoginResponse = {
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  
+
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -46,22 +48,22 @@ export default function LoginPage() {
       toast.error("Please log in to continue.");
     }
   }, [searchParams]);
-  
+
   const loginMutation = useMutation<LoginResponse, AxiosError, Credentials>({
     mutationFn: async (credentials: Credentials) => {
       // apiClient returns response.data already
       return loginService(credentials.email, credentials.password);
     },
-    
+
     onSuccess: (data: LoginResponse) => {
-        toast.success("Login successful! Redirecting...");
+      toast.success("Login successful! Redirecting...");
       // 1. Save user and token
       loginAction(data.user, data.access_token);
-      
+
       // 2. Redirect to the dashboard
       router.push("/dashboard");
     },
-    
+
     onError: (error: AxiosError) => {
       console.error("Login failed:", error);
       const status = error.response?.status;
@@ -83,36 +85,48 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen">
-      <form 
-        onSubmit={handleSubmit}
-        className="p-8 bg-white shadow-md rounded"
-      >
-        <h1 className="text-2xl font-bold mb-4 text-black">Login</h1>
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="Email"
-          className="w-full p-2 mb-4 border rounded text-black"
-          required
-        />
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="Password"
-          className="w-full p-2 mb-4 border rounded text-black"
-          required
-        />
-        <button
-          type="submit"
-          disabled={loginMutation.isPending}
-          className="w-full p-2 bg-blue-600 text-white rounded"
+    <div className="w-screen - bg-[var(--foreground)] flex items-center justify-center min-h-screen">
+      <div className="w-1/2 bg-white flex items-center justify-center min-h-[calc(100vh-25px)] mt-3 ml-3 mb-3 rounded-l-lg shadow-xl/30">
+        <form
+          onSubmit={handleSubmit}
+          className="p-8 shadow-md rounded min-h-[calc(100vh-25px)] flex flex-col justify-center "
         >
-          {loginMutation.isPending ? "Logging in..." : "Login"}
-        </button>
-      </form>
+          <div>
+          <p className="text-2xl font-bold mb-4 text-black text-center mt-[10px]">Login</p>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Email"
+            className="w-full p-2 mb-4 border rounded text-black mb-[10px]"
+            required
+          />
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Password"
+            className="w-full p-2 mb-4 border rounded text-black"
+            required
+          />
+          <button
+            type="submit"
+            disabled={loginMutation.isPending}
+            className="w-full p-2 bg-blue-600 text-white rounded"
+          >
+            {loginMutation.isPending ? "Logging in..." : "Login"}
+          </button>
+          </div>
+        </form>
+
+      </div>
+      <div className="w-1/2 flex items-center justify-center min-h-[calc(100vh-25px)] mt-3 mr-3 mb-3 bg-gradient-to-r from-[#6a11cb] to-[#2575fc] rounded-r-lg shadow-xl/30">
+        <DotLottieReact
+          src="https://lottie.host/84513c27-0a47-404b-b817-919ca2982e2b/OS1rPcz3Y1.lottie"
+          loop
+          autoplay
+        />
+      </div>
     </div>
   );
-}
+} 
