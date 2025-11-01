@@ -4,13 +4,11 @@ import { Sidebar } from '@/components/core/Sidebar';
 
 export default function PrivateLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="app-private-root">
+    <div className="app-private-root flex flex-col h-screen bg-[var(--background-soft)]">
       <Header />
-      <div className="private-grid flex">
-        <aside className="w-64 border-r">
-          <Sidebar />
-        </aside>
-        <main className="flex-1">{children}</main>
+      <div className="private-grid flex flex-1">
+        <Sidebar />
+        <main className="flex-1 shadow-md bg-[#FBFCFF]">{children}</main>
       </div>
     </div>
   );

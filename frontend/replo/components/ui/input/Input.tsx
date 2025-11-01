@@ -1,24 +1,34 @@
-"use client";
+'use client';
 
-import React, { forwardRef, useMemo } from "react";
-import { Input, InputNumber } from "antd";
+import React, { forwardRef, useMemo } from 'react';
+import { Input, InputNumber } from 'antd';
 
 const { TextArea, Search, Password } = Input;
 
 /**
  * Ant Design compatible sizes
  */
-export type InputSize = "small" | "middle" | "large";
+export type InputSize = 'small' | 'middle' | 'large';
 
 /**
  * Visual appearance variants per Ant Design v5
  */
-export type InputAppearance = "outlined" | "borderless" | "filled" | "underlined";
+export type InputAppearance =
+  | 'outlined'
+  | 'borderless'
+  | 'filled'
+  | 'underlined';
 
 /**
  * Supported input kinds wrapped by this component
  */
-export type InputKind = "text" | "textarea" | "search" | "password" | "number";
+export type InputKind =
+  | 'text'
+  | 'textarea'
+  | 'search'
+  | 'password'
+  | 'number'
+  | 'email';
 
 /**
  * JSDoc helper for showCount formatter
@@ -47,9 +57,11 @@ export interface CommonInputProps {
   /** Border style control (prefer `appearance`) */
   bordered?: boolean;
   /** Validation status for error/warning styling */
-  status?: "error" | "warning";
+  status?: 'error' | 'warning';
   /** Ant Design appearance variant */
   appearance?: InputAppearance;
+  /** HTML required attribute for form validation */
+  required?: boolean;
   /** Optional prefix icon/node */
   prefix?: React.ReactNode;
   /** Optional suffix icon/node */
@@ -65,7 +77,7 @@ export interface CommonInputProps {
   /** When true: full width on small screens */
   responsive?: boolean;
   /** Accessible label for screen readers */
-  "aria-label"?: string;
+  'aria-label'?: string;
   /** Element id */
   id?: string;
 }
@@ -74,7 +86,11 @@ export interface CommonInputProps {
  * Props for basic text input
  */
 export interface TextInputProps extends CommonInputProps {
-  kind?: "text";
+  /** Whether to show title */
+  showTitle?: boolean;
+  /** Title text */
+  title?: string;
+  kind?: 'text';
   /** Value for controlled input */
   value?: string;
   /** Default value for uncontrolled input */
@@ -93,13 +109,15 @@ export interface TextInputProps extends CommonInputProps {
   showCount?: boolean | { formatter?: (info: CountInfo) => React.ReactNode };
   /** Auto-complete attribute */
   autoComplete?: string;
+  /** Submit handler */
+  onSubmitCapture?: React.FormEventHandler<HTMLFormElement>;
 }
 
 /**
  * Props for multi-line TextArea
  */
 export interface TextAreaInputProps extends CommonInputProps {
-  kind: "textarea";
+  kind: 'textarea';
   /** Value for controlled TextArea */
   value?: string;
   /** Default value for uncontrolled TextArea */
@@ -122,7 +140,7 @@ export interface TextAreaInputProps extends CommonInputProps {
  * Props for Search input
  */
 export interface SearchInputProps extends CommonInputProps {
-  kind: "search";
+  kind: 'search';
   /** Value for controlled input */
   value?: string;
   /** Default value for uncontrolled input */
@@ -138,16 +156,21 @@ export interface SearchInputProps extends CommonInputProps {
   /** Triggered on click search, clear icon, or press Enter */
   onSearch?: (
     value: string,
-    event?: React.ChangeEvent<HTMLInputElement> | React.MouseEvent<HTMLElement> | React.KeyboardEvent<HTMLInputElement>,
-    info?: { source: "input" | "clear" }
+    event?:
+      | React.ChangeEvent<HTMLInputElement>
+      | React.MouseEvent<HTMLElement>
+      | React.KeyboardEvent<HTMLInputElement>,
+    info?: { source: 'input' | 'clear' }
   ) => void;
 }
 
 /**
- * Props for Password input
+ * Props for Email input
  */
-export interface PasswordInputProps extends CommonInputProps {
-  kind: "password";
+export interface EmailInputProps extends CommonInputProps {
+  title?: string;
+
+  kind: 'email';
   /** Value for controlled input */
   value?: string;
   /** Default value for uncontrolled input */
@@ -157,7 +180,30 @@ export interface PasswordInputProps extends CommonInputProps {
   /** Placeholder text */
   placeholder?: string;
   /** Toggle visibility or control visibility */
-  visibilityToggle?: boolean | { visible?: boolean; onVisibleChange?: (visible: boolean) => void };
+  visibilityToggle?:
+    | boolean
+    | { visible?: boolean; onVisibleChange?: (visible: boolean) => void };
+  /** Custom eye icon renderer */
+  iconRender?: (visible: boolean) => React.ReactNode;
+}
+
+/**
+ * Props for Password input
+ */
+export interface PasswordInputProps extends CommonInputProps {
+  kind: 'password';
+  /** Value for controlled input */
+  value?: string;
+  /** Default value for uncontrolled input */
+  defaultValue?: string;
+  /** Change handler */
+  onChange?: React.ChangeEventHandler<HTMLInputElement>;
+  /** Placeholder text */
+  placeholder?: string;
+  /** Toggle visibility or control visibility */
+  visibilityToggle?:
+    | boolean
+    | { visible?: boolean; onVisibleChange?: (visible: boolean) => void };
   /** Custom eye icon renderer */
   iconRender?: (visible: boolean) => React.ReactNode;
 }
@@ -165,8 +211,12 @@ export interface PasswordInputProps extends CommonInputProps {
 /**
  * Props for numeric input (InputNumber)
  */
-export interface NumberInputProps extends Omit<CommonInputProps, "prefix" | "suffix" | "addonBefore" | "addonAfter"> {
-  kind: "number";
+export interface NumberInputProps
+  extends Omit<
+    CommonInputProps,
+    'prefix' | 'suffix' | 'addonBefore' | 'addonAfter'
+  > {
+  kind: 'number';
   /** Value for controlled numeric input */
   value?: number;
   /** Default value for uncontrolled numeric input */
@@ -196,7 +246,8 @@ export type ReploInputProps =
   | TextAreaInputProps
   | SearchInputProps
   | PasswordInputProps
-  | NumberInputProps;
+  | NumberInputProps
+  | EmailInputProps;
 
 /**
  * Replo Input — Ant Design wrapper component.
@@ -213,45 +264,55 @@ export type ReploInputProps =
 const ReploInput = forwardRef<unknown, ReploInputProps>((props, ref) => {
   const {
     // Common
-    kind = "text",
-    size = "middle",
+    kind = 'text',
+    size = 'middle',
     disabled = false,
     allowClear = false,
     bordered = true,
     status,
-    appearance = "outlined",
+    appearance = 'outlined',
 
     className,
     style,
     responsive = false,
     id,
-    "aria-label": ariaLabel,
+    required,
+    'aria-label': ariaLabel,
     // Specific ones will be in rest
     ...rest
   } = props as ReploInputProps;
 
   // Memoize class composition for performance
   const composedClassName = useMemo(() => {
-    const responsiveClass = responsive ? "w-full sm:w-auto" : undefined;
-    return [responsiveClass, className].filter(Boolean).join(" ");
+    const responsiveClass = responsive ? 'w-full sm:w-auto' : undefined;
+    return [responsiveClass, className].filter(Boolean).join(' ');
   }, [responsive, className]);
 
   // Accessibility: compute aria-invalid and label fallback
-  const ariaInvalid: boolean | undefined = status === "error" ? true : undefined;
-  const computedAriaLabel = ariaLabel ?? ("placeholder" in rest ? (rest as any).placeholder : undefined);
+  const ariaInvalid: boolean | undefined =
+    status === 'error' ? true : undefined;
+  const computedAriaLabel =
+    ariaLabel ??
+    ('placeholder' in rest ? (rest as any).placeholder : undefined);
 
   // Guard: warn when using addon/prefix/suffix with kind='number' (unsupported on InputNumber)
   const decorators = props as CommonInputProps;
-  if (kind === "number" && (decorators.prefix || decorators.suffix || decorators.addonBefore || decorators.addonAfter)) {
-  // eslint-disable-next-line no-console
-  console.warn(
-    "ReploInput: prefix/suffix/addonBefore/addonAfter are not supported with kind='number' (InputNumber)."
-  );
-}
+  if (
+    kind === 'number' &&
+    (decorators.prefix ||
+      decorators.suffix ||
+      decorators.addonBefore ||
+      decorators.addonAfter)
+  ) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      "ReploInput: prefix/suffix/addonBefore/addonAfter are not supported with kind='number' (InputNumber)."
+    );
+  }
 
   // Render by kind
   switch (kind) {
-    case "textarea": {
+    case 'textarea': {
       const ta = rest as TextAreaInputProps;
       return (
         <TextArea
@@ -265,6 +326,7 @@ const ReploInput = forwardRef<unknown, ReploInputProps>((props, ref) => {
           className={composedClassName}
           style={style}
           id={id}
+          required={required}
           aria-label={computedAriaLabel}
           aria-invalid={ariaInvalid}
           // Specific
@@ -279,7 +341,7 @@ const ReploInput = forwardRef<unknown, ReploInputProps>((props, ref) => {
         />
       );
     }
-    case "search": {
+    case 'search': {
       const s = rest as SearchInputProps;
       return (
         <Search
@@ -293,6 +355,7 @@ const ReploInput = forwardRef<unknown, ReploInputProps>((props, ref) => {
           className={composedClassName}
           style={style}
           id={id}
+          required={required}
           aria-label={computedAriaLabel}
           aria-invalid={ariaInvalid}
           // Specific
@@ -310,7 +373,51 @@ const ReploInput = forwardRef<unknown, ReploInputProps>((props, ref) => {
         />
       );
     }
-    case "password": {
+    case 'email': {
+      const t = rest as TextInputProps;
+      return (
+        <div>
+          {t?.title && (
+            <label
+              data-slot="label"
+              htmlFor={id}
+              className="pb-2 flex items-center gap-2 text-sm leading-none font-medium select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50"
+            >
+              {t?.title}
+            </label>
+          )}
+          <Input
+            data-slot="input"
+            ref={ref as any}
+            size={size}
+            disabled={disabled}
+            allowClear={allowClear as boolean}
+            status={status}
+            variant={appearance}
+            className={composedClassName}
+            style={style}
+            id={id}
+            required={required}
+            aria-label={computedAriaLabel}
+            aria-invalid={ariaInvalid}
+            value={t.value}
+            defaultValue={t.defaultValue}
+            onChange={t.onChange}
+            onPressEnter={t.onPressEnter}
+            placeholder={t.placeholder || 'Please enter your email'}
+            type={'email'}
+            onSubmitCapture={e => {
+              e.preventDefault();
+              t?.onSubmitCapture?.(
+                e as unknown as React.FormEvent<HTMLFormElement>
+              );
+              console.log('onSubmitCapture', e);
+            }}
+          />
+        </div>
+      );
+    }
+    case 'password': {
       const p = rest as PasswordInputProps;
       return (
         <Password
@@ -324,6 +431,7 @@ const ReploInput = forwardRef<unknown, ReploInputProps>((props, ref) => {
           className={composedClassName}
           style={style}
           id={id}
+          required={required}
           aria-label={computedAriaLabel}
           aria-invalid={ariaInvalid}
           // Specific
@@ -340,7 +448,7 @@ const ReploInput = forwardRef<unknown, ReploInputProps>((props, ref) => {
         />
       );
     }
-    case "number": {
+    case 'number': {
       const n = rest as NumberInputProps;
       return (
         <InputNumber
@@ -369,7 +477,7 @@ const ReploInput = forwardRef<unknown, ReploInputProps>((props, ref) => {
         />
       );
     }
-    case "text":
+    case 'text':
     default: {
       const t = rest as TextInputProps;
       return (
@@ -384,6 +492,7 @@ const ReploInput = forwardRef<unknown, ReploInputProps>((props, ref) => {
           className={composedClassName}
           style={style}
           id={id}
+          required={required}
           aria-label={computedAriaLabel}
           aria-invalid={ariaInvalid}
           // Specific
@@ -406,6 +515,6 @@ const ReploInput = forwardRef<unknown, ReploInputProps>((props, ref) => {
   }
 });
 
-ReploInput.displayName = "ReploInput";
+ReploInput.displayName = 'ReploInput';
 
 export default React.memo(ReploInput);

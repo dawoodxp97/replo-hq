@@ -1,39 +1,55 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
+import { Constants } from '@/utils/common';
+import { useState } from 'react';
+import ProfileSettings from './components/ProfileSettings';
+import NotificationSettings from './components/NotificationSettings';
+import AppearanceSettings from './components/AppearanceSettings';
+import LearningSettings from './components/LearningSettings';
+import SecuritySettings from './components/SecuritySettings';
+import ReploTabs from '@/components/ui/tabs/Tabs';
 
-export default function Settings() {
-  const [theme, setTheme] = useState("light");
-  const [notifications, setNotifications] = useState(true);
+const TABS = [
+  {
+    key: Constants.SETTING_TABS_IDS.PROFILE,
+    label: 'Profile',
+    children: <ProfileSettings />,
+  },
+  {
+    key: Constants.SETTING_TABS_IDS.NOTIFICATIONS,
+    label: 'Notifications',
+    children: <NotificationSettings />,
+  },
+  {
+    key: Constants.SETTING_TABS_IDS.APPEARANCE,
+    label: 'Appearance',
+    children: <AppearanceSettings />,
+  },
+  {
+    key: Constants.SETTING_TABS_IDS.LEARNING,
+    label: 'Learning',
+    children: <LearningSettings />,
+  },
+  {
+    key: Constants.SETTING_TABS_IDS.SECURITY,
+    label: 'Security',
+    children: <SecuritySettings />,
+  },
+];
 
+export function Settings() {
   return (
-    <div className="max-w-3xl mx-auto p-6 space-y-6">
-      <h1 className="text-2xl font-bold">Settings</h1>
-
-      <div className="p-4 border rounded bg-white">
-        <label className="block text-sm font-medium mb-2">Theme</label>
-        <select
-          value={theme}
-          onChange={(e) => setTheme(e.target.value)}
-          className="px-3 py-2 border rounded"
-        >
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
-        </select>
+    <div className="rl-settings-container p-6 h-full overflow-auto">
+      <div className="rl-settings-header h-[10%]">
+        <h1 className="font-bold">Settings</h1>
+        <span className="text-sm text-slate-500">
+          Manage your account and preferences
+        </span>
       </div>
-
-      <div className="p-4 border rounded bg-white">
-        <label className="inline-flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={notifications}
-            onChange={(e) => setNotifications(e.target.checked)}
-          />
-          Enable notifications
-        </label>
+      <div className="rl-settings-content h-[80%]">
+        <ReploTabs kind="card" items={TABS} />
       </div>
-
-      <button className="px-4 py-2 bg-blue-600 text-white rounded">Save</button>
+      <div className="rl-settings-footer h-[10%]"></div>
     </div>
   );
 }

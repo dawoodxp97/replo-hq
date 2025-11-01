@@ -9,9 +9,13 @@ import { AxiosError } from "axios";
 import { toast } from "sonner";
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 
+import ReploInput from "@/components/ui/input/Input";
+
+
 
 import { login as loginService } from "@/services/authService"; // Import your service
 import { useGlobalStore } from "@/store/useGlobalStore"; // Import your store
+import Button from "@/components/ui/button/Button";
 
 // Local types for strong typing
 type Credentials = { email: string; password: string };
@@ -79,8 +83,12 @@ export default function LoginPage() {
     },
   });
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleSubmit = (e: any) => {
+    e?.preventDefault();
+    if (!email || !password) {
+      toast.error("Please fill in all fields.");
+      return;
+    }
     loginMutation.mutate({ email, password });
   };
 
@@ -89,33 +97,40 @@ export default function LoginPage() {
       <div className="w-1/2 bg-white flex items-center justify-center min-h-[calc(100vh-25px)] mt-3 ml-3 mb-3 rounded-l-lg shadow-xl/30">
         <form
           onSubmit={handleSubmit}
-          className="p-8 shadow-md rounded min-h-[calc(100vh-25px)] flex flex-col justify-center "
+          className="w-full p-8 shadow-md rounded min-h-[calc(100vh-25px)] flex flex-col justify-center "
         >
           <div>
-          <p className="text-2xl font-bold mb-4 text-black text-center mt-[10px]">Login</p>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Email"
-            className="w-full p-2 mb-4 border rounded text-black mb-[10px]"
-            required
-          />
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Password"
-            className="w-full p-2 mb-4 border rounded text-black"
-            required
-          />
-          <button
-            type="submit"
-            disabled={loginMutation.isPending}
-            className="w-full p-2 bg-blue-600 text-white rounded"
-          >
-            {loginMutation.isPending ? "Logging in..." : "Login"}
-          </button>
+            <p className="text-2xl font-bold mb-4 text-black text-center mt-[10px]">Login</p>
+            <div className="mt-4 mb-4">
+            <ReploInput
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Email"
+              className="w-full p-2 border rounded text-black"
+              required
+            />
+            </div>
+            <div className="mt-4 mb-4">
+            <ReploInput
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Password"
+              className="w-full p-2 border rounded text-black"
+              required
+            />
+            </div>
+            <div className="mt-4 mb-4">
+            <Button
+              onClick={(e) => handleSubmit(e)}
+              type="primary"
+              disabled={loginMutation.isPending}
+              className="w-full p-2 bg-blue-600 text-white rounded"
+            >
+              {loginMutation.isPending ? "Logging in..." : "Login"}
+            </Button>
+            </div>
           </div>
         </form>
 
@@ -129,4 +144,4 @@ export default function LoginPage() {
       </div>
     </div>
   );
-} 
+}

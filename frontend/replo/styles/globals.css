@@ -4,6 +4,7 @@
   --background: #ffffff;
   --foreground: #171717;
   --login-bg: background-image: linear-gradient(to right, #6a11cb 0%, #2575fc 100%);
+  --background-soft: #ffffffcc;
 }
 
 @theme inline {
@@ -13,11 +14,11 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Explicit dark mode via class for Tailwind `dark:` variant */
+html.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --background-soft: #0a0a0acc;
 }
 
 html, body, #__next {
