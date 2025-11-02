@@ -1,4 +1,3 @@
-# ./backend/app/routers/settings.py
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
