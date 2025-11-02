@@ -1,14 +1,89 @@
+import { useEffect, useState } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { Palette } from 'lucide-react';
+
 import { SettingsCard, SettingsContentWrapper } from '../layout/SettingsLayout';
-import ReploInput from '@/components/ui/input/Input';
-import { useState } from 'react';
+
 import SaveSettingsChanges from './SaveSettingsChanges';
+import {
+  AppearanceSettingsResponse,
+  AppearanceSettingsUpdate,
+  getUserAppearanceSettings,
+  updateUserAppearanceSettings,
+} from '@/services/settingsService';
+import { snakeToCamel } from '@/utils/common';
+
+import ReploInput from '@/components/ui/input/Input';
+import Loader from '@/components/ui/loader/Loader';
+import Error from '@/components/ui/error/Error';
 
 const AppearanceSettings = () => {
   const [appearanceSettings, setAppearanceSettings] = useState({
     language: 'en',
     theme: 'github-dark',
   });
+  const {
+    data: appearanceSettingsData,
+    isPending,
+    isFetching,
+    error: errorAppearanceSettings,
+  } = useQuery({
+    queryKey: ['appearanceSettings'],
+    queryFn: async () => {
+      const response = await getUserAppearanceSettings();
+      const camelData = snakeToCamel(response);
+      return camelData;
+    },
+    retry: false,
+  });
+
+  const updateAppearanceMutation = useMutation({
+    mutationFn: async (appearanceSettings: AppearanceSettingsUpdate) => {
+      return await updateUserAppearanceSettings({
+        language: appearanceSettings.language,
+        code_editor_theme: appearanceSettings.code_editor_theme,
+      });
+    },
+    onSuccess: () => {
+      toast.success('Appearance settings updated successfully!');
+    },
+    onError: (error: any) => {
+      toast.error(
+        error?.response?.data?.detail || 'Failed to update appearance settings'
+      );
+    },
+  });
+
+  useEffect(() => {
+    if (appearanceSettingsData) {
+      setAppearanceSettings({
+        language: appearanceSettingsData.language,
+        theme: appearanceSettingsData.codeEditorTheme,
+      });
+    }
+  }, [appearanceSettingsData]);
+
+  if (isPending || isFetching) {
+    return (
+      <Loader
+        className="h-[300px] mt-25"
+        type="ai"
+        size="lg"
+        message="Loading appearance settings..."
+      />
+    );
+  }
+  if (errorAppearanceSettings) {
+    return (
+      <Error
+        title="Error loading appearance settings"
+        variant="full"
+        className="!h-[500px]"
+        error={errorAppearanceSettings}
+      />
+    );
+  }
 
   const handleLanguageChange = (value: string) => {
     setAppearanceSettings((prev: any) => ({ ...prev, language: value }));
@@ -19,7 +94,10 @@ const AppearanceSettings = () => {
   };
 
   const handleSave = () => {
-    console.log('Saving appearance settings');
+    updateAppearanceMutation.mutate({
+      language: appearanceSettings.language,
+      code_editor_theme: appearanceSettings.theme,
+    });
   };
   return (
     <SettingsContentWrapper>

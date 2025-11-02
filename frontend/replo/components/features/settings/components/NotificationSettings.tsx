@@ -1,5 +1,5 @@
 import { Bell, Mail, Smartphone } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import SaveSettingsChanges from './SaveSettingsChanges';
 import {
   SettingsCard,
@@ -7,6 +7,17 @@ import {
   SettingsToggleCard,
   SettingsSeparator,
 } from '../layout/SettingsLayout';
+import {
+  getUserNotificationSettings,
+  NotificationSettingsResponse,
+  NotificationSettingsUpdate,
+  updateUserNotificationSettings,
+} from '@/services/settingsService';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { snakeToCamel } from '@/utils/common';
+import Loader from '@/components/ui/loader/Loader';
+import Error from '@/components/ui/error/Error';
+import { toast } from 'sonner';
 
 const NotificationSettings = () => {
   const [notificationSettings, setNotificationSettings] = useState({
@@ -17,6 +28,85 @@ const NotificationSettings = () => {
     browserNotifications: true,
   });
 
+  const {
+    data: notificationSettingsData,
+    isPending,
+    isFetching,
+    error: errorNotificationSettings,
+  } = useQuery({
+    queryKey: ['notificationSettings'],
+    queryFn: async () => {
+      const response = await getUserNotificationSettings();
+      const camelData = snakeToCamel<NotificationSettingsResponse>(response);
+      setNotificationSettings({
+        emailNotifications: camelData.email_notifications_enabled,
+        tutorialCompletions: camelData.tutorial_completions,
+        newFeatures: camelData.new_features,
+        weeklyDigest: camelData.weekly_digest,
+        browserNotifications: camelData.browser_notifications,
+      });
+      return camelData;
+    },
+    retry: false,
+  });
+
+  const updateNotificationMutation = useMutation({
+    mutationFn: async (notificationSettings: NotificationSettingsUpdate) => {
+      return await updateUserNotificationSettings({
+        email_notifications_enabled:
+          notificationSettings.email_notifications_enabled,
+        tutorial_completions: notificationSettings.tutorial_completions,
+        new_features: notificationSettings.new_features,
+        weekly_digest: notificationSettings.weekly_digest,
+        browser_notifications: notificationSettings.browser_notifications,
+      });
+    },
+    onSuccess: () => {
+      toast.success('Notification settings updated successfully!');
+    },
+    onError: (error: any) => {
+      toast.error(
+        error?.response?.data?.detail ||
+          'Failed to update notification settings'
+      );
+    },
+  });
+
+  useEffect(() => {
+    if (notificationSettingsData) {
+      setNotificationSettings({
+        emailNotifications:
+          notificationSettingsData.email_notifications_enabled,
+        tutorialCompletions: notificationSettingsData.tutorial_completions,
+        newFeatures: notificationSettingsData.new_features,
+        weeklyDigest: notificationSettingsData.weekly_digest,
+        browserNotifications: notificationSettingsData.browser_notifications,
+      });
+    }
+  }, [notificationSettingsData]);
+
+  if (isPending || isFetching) {
+    return (
+      <Loader
+        className="h-[300px] mt-25"
+        type="ai"
+        size="lg"
+        message="Loading notification settings..."
+      />
+    );
+  }
+
+  if (errorNotificationSettings) {
+    return (
+      <Error
+        title="Error loading notification settings"
+        variant="full"
+        className="!h-[500px]"
+        error={errorNotificationSettings}
+      />
+    );
+  }
+
   const handleNotificationSettingsChange = (
     setting: string,
     value: boolean
@@ -25,7 +115,13 @@ const NotificationSettings = () => {
   };
 
   const handleSave = () => {
-    console.log('Saving notification settings');
+    updateNotificationMutation.mutate({
+      email_notifications_enabled: notificationSettings.emailNotifications,
+      tutorial_completions: notificationSettings.tutorialCompletions,
+      new_features: notificationSettings.newFeatures,
+      weekly_digest: notificationSettings.weeklyDigest,
+      browser_notifications: notificationSettings.browserNotifications,
+    });
   };
 
   return (

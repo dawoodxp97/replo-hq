@@ -38,7 +38,20 @@ export type NotificationSettingsResponse = {
   browser_notifications: boolean;
 };
 
+export type NotificationSettingsUpdate = {
+  email_notifications_enabled: boolean;
+  tutorial_completions: boolean;
+  new_features: boolean;
+  weekly_digest: boolean;
+  browser_notifications: boolean;
+};
+
 export type AppearanceSettingsResponse = {
+  language: string;
+  code_editor_theme: string;
+};
+
+export type AppearanceSettingsUpdate = {
   language: string;
   code_editor_theme: string;
 };
@@ -51,7 +64,25 @@ export type LearningSettingsResponse = {
   quiz_mode: boolean;
 };
 
+export type LearningSettingsUpdate = {
+  default_difficulty_level: string;
+  daily_learning_goal: number;
+  auto_play_next_module: boolean;
+  show_code_hints: boolean;
+  quiz_mode: boolean;
+};
+
 export type SecuritySettingsResponse = {
+  delete_account: boolean;
+};
+
+export type PasswordChangeResponse = {
+  current_password: string;
+  new_password: string;
+  confirm_new_password: string;
+};
+
+export type SecuritySettingsUpdate = {
   delete_account: boolean;
 };
 
@@ -103,4 +134,9 @@ export const getUserSecuritySettings = async (): Promise<SecuritySettingsRespons
 export const updateUserSecuritySettings = async (securitySettings: SecuritySettingsResponse): Promise<SecuritySettingsResponse> => {
   const response = await apiClient.put<SecuritySettingsResponse>(API_ENDPOINTS.SETTINGS_SECURITY, securitySettings);
   return response as unknown as SecuritySettingsResponse;
+};
+
+export const updateUserPassword = async (password: PasswordChangeResponse): Promise<PasswordChangeResponse> => {
+  const response = await apiClient.put<PasswordChangeResponse>(API_ENDPOINTS.SETTINGS_SECURITY_PASSWORD, password);
+  return response as unknown as PasswordChangeResponse;
 };

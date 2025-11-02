@@ -1,13 +1,23 @@
+import { useState } from 'react';
 import { Shield, Trash2, TriangleAlert } from 'lucide-react';
+import { Button } from 'antd';
+import { toast } from 'sonner';
+import { useMutation, useQuery } from '@tanstack/react-query';
+
 import {
   SettingsCard,
   SettingsContentWrapper,
   SettingsToggleCard,
 } from '../layout/SettingsLayout';
 import SaveSettingsChanges from './SaveSettingsChanges';
-import { useState } from 'react';
+import {
+  SecuritySettingsUpdate,
+  updateUserPassword,
+  updateUserSecuritySettings,
+} from '@/services/settingsService';
+
 import ReploInput from '@/components/ui/input/Input';
-import { Button } from 'antd';
+import { useRouter } from 'next/navigation';
 
 const SecuritySettings = () => {
   const [securitySettings, setSecuritySettings] = useState({
@@ -15,17 +25,81 @@ const SecuritySettings = () => {
     newPassword: '',
     confirmNewPassword: '',
   });
+  const router = useRouter();
+
+  const updateSecurityMutation = useMutation({
+    mutationFn: async (securitySettings: SecuritySettingsUpdate) => {
+      return await updateUserSecuritySettings({
+        delete_account: securitySettings.delete_account,
+      });
+    },
+    onSuccess: () => {
+      toast.success('Account deleted successfully!');
+      router.push('/');
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.detail || 'Failed to delete account');
+    },
+  });
+
+  const updatePasswordMutation = useMutation({
+    mutationFn: async (password: {
+      currentPassword: string;
+      newPassword: string;
+      confirmNewPassword: string;
+    }) => {
+      return await updateUserPassword({
+        current_password: password.currentPassword,
+        new_password: password.newPassword,
+        confirm_new_password: password.confirmNewPassword,
+      });
+    },
+    onSuccess: () => {
+      toast.success('Password updated successfully!');
+      setSecuritySettings({
+        currentPassword: '',
+        newPassword: '',
+        confirmNewPassword: '',
+      });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.detail || 'Failed to update password');
+    },
+    retry: false,
+  });
 
   const handleOnChangeSecuritySettings = (key: string, value: any) => {
     setSecuritySettings((prev: any) => ({ ...prev, [key]: value }));
   };
 
   const handleDeleteAccount = () => {
-    console.log('Deleting account');
+    updateSecurityMutation.mutate({
+      delete_account: true,
+    });
   };
 
   const handleSave = () => {
-    console.log('Saving security settings', securitySettings);
+    if (
+      securitySettings.currentPassword === '' ||
+      securitySettings.newPassword === '' ||
+      securitySettings.confirmNewPassword === ''
+    ) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+    if (securitySettings.newPassword !== securitySettings.confirmNewPassword) {
+      toast.error('New password and confirm new password do not match');
+      return;
+    }
+    if (securitySettings.currentPassword === securitySettings.newPassword) {
+      toast.error('New password must be different from current password');
+      return;
+    }
+    updatePasswordMutation.mutate({
+      currentPassword: securitySettings.currentPassword,
+      newPassword: securitySettings.newPassword,
+      confirmNewPassword: securitySettings.confirmNewPassword,
+    });
   };
   return (
     <SettingsContentWrapper>
@@ -64,6 +138,10 @@ const SecuritySettings = () => {
           }
         />
       </SettingsCard>
+      <SaveSettingsChanges
+        handleSave={handleSave}
+        isLoading={updatePasswordMutation.isPending}
+      />
       <SettingsCard
         className="text-card-foreground flex flex-col rounded-xl border-2 border-red-100 shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-red-50/50 to-orange-50/50"
         header={{
@@ -91,7 +169,6 @@ const SecuritySettings = () => {
           onChange={() => {}}
         />
       </SettingsCard>
-      <SaveSettingsChanges handleSave={handleSave} />
     </SettingsContentWrapper>
   );
 };

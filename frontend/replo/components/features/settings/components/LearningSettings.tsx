@@ -5,9 +5,20 @@ import {
   SettingsSeparator,
   SettingsToggleCard,
 } from '../layout/SettingsLayout';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import ReploInput from '@/components/ui/input/Input';
 import SaveSettingsChanges from './SaveSettingsChanges';
+import { useQuery } from '@tanstack/react-query';
+import { snakeToCamel } from '@/utils/common';
+import { toast } from 'sonner';
+import {
+  getUserLearningSettings,
+  LearningSettingsUpdate,
+  updateUserLearningSettings,
+} from '@/services/settingsService';
+import { useMutation } from '@tanstack/react-query';
+import Loader from '@/components/ui/loader/Loader';
+import Error from '@/components/ui/error/Error';
 
 const LearningSettings = () => {
   const [learningSettings, setLearningSettings] = useState({
@@ -18,12 +29,82 @@ const LearningSettings = () => {
     quizMode: true,
   });
 
+  const {
+    data: learningSettingsData,
+    isPending,
+    isFetching,
+    error: errorLearningSettings,
+  } = useQuery({
+    queryKey: ['learningSettings'],
+    queryFn: async () => {
+      const response = await getUserLearningSettings();
+      const camelData = snakeToCamel(response);
+      return camelData;
+    },
+    retry: false,
+  });
+
+  const isLoadingLearningSettings = isPending || isFetching;
+  const updateLearningMutation = useMutation({
+    mutationFn: async (learningSettings: LearningSettingsUpdate) => {
+      return await updateUserLearningSettings(learningSettings);
+    },
+    onSuccess: () => {
+      toast.success('Learning settings updated successfully!');
+    },
+    onError: (error: any) => {
+      toast.error(
+        error?.response?.data?.detail || 'Failed to update learning settings'
+      );
+    },
+  });
+
+  useEffect(() => {
+    if (learningSettingsData && !isLoadingLearningSettings) {
+      setLearningSettings({
+        defaultDifficultyLevel: learningSettingsData.defaultDifficultyLevel,
+        dailyLearningGoal: learningSettingsData.dailyLearningGoal,
+        autoPlayNextModule: learningSettingsData.autoPlayNextModule,
+        showCodeHints: learningSettingsData.showCodeHints,
+        quizMode: learningSettingsData.quizMode,
+      });
+    }
+  }, [learningSettingsData, isLoadingLearningSettings]);
+
+  if (isLoadingLearningSettings) {
+    return (
+      <Loader
+        className="h-[300px] mt-25"
+        type="ai"
+        size="lg"
+        message="Loading learning settings..."
+      />
+    );
+  }
+
+  if (errorLearningSettings) {
+    return (
+      <Error
+        title="Error loading learning settings"
+        variant="full"
+        className="!h-[500px]"
+        error={errorLearningSettings}
+      />
+    );
+  }
+
   const handleOnChangeLearningSettings = (key: string, value: any) => {
     setLearningSettings((prev: any) => ({ ...prev, [key]: value }));
   };
 
   const handleSave = () => {
-    console.log('Saving learning settings');
+    updateLearningMutation.mutate({
+      default_difficulty_level: learningSettings.defaultDifficultyLevel,
+      daily_learning_goal: learningSettings.dailyLearningGoal,
+      auto_play_next_module: learningSettings.autoPlayNextModule,
+      show_code_hints: learningSettings.showCodeHints,
+      quiz_mode: learningSettings.quizMode,
+    });
   };
   return (
     <SettingsContentWrapper>
