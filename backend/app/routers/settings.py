@@ -43,7 +43,7 @@ def get_or_create_user_settings(
 
 
 # --- Profile Settings Endpoints ---
-@router.get("/profile", response_model=schemas.ProfileSettingsResponse)
+@router.get("/settings/profile", response_model=schemas.ProfileSettingsResponse)
 def get_profile_settings(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -65,7 +65,7 @@ def get_profile_settings(
     }
 
 
-@router.put("/profile", response_model=schemas.ProfileSettingsResponse)
+@router.put("/settings/profile", response_model=schemas.ProfileSettingsResponse)
 def update_profile_settings(
     profile_update: schemas.ProfileSettingsUpdate,
     current_user: models.User = Depends(get_current_user),
@@ -115,7 +115,7 @@ def update_profile_settings(
 
 
 # --- Notification Settings Endpoints ---
-@router.get("/notifications", response_model=schemas.NotificationSettingsResponse)
+@router.get("/settings/notifications", response_model=schemas.NotificationSettingsResponse)
 def get_notification_settings(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -134,7 +134,7 @@ def get_notification_settings(
     }
 
 
-@router.put("/notifications", response_model=schemas.NotificationSettingsResponse)
+@router.put("/settings/notifications", response_model=schemas.NotificationSettingsResponse)
 def update_notification_settings(
     notification_update: schemas.NotificationSettingsUpdate,
     current_user: models.User = Depends(get_current_user),
@@ -169,7 +169,7 @@ def update_notification_settings(
 
 
 # --- Appearance Settings Endpoints ---
-@router.get("/appearance", response_model=schemas.AppearanceSettingsResponse)
+@router.get("/settings/appearance", response_model=schemas.AppearanceSettingsResponse)
 def get_appearance_settings(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -185,7 +185,7 @@ def get_appearance_settings(
     }
 
 
-@router.put("/appearance", response_model=schemas.AppearanceSettingsResponse)
+@router.put("/settings/appearance", response_model=schemas.AppearanceSettingsResponse)
 def update_appearance_settings(
     appearance_update: schemas.AppearanceSettingsUpdate,
     current_user: models.User = Depends(get_current_user),
@@ -211,7 +211,7 @@ def update_appearance_settings(
 
 
 # --- Learning Settings Endpoints ---
-@router.get("/learning", response_model=schemas.LearningSettingsResponse)
+@router.get("/settings/learning", response_model=schemas.LearningSettingsResponse)
 def get_learning_settings(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -230,7 +230,7 @@ def get_learning_settings(
     }
 
 
-@router.put("/learning", response_model=schemas.LearningSettingsResponse)
+@router.put("/settings/learning", response_model=schemas.LearningSettingsResponse)
 def update_learning_settings(
     learning_update: schemas.LearningSettingsUpdate,
     current_user: models.User = Depends(get_current_user),
@@ -265,7 +265,7 @@ def update_learning_settings(
 
 
 # --- Security Settings Endpoints ---
-@router.put("/security/password", response_model=schemas.PasswordChangeResponse)
+@router.put("/settings/security/password", response_model=schemas.PasswordChangeResponse)
 def change_password(
     password_change: schemas.PasswordChangeRequest,
     current_user: models.User = Depends(get_current_user),
@@ -306,7 +306,7 @@ def change_password(
     return {"message": "Password updated successfully"}
 
 
-@router.delete("/security/account")
+@router.delete("/settings/security/account")
 def delete_account(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -323,7 +323,7 @@ def delete_account(
 
 
 # --- Get All Settings (Optional convenience endpoint) ---
-@router.get("/", response_model=schemas.UserSettingsResponse)
+@router.get("/settings/all", response_model=schemas.UserSettingsResponse)
 def get_all_settings(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
