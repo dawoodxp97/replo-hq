@@ -81,9 +81,6 @@ def update_profile_settings(
         current_user.first_name = profile_update.first_name
     if profile_update.last_name is not None:
         current_user.last_name = profile_update.last_name
-    if profile_update.email is not None:
-        # Update email in User model as well
-        current_user.email = profile_update.email
     if profile_update.bio is not None:
         settings.bio = profile_update.bio
     if profile_update.location is not None:

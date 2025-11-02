@@ -1,7 +1,7 @@
 # ./backend/app/schemas/settings.py
 from uuid import UUID
 from typing import List, Optional
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 
 # Connected Account Schema
@@ -16,7 +16,6 @@ class ConnectedAccount(BaseModel):
 class ProfileSettingsUpdate(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
-    email: Optional[EmailStr] = None
     bio: Optional[str] = None
     location: Optional[str] = None
     website: Optional[str] = None

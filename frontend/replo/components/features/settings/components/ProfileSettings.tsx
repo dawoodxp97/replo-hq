@@ -3,7 +3,7 @@ import { Button } from 'antd';
 import { Github, Gitlab, Plug2, User } from 'lucide-react';
 import Image from 'next/image';
 import { toast } from 'sonner';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { snakeToCamel } from '@/utils/common';
 import { getAccountIcon } from '@/utils/customIcons';
@@ -13,7 +13,12 @@ import ReploInput from '@/components/ui/input/Input';
 import Loader from '@/components/ui/loader/Loader';
 import Error from '@/components/ui/error/Error';
 
-import { getUserProfileSettings } from '@/services/settingsService';
+import {
+  getUserProfileSettings,
+  ProfileSettingsResponse,
+  ProfileSettingsUpdate,
+  updateUserProfileSettings,
+} from '@/services/settingsService';
 import { SettingsCard, SettingsContentWrapper } from '../layout/SettingsLayout';
 
 type PIIDetailsState = {
@@ -35,6 +40,7 @@ type PIIDetailsState = {
 
 const ProfileSettings = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
 
   const {
     data: profileSettingsData,
@@ -49,6 +55,21 @@ const ProfileSettings = () => {
       return camelData;
     },
     retry: false,
+  });
+
+  const updateProfileMutation = useMutation({
+    mutationFn: async (profileData: ProfileSettingsUpdate) => {
+      return await updateUserProfileSettings(profileData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['profileSettings'] });
+      toast.success('Profile settings updated successfully!');
+    },
+    onError: (error: any) => {
+      toast.error(
+        error?.response?.data?.detail || 'Failed to update profile settings'
+      );
+    },
   });
 
   const isLoadingProfileSettings = isPending || isFetching;
@@ -125,7 +146,15 @@ const ProfileSettings = () => {
   };
 
   const handleSave = () => {
-    console.log('Saving changes');
+    updateProfileMutation.mutate({
+      first_name: pIIDetails.firstName,
+      last_name: pIIDetails.lastName,
+      bio: pIIDetails.bio,
+      location: pIIDetails.location || null,
+      website: pIIDetails.website || null,
+      profile_picture_url: pIIDetails.profilePic || null,
+      connected_accounts: pIIDetails.connectedAccounts,
+    });
   };
 
   return (
@@ -249,6 +278,7 @@ const ProfileSettings = () => {
             <ReploInput
               title="Email Address"
               kind="email"
+              disabled
               value={pIIDetails.email}
               onChange={e => {
                 setPIIDetails(prev => ({ ...prev, email: e.target.value }));
@@ -358,7 +388,10 @@ const ProfileSettings = () => {
           })}
         </div>
       </SettingsCard>
-      <SaveSettingsChanges handleSave={handleSave} />
+      <SaveSettingsChanges
+        handleSave={handleSave}
+        isLoading={updateProfileMutation.isPending}
+      />
     </SettingsContentWrapper>
   );
 };

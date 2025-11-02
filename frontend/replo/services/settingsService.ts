@@ -13,6 +13,16 @@ export type ProfileSettingsResponse = {
   connected_accounts: ConnectedAccount[];
 };
 
+export type ProfileSettingsUpdate = {
+  first_name: string | null;
+  last_name: string | null;
+  bio: string | null;
+  location: string | null;
+  website: string | null;
+  profile_picture_url: string | null;
+  connected_accounts: ConnectedAccount[];
+};
+
 export type ConnectedAccount = {
   id: number;
   name: string;
@@ -50,7 +60,7 @@ export const getUserProfileSettings = async (): Promise<ProfileSettingsResponse>
   return response as unknown as ProfileSettingsResponse;
 };
 
-export const updateUserProfileSettings = async (profileSettings: ProfileSettingsResponse): Promise<ProfileSettingsResponse> => {
+export const updateUserProfileSettings = async (profileSettings: ProfileSettingsUpdate): Promise<ProfileSettingsResponse> => {
   const response = await apiClient.put<ProfileSettingsResponse>(API_ENDPOINTS.SETTINGS_PROFILE, profileSettings);
   return response as unknown as ProfileSettingsResponse;
 };
