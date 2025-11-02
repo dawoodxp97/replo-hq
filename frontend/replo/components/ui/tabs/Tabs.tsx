@@ -38,7 +38,7 @@ const ReploTabs = (props: ReploTabsProps) => {
             centered
             style={{ marginBottom: 32 }}
             size="middle"
-            tabBarStyle={{ height: '10%' }}
+            tabBarStyle={{ height: '10%', marginBottom: 0 }}
             destroyOnHidden={true}
           />
         );

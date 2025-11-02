@@ -1,18 +1,20 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from 'antd';
-import { Github, Gitlab, Plug2, RefreshCcw, User } from 'lucide-react';
+import { Github, Gitlab, Plug2, User } from 'lucide-react';
 import Image from 'next/image';
 import { toast } from 'sonner';
+import { useQuery } from '@tanstack/react-query';
+
+import { snakeToCamel } from '@/utils/common';
+import { getAccountIcon } from '@/utils/customIcons';
 
 import SaveSettingsChanges from './SaveSettingsChanges';
 import ReploInput from '@/components/ui/input/Input';
-import { SettingsCard, SettingsContentWrapper } from '../layout/SettingsLayout';
-import { getUserProfileSettings } from '@/services/settingsService';
-import { useQuery } from '@tanstack/react-query';
-import { snakeToCamel } from '@/utils/common';
-import { getAccountIcon } from '@/utils/customIcons';
 import Loader from '@/components/ui/loader/Loader';
 import Error from '@/components/ui/error/Error';
+
+import { getUserProfileSettings } from '@/services/settingsService';
+import { SettingsCard, SettingsContentWrapper } from '../layout/SettingsLayout';
 
 type PIIDetailsState = {
   firstName: string;
@@ -36,7 +38,8 @@ const ProfileSettings = () => {
 
   const {
     data: profileSettingsData,
-    isLoading: isLoadingProfileSettings,
+    isPending,
+    isFetching,
     error: errorProfileSettings,
   } = useQuery<PIIDetailsState>({
     queryKey: ['profileSettings'],
@@ -47,6 +50,8 @@ const ProfileSettings = () => {
     },
     retry: false,
   });
+
+  const isLoadingProfileSettings = isPending || isFetching;
 
   const [pIIDetails, setPIIDetails] = useState<PIIDetailsState>({
     firstName: '',
