@@ -22,3 +22,4 @@ class User(Base):
     
     # Add relationships later if needed, e.g.:
     # tutorials = relationship("Tutorial", back_populates="owner")
+    settings = relationship("UserSettings", back_populates="user", uselist=False)

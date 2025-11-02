@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 # Import your routers
-from .routers import repo, tutorial, user, author, progress
+from .routers import repo, tutorial, user, author, progress, settings
 
 # Import worker
 from .workers.worker import get_redis_pool
@@ -35,6 +35,7 @@ app.include_router(tutorial.router, prefix="/api/tutorial", tags=["Tutorials"])
 app.include_router(user.router, prefix="/api/user", tags=["User"])
 app.include_router(progress.router, prefix="/api/progress", tags=["Progress"])
 app.include_router(author.router, prefix="/api/author", tags=["Authoring"])
+app.include_router(settings.router, prefix="/api/settings", tags=["Settings"])
 
 # --- API Health Check ---
 @app.get("/api/health", tags=["Health"])
