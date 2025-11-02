@@ -27,4 +27,12 @@ export const API_ENDPOINTS = {
   AUTHOR_DASHBOARD: "/author",
   AUTHOR_UPDATE_MODULE: (id: string) => `/author/modules/${id}`,
   AUTHOR_UPDATE_QUIZ: (id: string) => `/author/quizzes/${id}`,
+
+
+  // Settings
+  SETTINGS_PROFILE: "/settings/profile",
+  SETTINGS_NOTIFICATIONS: "/settings/notifications",
+  SETTINGS_APPEARANCE: "/settings/appearance",
+  SETTINGS_LEARNING: "/settings/learning",
+  SETTINGS_SECURITY: "/settings/security",
 };

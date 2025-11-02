@@ -1,7 +1,7 @@
 'use client';
 
 import React, { forwardRef, useMemo } from 'react';
-import { Input, InputNumber } from 'antd';
+import { Input, InputNumber, Select } from 'antd';
 
 const { TextArea, Search, Password } = Input;
 
@@ -28,7 +28,8 @@ export type InputKind =
   | 'search'
   | 'password'
   | 'number'
-  | 'email';
+  | 'email'
+  | 'select';
 
 /**
  * JSDoc helper for showCount formatter
@@ -46,6 +47,8 @@ export interface CountInfo {
  * - Adds accessibility and responsive helpers
  */
 export interface CommonInputProps {
+  /** Title text */
+  title?: string;
   /** Which input variant to render */
   kind?: InputKind;
   /** Visual size per Ant Design */
@@ -86,8 +89,6 @@ export interface CommonInputProps {
  * Props for basic text input
  */
 export interface TextInputProps extends CommonInputProps {
-  /** Whether to show title */
-  showTitle?: boolean;
   /** Title text */
   title?: string;
   kind?: 'text';
@@ -117,6 +118,8 @@ export interface TextInputProps extends CommonInputProps {
  * Props for multi-line TextArea
  */
 export interface TextAreaInputProps extends CommonInputProps {
+  /** Title text */
+  title?: string;
   kind: 'textarea';
   /** Value for controlled TextArea */
   value?: string;
@@ -140,6 +143,8 @@ export interface TextAreaInputProps extends CommonInputProps {
  * Props for Search input
  */
 export interface SearchInputProps extends CommonInputProps {
+  /** Title text */
+  title?: string;
   kind: 'search';
   /** Value for controlled input */
   value?: string;
@@ -191,13 +196,15 @@ export interface EmailInputProps extends CommonInputProps {
  * Props for Password input
  */
 export interface PasswordInputProps extends CommonInputProps {
+  /** Title text */
+  title?: string;
   kind: 'password';
   /** Value for controlled input */
   value?: string;
   /** Default value for uncontrolled input */
   defaultValue?: string;
   /** Change handler */
-  onChange?: React.ChangeEventHandler<HTMLInputElement>;
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>, value: string) => void;
   /** Placeholder text */
   placeholder?: string;
   /** Toggle visibility or control visibility */
@@ -241,13 +248,37 @@ export interface NumberInputProps
   stringMode?: boolean;
 }
 
+export interface SelectInputProps extends CommonInputProps {
+  kind: 'select';
+  options: { label: string; value: string }[];
+  value?: string;
+  defaultValue?: string;
+  onChange?: (value: string) => void;
+  placeholder?: string;
+  allowClear?: boolean;
+  bordered?: boolean;
+  status?: 'error' | 'warning';
+  appearance?: InputAppearance;
+  className?: string;
+  style?: React.CSSProperties;
+  onSearch?: (value: string) => void;
+  id?: string;
+  'aria-label'?: string;
+  required?: boolean;
+  prefix?: React.ReactNode;
+  suffix?: React.ReactNode;
+  addonBefore?: React.ReactNode;
+  addonAfter?: React.ReactNode;
+}
+
 export type ReploInputProps =
   | TextInputProps
   | TextAreaInputProps
   | SearchInputProps
   | PasswordInputProps
   | NumberInputProps
-  | EmailInputProps;
+  | EmailInputProps
+  | SelectInputProps;
 
 /**
  * Replo Input — Ant Design wrapper component.
@@ -264,6 +295,7 @@ export type ReploInputProps =
 const ReploInput = forwardRef<unknown, ReploInputProps>((props, ref) => {
   const {
     // Common
+    title,
     kind = 'text',
     size = 'middle',
     disabled = false,
@@ -281,6 +313,19 @@ const ReploInput = forwardRef<unknown, ReploInputProps>((props, ref) => {
     // Specific ones will be in rest
     ...rest
   } = props as ReploInputProps;
+
+  const renderLabel = () => {
+    if (!title) return null;
+    return (
+      <label
+        data-slot="label"
+        htmlFor={id}
+        className="pb-2 flex items-center gap-2 text-sm leading-none font-medium select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50"
+      >
+        {title}
+      </label>
+    );
+  };
 
   // Memoize class composition for performance
   const composedClassName = useMemo(() => {
@@ -315,77 +360,106 @@ const ReploInput = forwardRef<unknown, ReploInputProps>((props, ref) => {
     case 'textarea': {
       const ta = rest as TextAreaInputProps;
       return (
-        <TextArea
-          ref={ref as any}
-          size={size}
-          disabled={disabled}
-          allowClear={allowClear as boolean}
-          bordered={bordered}
-          status={status}
-          variant={appearance}
-          className={composedClassName}
-          style={style}
-          id={id}
-          required={required}
-          aria-label={computedAriaLabel}
-          aria-invalid={ariaInvalid}
-          // Specific
-          value={ta.value}
-          defaultValue={ta.defaultValue}
-          onChange={ta.onChange}
-          placeholder={ta.placeholder}
-          rows={ta.rows}
-          autoSize={ta.autoSize}
-          maxLength={ta.maxLength}
-          showCount={ta.showCount as any}
-        />
+        <div>
+          {renderLabel()}
+          <TextArea
+            ref={ref as any}
+            size={size}
+            disabled={disabled}
+            allowClear={allowClear as boolean}
+            bordered={bordered}
+            status={status}
+            variant={appearance}
+            className={composedClassName}
+            style={style}
+            id={id}
+            required={required}
+            aria-label={computedAriaLabel}
+            aria-invalid={ariaInvalid}
+            // Specific
+            value={ta.value}
+            defaultValue={ta.defaultValue}
+            onChange={ta.onChange}
+            placeholder={ta.placeholder}
+            rows={ta.rows}
+            autoSize={ta.autoSize}
+            maxLength={ta.maxLength}
+            showCount={ta.showCount as any}
+          />
+        </div>
       );
     }
     case 'search': {
       const s = rest as SearchInputProps;
       return (
-        <Search
-          ref={ref as any}
-          size={size}
-          disabled={disabled}
-          allowClear={allowClear as boolean}
-          bordered={bordered}
-          status={status}
-          variant={appearance}
-          className={composedClassName}
-          style={style}
-          id={id}
-          required={required}
-          aria-label={computedAriaLabel}
-          aria-invalid={ariaInvalid}
-          // Specific
-          value={s.value}
-          defaultValue={s.defaultValue}
-          onChange={s.onChange}
-          placeholder={s.placeholder}
-          enterButton={s.enterButton}
-          loading={s.loading}
-          onSearch={s.onSearch as any}
-          prefix={(props as CommonInputProps).prefix}
-          suffix={(props as CommonInputProps).suffix}
-          addonBefore={(props as CommonInputProps).addonBefore}
-          addonAfter={(props as CommonInputProps).addonAfter}
-        />
+        <div>
+          {renderLabel()}
+          <Search
+            ref={ref as any}
+            size={size}
+            disabled={disabled}
+            allowClear={allowClear as boolean}
+            bordered={bordered}
+            status={status}
+            variant={appearance}
+            className={composedClassName}
+            style={style}
+            id={id}
+            required={required}
+            aria-label={computedAriaLabel}
+            aria-invalid={ariaInvalid}
+            // Specific
+            value={s.value}
+            defaultValue={s.defaultValue}
+            onChange={s.onChange}
+            placeholder={s.placeholder}
+            enterButton={s.enterButton}
+            loading={s.loading}
+            onSearch={s.onSearch as any}
+            prefix={(props as CommonInputProps).prefix}
+            suffix={(props as CommonInputProps).suffix}
+            addonBefore={(props as CommonInputProps).addonBefore}
+            addonAfter={(props as CommonInputProps).addonAfter}
+          />
+        </div>
+      );
+    }
+    case 'select': {
+      const s = rest as SelectInputProps;
+      return (
+        <div>
+          {renderLabel()}
+          <Select
+            ref={ref as any}
+            size={size} // Official method: 'small' | 'middle' | 'large' - controls height
+            disabled={disabled}
+            showSearch
+            placeholder={s.placeholder || 'Select an option'}
+            optionFilterProp="label"
+            onChange={s.onChange}
+            onSearch={s.onSearch}
+            options={s.options}
+            value={s.value}
+            defaultValue={s.defaultValue}
+            allowClear={s.allowClear as boolean}
+            bordered={s.bordered}
+            status={s.status}
+            variant={s.appearance}
+            className={composedClassName}
+            style={style} // Official method: { width: '...', height: '...' } - controls dimensions
+            id={id}
+            aria-label={computedAriaLabel}
+            aria-invalid={ariaInvalid}
+            prefix={(props as CommonInputProps).prefix}
+          />
+        </div>
       );
     }
     case 'email': {
       const t = rest as TextInputProps;
       return (
         <div>
-          {t?.title && (
-            <label
-              data-slot="label"
-              htmlFor={id}
-              className="pb-2 flex items-center gap-2 text-sm leading-none font-medium select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50"
-            >
-              {t?.title}
-            </label>
-          )}
+          {renderLabel()}
           <Input
             data-slot="input"
             ref={ref as any}
@@ -420,96 +494,107 @@ const ReploInput = forwardRef<unknown, ReploInputProps>((props, ref) => {
     case 'password': {
       const p = rest as PasswordInputProps;
       return (
-        <Password
-          ref={ref as any}
-          size={size}
-          disabled={disabled}
-          allowClear={allowClear as boolean}
-          bordered={bordered}
-          status={status}
-          variant={appearance}
-          className={composedClassName}
-          style={style}
-          id={id}
-          required={required}
-          aria-label={computedAriaLabel}
-          aria-invalid={ariaInvalid}
-          // Specific
-          value={p.value}
-          defaultValue={p.defaultValue}
-          onChange={p.onChange}
-          placeholder={p.placeholder}
-          visibilityToggle={p.visibilityToggle as any}
-          iconRender={p.iconRender}
-          prefix={(props as CommonInputProps).prefix}
-          suffix={(props as CommonInputProps).suffix}
-          addonBefore={(props as CommonInputProps).addonBefore}
-          addonAfter={(props as CommonInputProps).addonAfter}
-        />
+        <div>
+          {renderLabel()}
+          <Password
+            ref={ref as any}
+            size={size}
+            disabled={disabled}
+            allowClear={allowClear as boolean}
+            bordered={bordered}
+            status={status}
+            variant={appearance}
+            className={composedClassName}
+            style={style}
+            id={id}
+            required={required}
+            aria-label={computedAriaLabel}
+            aria-invalid={ariaInvalid}
+            // Specific
+            value={p.value}
+            defaultValue={p.defaultValue}
+            onChange={e => {
+              p.onChange?.(e, e.target.value);
+            }}
+            placeholder={p.placeholder}
+            visibilityToggle={p.visibilityToggle as any}
+            iconRender={p.iconRender}
+            prefix={(props as CommonInputProps).prefix}
+            suffix={(props as CommonInputProps).suffix}
+            addonBefore={(props as CommonInputProps).addonBefore}
+            addonAfter={(props as CommonInputProps).addonAfter}
+          />
+        </div>
       );
     }
     case 'number': {
       const n = rest as NumberInputProps;
       return (
-        <InputNumber
-          ref={ref as any}
-          size={size}
-          disabled={disabled}
-          bordered={bordered}
-          status={status}
-          className={composedClassName}
-          style={style}
-          id={id}
-          aria-label={computedAriaLabel}
-          aria-invalid={ariaInvalid}
-          // Specific
-          value={n.value as any}
-          defaultValue={n.defaultValue as any}
-          onChange={n.onChange}
-          placeholder={n.placeholder}
-          min={n.min}
-          max={n.max}
-          step={n.step}
-          precision={n.precision}
-          formatter={n.formatter as any}
-          parser={n.parser as any}
-          stringMode={n.stringMode}
-        />
+        <div>
+          {renderLabel()}
+          <InputNumber
+            ref={ref as any}
+            size={size}
+            disabled={disabled}
+            bordered={bordered}
+            status={status}
+            className={composedClassName}
+            style={style}
+            id={id}
+            aria-label={computedAriaLabel}
+            aria-invalid={ariaInvalid}
+            // Specific
+            value={n.value as any}
+            defaultValue={n.defaultValue as any}
+            onChange={n.onChange}
+            placeholder={n.placeholder}
+            min={n.min}
+            max={n.max}
+            step={n.step}
+            precision={n.precision}
+            formatter={n.formatter as any}
+            parser={n.parser as any}
+            stringMode={n.stringMode}
+          />
+        </div>
       );
     }
     case 'text':
     default: {
       const t = rest as TextInputProps;
       return (
-        <Input
-          ref={ref as any}
-          size={size}
-          disabled={disabled}
-          allowClear={allowClear as boolean}
-          bordered={bordered}
-          status={status}
-          variant={appearance}
-          className={composedClassName}
-          style={style}
-          id={id}
-          required={required}
-          aria-label={computedAriaLabel}
-          aria-invalid={ariaInvalid}
-          // Specific
-          value={t.value}
-          defaultValue={t.defaultValue}
-          onChange={t.onChange}
-          onPressEnter={t.onPressEnter}
-          placeholder={t.placeholder}
-          type={t.type}
-          maxLength={t.maxLength}
-          showCount={t.showCount as any}
-          autoComplete={t.autoComplete}
-          prefix={(props as CommonInputProps).prefix}
-          suffix={(props as CommonInputProps).suffix}
-          addonBefore={(props as CommonInputProps).addonBefore}
-          addonAfter={(props as CommonInputProps).addonAfter}
-        />
+        <div>
+          {renderLabel()}
+          <Input
+            ref={ref as any}
+            size={size}
+            disabled={disabled}
+            allowClear={allowClear as boolean}
+            bordered={bordered}
+            status={status}
+            variant={appearance}
+            className={composedClassName}
+            style={style}
+            id={id}
+            required={required}
+            aria-label={computedAriaLabel}
+            aria-invalid={ariaInvalid}
+            // Specific
+            value={t.value}
+            defaultValue={t.defaultValue}
+            onChange={t.onChange}
+            onPressEnter={t.onPressEnter}
+            placeholder={t.placeholder}
+            type={t.type}
+            maxLength={t.maxLength}
+            showCount={t.showCount as any}
+            autoComplete={t.autoComplete}
+            prefix={(props as CommonInputProps).prefix}
+            suffix={(props as CommonInputProps).suffix}
+            addonBefore={(props as CommonInputProps).addonBefore}
+            addonAfter={(props as CommonInputProps).addonAfter}
+          />
+        </div>
       );
     }
   }
