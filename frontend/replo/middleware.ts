@@ -35,10 +35,39 @@ function getAuthToken(req: NextRequest) {
   return req.cookies.get('auth_token')?.value ?? null;
 }
 
+function getRefreshToken(req: NextRequest) {
+  return req.cookies.get('refresh_token')?.value ?? null;
+}
+
+function isRefreshTokenExpired(token: string | undefined): boolean {
+  if (!token) return true;
+  try {
+    const base64Url = token.split('.')[1];
+    if (!base64Url) return true;
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    const payload = JSON.parse(jsonPayload);
+    const exp = payload?.exp;
+    if (!exp) return false;
+    const nowInSeconds = Math.floor(Date.now() / 1000);
+    return nowInSeconds >= exp;
+  } catch {
+    return true;
+  }
+}
+
 export default function middleware(req: NextRequest) {
   const token = getAuthToken(req) ?? undefined;
+  const refreshToken = getRefreshToken(req) ?? undefined;
   const hasToken = !!token;
+  const hasRefreshToken = !!refreshToken;
   const expired = hasToken ? isTokenExpired(token) : false;
+  const refreshExpired = hasRefreshToken ? isRefreshTokenExpired(refreshToken) : true;
   const { pathname } = req.nextUrl;
 
   // Bypass for static, api, and public assets
@@ -64,36 +93,49 @@ export default function middleware(req: NextRequest) {
   }
   const referrerIsPrivate = refererPathname ? isInPaths(refererPathname, PRIVATE_PATHS) : false;
 
-  // 当存在 token 且已过期：根据访问/来源场景决定是否提示“会话过期”
-  if (hasToken && expired) {
-    // 在私有路径访问时，重定向到登录并显示过期提示
+  // If access token is expired but refresh token is valid, allow the request
+  // The apiClient will handle token refresh automatically
+  // Only redirect if BOTH tokens are expired/missing
+  if (expired && (!hasRefreshToken || refreshExpired)) {
+    // Both tokens expired or missing - redirect to login
     if (isPrivatePath) {
       const url = new URL('/login', req.url);
       url.searchParams.set('error', 'expired');
       url.searchParams.set('next', pathname + req.nextUrl.search);
       const res = NextResponse.redirect(url);
       res.cookies.set('auth_token', '', { maxAge: 0, path: '/' });
+      res.cookies.set('refresh_token', '', { maxAge: 0, path: '/' });
       return res;
     }
 
-    // 当前已在登录页：仅当来源是私有路径时才显示过期提示
+    // Current on login page: only show expired message if coming from private path
     if (pathname === '/login') {
       if (referrerIsPrivate) {
         const loginUrl = new URL('/login', req.url);
         loginUrl.searchParams.set('error', 'expired');
         const res = NextResponse.redirect(loginUrl);
         res.cookies.set('auth_token', '', { maxAge: 0, path: '/' });
+        res.cookies.set('refresh_token', '', { maxAge: 0, path: '/' });
         return res;
       }
       const res = NextResponse.next();
       res.cookies.set('auth_token', '', { maxAge: 0, path: '/' });
+      res.cookies.set('refresh_token', '', { maxAge: 0, path: '/' });
       return res;
     }
 
-    // 公共路径访问：不显示过期提示，仅清除过期 token 后放行
+    // Public path: clear tokens and allow
     const res = NextResponse.next();
     res.cookies.set('auth_token', '', { maxAge: 0, path: '/' });
+    res.cookies.set('refresh_token', '', { maxAge: 0, path: '/' });
     return res;
+  }
+
+  // Access token expired but refresh token valid - allow request through
+  // apiClient will handle the refresh automatically
+  if (expired && !refreshExpired) {
+    // Just allow the request - apiClient will refresh the token
+    return NextResponse.next();
   }
 
   // 已登录且未过期，访问登录/注册 -> 重定向到仪表盘

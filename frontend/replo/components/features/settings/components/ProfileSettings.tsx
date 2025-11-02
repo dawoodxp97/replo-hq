@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from 'antd';
 import { Github, Gitlab, Plug2, User } from 'lucide-react';
 import Image from 'next/image';
@@ -7,11 +7,55 @@ import { toast } from 'sonner';
 import SaveSettingsChanges from './SaveSettingsChanges';
 import ReploInput from '@/components/ui/input/Input';
 import { SettingsCard, SettingsContentWrapper } from '../layout/SettingsLayout';
+import { getUserProfileSettings } from '@/services/settingsService';
+import { useQuery } from '@tanstack/react-query';
+import { snakeToCamel } from '@/utils/common';
+import { getAccountIcon } from '@/utils/customIcons';
+
+type PIIDetailsState = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  bio: string;
+  location: string;
+  website: string;
+  profilePic: string;
+  connectedAccounts: {
+    id: number;
+    name: string;
+    icon: React.ReactNode;
+    connected: boolean;
+    username: string;
+  }[];
+};
 
 const ProfileSettings = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [pIIDetails, setPIIDetails] = useState({
+  const {
+    data: profileSettingsData,
+    isLoading: isLoadingProfileSettings,
+    error: errorProfileSettings,
+  } = useQuery<PIIDetailsState>({
+    queryKey: ['profileSettings'],
+    queryFn: async () => {
+      const response = await getUserProfileSettings();
+      const camelData = snakeToCamel<PIIDetailsState>(response);
+      return camelData;
+    },
+  });
+
+  if (isLoadingProfileSettings) {
+    return <div>Loading profile settings...</div>;
+  }
+
+  if (errorProfileSettings) {
+    return (
+      <div>Error loading profile settings: {errorProfileSettings.message}</div>
+    );
+  }
+
+  const [pIIDetails, setPIIDetails] = useState<PIIDetailsState>({
     firstName: '',
     lastName: '',
     email: '',
@@ -36,6 +80,21 @@ const ProfileSettings = () => {
       },
     ],
   });
+
+  useEffect(() => {
+    if (profileSettingsData) {
+      setPIIDetails({
+        ...profileSettingsData,
+        connectedAccounts: (profileSettingsData.connectedAccounts || []).map(
+          account => ({
+            ...account,
+            icon: getAccountIcon(account.name),
+            username: account.username || '',
+          })
+        ),
+      });
+    }
+  }, [profileSettingsData]);
 
   const handleDisconnect = (name: string) => {
     console.log(`Disconnecting ${name}`);

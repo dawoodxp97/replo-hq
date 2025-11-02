@@ -16,8 +16,9 @@ export interface GlobalState {
   isSidebarOpen: boolean;
 
   // --- Actions ---
-  login: (userData: AuthUser, token: string) => void;
+  login: (userData: AuthUser, accessToken: string, refreshToken: string) => void;
   logout: () => void;
+  refreshTokens: (accessToken: string, refreshToken: string) => void;
   toggleSidebar: () => void;
 }
 
@@ -30,11 +31,16 @@ export const useGlobalStore = create(
       isAuthenticated: false,
 
       // --- Actions ---
-      login: (userData: AuthUser, token: string) => {
-        // 2. Set the token in a secure cookie
-        Cookies.set('auth_token', token, { 
-          expires: 1, // Expires in 1 day
+      login: (userData: AuthUser, accessToken: string, refreshToken: string) => {
+        // Set both tokens in secure cookies
+        Cookies.set('auth_token', accessToken, { 
+          expires: 7, // Access token expires in 7 days (1 week)
           secure: process.env.NODE_ENV === 'production', // Only send over HTTPS in production
+          sameSite: 'strict'
+        });
+        Cookies.set('refresh_token', refreshToken, { 
+          expires: 1, // Refresh token expires in 1 day (refresh daily)
+          secure: process.env.NODE_ENV === 'production',
           sameSite: 'strict'
         });
         set({
@@ -44,11 +50,26 @@ export const useGlobalStore = create(
       },
 
       logout: () => {
-        // 3. Remove the cookie
+        // Remove both tokens
         Cookies.remove('auth_token');
+        Cookies.remove('refresh_token');
         set({
           user: null,
           isAuthenticated: false,
+        });
+      },
+
+      refreshTokens: (accessToken: string, refreshToken: string) => {
+        // Update both tokens in cookies
+        Cookies.set('auth_token', accessToken, { 
+          expires: 7,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict'
+        });
+        Cookies.set('refresh_token', refreshToken, { 
+          expires: 1,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict'
         });
       },
 
@@ -60,6 +81,10 @@ export const useGlobalStore = create(
           // For now, we'll just set isAuthenticated
           set({ isAuthenticated: true });
         }
+      },
+
+      toggleSidebar: () => {
+        set((state) => ({ isSidebarOpen: !state.isSidebarOpen }));
       }
     }),
     {

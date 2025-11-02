@@ -17,6 +17,7 @@ export const API_ENDPOINTS = {
   USER_LOGIN: "/user/login",
   USER_SIGNUP: "/user/signup",
   USER_ME: "/user/me",
+  USER_REFRESH: "/user/refresh",
 
   // Progress
   PROGRESS_COMPLETE_MODULE: "/progress/complete_module",

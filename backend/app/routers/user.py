@@ -108,17 +108,64 @@ def login_for_access_token(
         # If upgrade fails, continue without blocking login
         pass
     
-    # 3. Create the JWT token
+    # 3. Create the JWT tokens
     # The 'sub' (subject) of the token is the user's email
     access_token = security.create_access_token(
         data={"sub": user.email}
     )
+    refresh_token = security.create_refresh_token(
+        data={"sub": user.email}
+    )
     
-    # 4. Return the token AND the user info
+    # 4. Return the tokens AND the user info
     return {
         "access_token": access_token,
+        "refresh_token": refresh_token,
         "token_type": "bearer",
         "user": schemas.UserPublic.from_orm(user) # Convert model to Pydantic schema
+    }
+
+@router.post("/refresh")
+def refresh_access_token(
+    token_request: schemas.RefreshTokenRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Refresh access token using refresh token.
+    Expects refresh_token in request body.
+    """
+    # 1. Decode and verify refresh token
+    token_data = security.decode_refresh_token(token_request.refresh_token)
+    if token_data is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # 2. Verify user exists
+    user = db.query(models.User).filter(models.User.email == token_data.email).first()
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # 3. Generate new access token and refresh token
+    new_access_token = security.create_access_token(
+        data={"sub": user.email}
+    )
+    new_refresh_token = security.create_refresh_token(
+        data={"sub": user.email}
+    )
+    
+    # 4. Return new tokens
+    return {
+        "access_token": new_access_token,
+        "refresh_token": new_refresh_token,
+        "token_type": "bearer",
+        "user": schemas.UserPublic.from_orm(user)
     }
 
 # Don't forget to include this router in your main.py!

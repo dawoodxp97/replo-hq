@@ -3,6 +3,7 @@ import { API_ENDPOINTS } from "@/constants/apiEndpoints";
 
 export type LoginResponse = {
   access_token: string;
+  refresh_token: string;
   token_type: string;
   user: { id?: string; email?: string; username?: string };
 };
@@ -29,4 +30,13 @@ export const login = (email: string, password: string): Promise<LoginResponse> =
  */
 export const signup = (email: string, password: string) => {
   return apiClient.post(API_ENDPOINTS.USER_SIGNUP, { email, password });
+};
+
+/**
+ * Refreshes access token using refresh token.
+ */
+export const refreshToken = (refreshToken: string): Promise<LoginResponse> => {
+  return apiClient
+    .post<LoginResponse>(API_ENDPOINTS.USER_REFRESH, { refresh_token: refreshToken })
+    .then((data) => data as unknown as LoginResponse);
 };
