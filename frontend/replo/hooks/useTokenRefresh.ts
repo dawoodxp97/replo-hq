@@ -13,10 +13,8 @@ import { useGlobalStore } from "@/store/useGlobalStore";
  */
 export function useTokenRefresh() {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const { refreshTokens, isAuthenticated } = useGlobalStore((state: any) => ({
-    refreshTokens: state.refreshTokens,
-    isAuthenticated: state.isAuthenticated,
-  }));
+  const refreshTokens = useGlobalStore((state: any) => state.refreshTokens);
+  const isAuthenticated = useGlobalStore((state: any) => state.isAuthenticated);
 
   useEffect(() => {
     if (!isAuthenticated) {

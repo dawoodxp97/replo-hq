@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 
 from ..db.session import get_db
+from ..core.dependencies import get_current_user
+from .. import models
 from ..models.tutorials import Tutorial
 from ..models.modules import Module
 from ..models.quizzes import Quiz
@@ -41,7 +43,11 @@ class TutorialResponse(BaseModel):
 
 # --- API Endpoints ---
 @router.get("/{tutorial_id}", response_model=TutorialResponse)
-async def get_tutorial_content(tutorial_id: uuid.UUID, db: Session = Depends(get_db)):
+async def get_tutorial_content(
+    tutorial_id: uuid.UUID,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     THE MAIN ENDPOINT for the tutorial player.
     Returns the full tutorial, all modules, and all quizzes.

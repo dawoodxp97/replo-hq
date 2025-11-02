@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from ..db.session import get_db
+from ..core.dependencies import get_current_user
+from .. import models
 from ..models.user_progress import UserProgress
 from ..models.quizzes import Quiz
 
@@ -32,12 +34,15 @@ class UserProgressResponse(BaseModel):
 
 # --- API Endpoints ---
 @router.post("/complete_module", response_model=ProgressResponse)
-async def mark_module_complete(progress: ProgressUpdate, db: Session = Depends(get_db)):
+async def mark_module_complete(
+    progress: ProgressUpdate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     Called when a user clicks "Next" on a module.
     """
-    # In a real implementation, get user_id from auth
-    user_id = uuid.UUID("00000000-0000-0000-0000-000000000000")
+    user_id = current_user.user_id
     
     # Check if progress already exists
     existing_progress = db.query(UserProgress).filter(
@@ -74,12 +79,15 @@ async def mark_module_complete(progress: ProgressUpdate, db: Session = Depends(g
         }
 
 @router.post("/submit_quiz", response_model=dict)
-async def submit_quiz_answer(submission: QuizSubmit, db: Session = Depends(get_db)):
+async def submit_quiz_answer(
+    submission: QuizSubmit,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     Check a user's quiz answer.
     """
-    # In a real implementation, get user_id from auth
-    user_id = uuid.UUID("00000000-0000-0000-0000-000000000000")
+    user_id = current_user.user_id
     
     # Get the quiz
     quiz = db.query(Quiz).filter(Quiz.quiz_id == submission.quiz_id).first()
@@ -116,12 +124,14 @@ async def submit_quiz_answer(submission: QuizSubmit, db: Session = Depends(get_d
     return {"is_correct": is_correct}
 
 @router.get("/", response_model=UserProgressResponse)
-async def get_user_progress(db: Session = Depends(get_db)):
+async def get_user_progress(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     Get all progress for the current user.
     """
-    # In a real implementation, get user_id from auth
-    user_id = uuid.UUID("00000000-0000-0000-0000-000000000000")
+    user_id = current_user.user_id
     
     progress_entries = db.query(UserProgress).filter(UserProgress.user_id == user_id).all()
     

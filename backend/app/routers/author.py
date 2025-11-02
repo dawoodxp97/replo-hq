@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from ..db.session import get_db
+from ..core.dependencies import get_current_user
+from .. import models
 from ..models.tutorials import Tutorial
 from ..models.modules import Module
 from ..models.quizzes import Quiz
@@ -32,11 +34,15 @@ class ModuleResponse(BaseModel):
 
 # --- API Endpoints ---
 @router.get("/")
-def get_author_dashboard(db: Session = Depends(get_db)):
+def get_author_dashboard(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     Get all tutorials for the current user (for authoring).
     """
-    # In a real implementation, get user_id from auth and filter by it
+    # Filter tutorials by user_id when user_id is added to Tutorial model
+    # For now, get all tutorials (you may want to add user_id to Tutorial model)
     tutorials = db.query(Tutorial).all()
     
     return {
@@ -54,7 +60,8 @@ def get_author_dashboard(db: Session = Depends(get_db)):
 @router.put("/modules/{module_id}", response_model=ModuleResponse)
 async def update_module_content(
     module_id: uuid.UUID, 
-    data: ModuleUpdate, 
+    data: ModuleUpdate,
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -65,7 +72,10 @@ async def update_module_content(
     if not module:
         raise HTTPException(status_code=404, detail="Module not found")
     
-    # In a real implementation, check if user owns the tutorial this module belongs to
+    # TODO: Add ownership check - verify user owns the tutorial this module belongs to
+    # tutorial = db.query(Tutorial).filter(Tutorial.tutorial_id == module.tutorial_id).first()
+    # if tutorial.user_id != current_user.user_id:
+    #     raise HTTPException(status_code=403, detail="Not authorized to edit this module")
     
     # Update the module
     module.title = data.title
@@ -88,7 +98,8 @@ async def update_module_content(
 @router.put("/quizzes/{quiz_id}")
 async def update_quiz_content(
     quiz_id: uuid.UUID, 
-    data: QuizUpdate, 
+    data: QuizUpdate,
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -99,7 +110,11 @@ async def update_quiz_content(
     if not quiz:
         raise HTTPException(status_code=404, detail="Quiz not found")
     
-    # In a real implementation, check if user owns the tutorial this quiz belongs to
+    # TODO: Add ownership check - verify user owns the tutorial this quiz belongs to
+    # module = db.query(Module).filter(Module.module_id == quiz.module_id).first()
+    # tutorial = db.query(Tutorial).filter(Tutorial.tutorial_id == module.tutorial_id).first()
+    # if tutorial.user_id != current_user.user_id:
+    #     raise HTTPException(status_code=403, detail="Not authorized to edit this quiz")
     
     # Update the quiz
     quiz.question_text = data.question_text

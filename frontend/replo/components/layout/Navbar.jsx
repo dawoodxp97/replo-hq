@@ -2,19 +2,15 @@
 'use client';
 
 import { useGlobalStore } from '@/store/useGlobalStore';
-import { useTheme } from '@/providers/theme/ThemeProvider';
 import Link from 'next/link';
 
 export default function Navbar() {
   // 1. Get the state and actions you need from the store
   const { isAuthenticated, user, logout, toggleSidebar } = useGlobalStore();
-  const { theme, setTheme, isDark } = useTheme();
 
   return (
     <nav
-      className={`flex items-center justify-between p-4 ${
-        isDark ? 'bg-[var(--background-soft)]' : 'bg-[var(--background-soft)]'
-      } shadow-sm border-b-[#ececec] border-b border-solid`}
+      className={`flex items-center justify-between p-4 ${'bg-[var(--background-soft)]'} shadow-sm border-b-[#ececec] border-b border-solid`}
     >
       <div className="flex items-center gap-4">
         <button onClick={toggleSidebar} className="p-1">

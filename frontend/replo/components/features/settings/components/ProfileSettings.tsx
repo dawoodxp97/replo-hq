@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from 'antd';
-import { Github, Gitlab, Plug2, User } from 'lucide-react';
+import { Github, Gitlab, Plug2, RefreshCcw, User } from 'lucide-react';
 import Image from 'next/image';
 import { toast } from 'sonner';
 
@@ -11,6 +11,8 @@ import { getUserProfileSettings } from '@/services/settingsService';
 import { useQuery } from '@tanstack/react-query';
 import { snakeToCamel } from '@/utils/common';
 import { getAccountIcon } from '@/utils/customIcons';
+import Loader from '@/components/ui/loader/Loader';
+import Error from '@/components/ui/error/Error';
 
 type PIIDetailsState = {
   firstName: string;
@@ -43,17 +45,8 @@ const ProfileSettings = () => {
       const camelData = snakeToCamel<PIIDetailsState>(response);
       return camelData;
     },
+    retry: false,
   });
-
-  if (isLoadingProfileSettings) {
-    return <div>Loading profile settings...</div>;
-  }
-
-  if (errorProfileSettings) {
-    return (
-      <div>Error loading profile settings: {errorProfileSettings.message}</div>
-    );
-  }
 
   const [pIIDetails, setPIIDetails] = useState<PIIDetailsState>({
     firstName: '',
@@ -95,6 +88,28 @@ const ProfileSettings = () => {
       });
     }
   }, [profileSettingsData]);
+
+  if (isLoadingProfileSettings) {
+    return (
+      <Loader
+        className="h-[300px] mt-25"
+        type="ai"
+        size="lg"
+        message="Loading profile settings..."
+      />
+    );
+  }
+
+  if (errorProfileSettings) {
+    return (
+      <Error
+        title="Error loading profile settings"
+        variant="full"
+        className="!h-[500px]"
+        error={errorProfileSettings}
+      />
+    );
+  }
 
   const handleDisconnect = (name: string) => {
     console.log(`Disconnecting ${name}`);

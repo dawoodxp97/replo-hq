@@ -30,3 +30,728 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Loader Animations */
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes spin-slow-reverse {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes pulse-ai {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes pulse-soft {
+  0%, 100% {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(0.98);
+  }
+}
+
+@keyframes pulse-inner {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(0.95);
+  }
+}
+
+@keyframes pulse-center {
+  0%, 100% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(0.9);
+  }
+}
+
+@keyframes bar-progress {
+  0% {
+    left: -33.33%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+@keyframes bar-progress-delayed {
+  0% {
+    left: -33.33%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+@keyframes dot-bounce-1 {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+@keyframes dot-bounce-2 {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+@keyframes dot-bounce-3 {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.2);
+  }
+}
+
+@keyframes pulse-scale {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes text-shimmer {
+  0% {
+    background-position: 200% center;
+  }
+  100% {
+    background-position: -200% center;
+  }
+}
+
+/* Error UI Animations */
+@keyframes fade-in-slide {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes fade-in-scale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* AI-Style Moving Animations for Error Component */
+@keyframes error-float {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+  }
+  25% {
+    transform: translate(8px, -12px) scale(1.05);
+  }
+  50% {
+    transform: translate(-6px, -8px) scale(0.98);
+  }
+  75% {
+    transform: translate(-8px, 10px) scale(1.02);
+  }
+}
+
+@keyframes error-float-delayed {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.6;
+  }
+  30% {
+    transform: translate(-10px, -15px) scale(1.1);
+    opacity: 0.8;
+  }
+  60% {
+    transform: translate(12px, 8px) scale(0.95);
+    opacity: 0.7;
+  }
+  90% {
+    transform: translate(8px, 15px) scale(1.05);
+    opacity: 0.9;
+  }
+}
+
+@keyframes error-wave {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  33% {
+    transform: translateY(-10px) scale(1.05);
+  }
+  66% {
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+@keyframes error-symbol-wave {
+  0%, 100% {
+    transform: rotate(0deg) scale(1);
+  }
+  25% {
+    transform: rotate(-2deg) scale(1.05);
+  }
+  50% {
+    transform: rotate(2deg) scale(0.98);
+  }
+  75% {
+    transform: rotate(-1deg) scale(1.02);
+  }
+}
+
+@keyframes error-symbol-float {
+  0%, 100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  25% {
+    transform: translate(3px, -4px) rotate(-1deg);
+  }
+  50% {
+    transform: translate(-2px, -3px) rotate(1deg);
+  }
+  75% {
+    transform: translate(-3px, 4px) rotate(-0.5deg);
+  }
+}
+
+@keyframes error-particle-1 {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.6;
+  }
+  33% {
+    transform: translate(15px, -20px) scale(1.2);
+    opacity: 0.8;
+  }
+  66% {
+    transform: translate(-12px, 18px) scale(0.9);
+    opacity: 0.5;
+  }
+}
+
+@keyframes error-particle-2 {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.5;
+  }
+  40% {
+    transform: translate(-18px, 15px) scale(1.15);
+    opacity: 0.7;
+  }
+  80% {
+    transform: translate(20px, -12px) scale(0.85);
+    opacity: 0.4;
+  }
+}
+
+@keyframes error-particle-3 {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.4;
+  }
+  50% {
+    transform: translate(10px, 25px) scale(1.3);
+    opacity: 0.6;
+  }
+}
+
+@keyframes error-orb-1 {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.1;
+  }
+  50% {
+    transform: translate(30px, -40px) scale(1.2);
+    opacity: 0.15;
+  }
+}
+
+@keyframes error-orb-2 {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.1;
+  }
+  50% {
+    transform: translate(-40px, 50px) scale(1.3);
+    opacity: 0.15;
+  }
+}
+
+@keyframes error-toast-icon {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+  }
+  25% {
+    transform: scale(1.1) rotate(-5deg);
+  }
+  50% {
+    transform: scale(1.05) rotate(5deg);
+  }
+  75% {
+    transform: scale(1.08) rotate(-3deg);
+  }
+}
+
+@keyframes error-minimal-pulse {
+  0%, 100% {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes error-badge-float {
+  0%, 100% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+    opacity: 0.3;
+  }
+  25% {
+    transform: translate(10px, -15px) rotate(5deg) scale(1.1);
+    opacity: 0.4;
+  }
+  50% {
+    transform: translate(-8px, -10px) rotate(-5deg) scale(0.95);
+    opacity: 0.35;
+  }
+  75% {
+    transform: translate(-12px, 12px) rotate(3deg) scale(1.05);
+    opacity: 0.4;
+  }
+}
+
+@keyframes error-dot-float {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.4;
+  }
+  33% {
+    transform: translate(8px, -12px) scale(1.3);
+    opacity: 0.6;
+  }
+  66% {
+    transform: translate(-10px, 10px) scale(0.8);
+    opacity: 0.3;
+  }
+}
+
+@keyframes error-orb-3 {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.1;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.15);
+    opacity: 0.15;
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 2s linear infinite;
+}
+
+.animate-spin-slow-reverse {
+  animation: spin-slow-reverse 3s linear infinite;
+}
+
+.animate-pulse-ai {
+  animation: pulse-ai 3s ease-in-out infinite;
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 2s ease-in-out infinite;
+}
+
+.animate-pulse-inner {
+  animation: pulse-inner 1.5s ease-in-out infinite;
+}
+
+.animate-pulse-center {
+  animation: pulse-center 2.5s ease-in-out infinite;
+}
+
+.animate-bar-progress {
+  animation: bar-progress 1.5s ease-in-out infinite;
+}
+
+.animate-bar-progress-delayed {
+  animation: bar-progress-delayed 1.5s ease-in-out infinite 0.3s;
+}
+
+.animate-dot-bounce-1 {
+  animation: dot-bounce-1 1.4s ease-in-out infinite;
+}
+
+.animate-dot-bounce-2 {
+  animation: dot-bounce-2 1.4s ease-in-out infinite 0.2s;
+}
+
+.animate-dot-bounce-3 {
+  animation: dot-bounce-3 1.4s ease-in-out infinite 0.4s;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-pulse-scale {
+  animation: pulse-scale 1.5s ease-in-out infinite;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-in;
+}
+
+.animate-text-shimmer {
+  position: relative;
+  display: inline-block;
+  background: linear-gradient(
+    90deg,
+    rgb(75, 85, 99) 0%,
+    rgb(75, 85, 99) 40%,
+    rgba(255, 255, 255, 0.5) 50%,
+    rgb(75, 85, 99) 60%,
+    rgb(75, 85, 99) 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: text-shimmer 3s linear infinite;
+}
+
+.dark .animate-text-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgb(156, 163, 175) 0%,
+    rgb(156, 163, 175) 40%,
+    rgba(255, 255, 255, 0.6) 50%,
+    rgb(156, 163, 175) 60%,
+    rgb(156, 163, 175) 100%
+  );
+  background-size: 200% auto;
+}
+
+.animate-fade-in-slide {
+  animation: fade-in-slide 0.4s ease-out;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s ease-out;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-fade-in-scale {
+  animation: fade-in-scale 0.3s ease-out;
+}
+
+/* AI Error Animation Classes */
+.animate-error-float {
+  animation: error-float 6s ease-in-out infinite;
+}
+
+.animate-error-float-delayed {
+  animation: error-float-delayed 7s ease-in-out infinite;
+}
+
+.animate-error-wave {
+  animation: error-wave 4s ease-in-out infinite;
+}
+
+.animate-error-symbol-wave {
+  animation: error-symbol-wave 3s ease-in-out infinite;
+}
+
+.animate-error-symbol-float {
+  animation: error-symbol-float 5s ease-in-out infinite;
+}
+
+.animate-error-particle-1 {
+  animation: error-particle-1 8s ease-in-out infinite;
+}
+
+.animate-error-particle-2 {
+  animation: error-particle-2 9s ease-in-out infinite 1s;
+}
+
+.animate-error-particle-3 {
+  animation: error-particle-3 10s ease-in-out infinite 2s;
+}
+
+.animate-error-orb-1 {
+  animation: error-orb-1 12s ease-in-out infinite;
+}
+
+.animate-error-orb-2 {
+  animation: error-orb-2 15s ease-in-out infinite 3s;
+}
+
+.animate-error-toast-icon {
+  animation: error-toast-icon 2s ease-in-out infinite;
+}
+
+.animate-error-minimal-pulse {
+  animation: error-minimal-pulse 2s ease-in-out infinite;
+}
+
+.animate-error-badge-float {
+  animation: error-badge-float 8s ease-in-out infinite;
+}
+
+.animate-error-dot-float {
+  animation: error-dot-float 4s ease-in-out infinite;
+}
+
+.animate-error-orb-3 {
+  animation: error-orb-3 14s ease-in-out infinite;
+}
+
+/* Empty State Animations */
+@keyframes empty-float {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-10px) scale(1.02);
+  }
+}
+
+@keyframes empty-float-delayed {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-8px) scale(1.01);
+  }
+}
+
+@keyframes empty-pulse {
+  0%, 100% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes empty-glow {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes empty-fade {
+  0%, 100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+@keyframes empty-fade-delayed {
+  0%, 100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+@keyframes empty-orb-1 {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.3;
+  }
+  50% {
+    transform: translate(20px, -30px) scale(1.1);
+    opacity: 0.4;
+  }
+}
+
+@keyframes empty-orb-2 {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.25;
+  }
+  50% {
+    transform: translate(-30px, 40px) scale(1.15);
+    opacity: 0.35;
+  }
+}
+
+@keyframes empty-dot-1 {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translate(8px, -12px) scale(1.2);
+    opacity: 0.8;
+  }
+}
+
+@keyframes empty-dot-2 {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translate(-10px, 15px) scale(1.15);
+    opacity: 0.7;
+  }
+}
+
+@keyframes empty-dot-3 {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translate(12px, 10px) scale(1.3);
+    opacity: 0.9;
+  }
+}
+
+.animate-empty-float {
+  animation: empty-float 4s ease-in-out infinite;
+}
+
+.animate-empty-float-delayed {
+  animation: empty-float-delayed 5s ease-in-out infinite 1s;
+}
+
+.animate-empty-pulse {
+  animation: empty-pulse 3s ease-in-out infinite;
+}
+
+.animate-empty-glow {
+  animation: empty-glow 3s ease-in-out infinite;
+}
+
+.animate-empty-fade {
+  animation: empty-fade 2s ease-in-out infinite;
+}
+
+.animate-empty-fade-delayed {
+  animation: empty-fade-delayed 2s ease-in-out infinite 0.5s;
+}
+
+.animate-empty-orb-1 {
+  animation: empty-orb-1 12s ease-in-out infinite;
+}
+
+.animate-empty-orb-2 {
+  animation: empty-orb-2 15s ease-in-out infinite 2s;
+}
+
+.animate-empty-dot-1 {
+  animation: empty-dot-1 4s ease-in-out infinite;
+}
+
+.animate-empty-dot-2 {
+  animation: empty-dot-2 5s ease-in-out infinite 1s;
+}
+
+.animate-empty-dot-3 {
+  animation: empty-dot-3 6s ease-in-out infinite 2s;
+}

@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, HttpUrl
 
 from ..db.session import get_db
+from ..core.dependencies import get_current_user
+from .. import models
 from ..models.repositories import Repository
 from ..models.tutorials import Tutorial
 
@@ -39,8 +41,9 @@ class RepoDetailResponse(BaseModel):
 # --- API Endpoints ---
 @router.post("/", response_model=RepoResponse)
 async def submit_repository(
-    repo_data: RepoCreate, 
+    repo_data: RepoCreate,
     request: Request,
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -66,7 +69,7 @@ async def submit_repository(
         github_url=str(repo_data.github_url),
         name=repo_name,
         status='PENDING',
-        # user_id will be added when auth is implemented
+        user_id=current_user.user_id,
     )
     db.add(new_repo)
     db.commit()
@@ -106,12 +109,14 @@ async def submit_repository(
     }
 
 @router.get("/", response_model=RepoListResponse)
-async def get_user_repositories(db: Session = Depends(get_db)):
+async def get_user_repositories(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     Get all repositories submitted by the user and their status.
     """
-    # In a real implementation, this would filter by user_id
-    repos = db.query(Repository).all()
+    repos = db.query(Repository).filter(Repository.user_id == current_user.user_id).all()
     
     return {
         "repositories": [
@@ -129,13 +134,21 @@ async def get_user_repositories(db: Session = Depends(get_db)):
     }
 
 @router.get("/{repo_id}", response_model=RepoDetailResponse)
-async def get_repository_details(repo_id: uuid.UUID, db: Session = Depends(get_db)):
+async def get_repository_details(
+    repo_id: uuid.UUID,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     Get details for one repo, including its generated tutorials.
     """
     repo = db.query(Repository).filter(Repository.repo_id == repo_id).first()
     if not repo:
         raise HTTPException(status_code=404, detail="Repository not found")
+    
+    # Verify user owns this repository
+    if repo.user_id != current_user.user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this repository")
     
     tutorials = db.query(Tutorial).filter(Tutorial.repo_id == repo_id).all()
     

@@ -1,40 +1,52 @@
-"use client";
+'use client';
 
-import { memo } from "react";
+import { memo } from 'react';
 
 import { Tabs } from 'antd';
 import type { TabsProps } from 'antd';
 
 interface ReploTabsProps {
-    items: TabsProps['items'];
-    kind?: String;
+  items: TabsProps['items'];
+  kind?: String;
+  activeKey?: string;
+  onChange?: (key: string) => void;
 }
 const ReploTabs = (props: ReploTabsProps) => {
-    const { items, kind = 'tab' } = props;
-    const renderTabs = () => {
-        switch (kind) {
-            case 'tab':
-                return <Tabs items={items} />;
+  const { items, kind = 'tab', activeKey, onChange } = props;
+  const renderTabs = () => {
+    switch (kind) {
+      case 'tab':
+        return (
+          <Tabs
+            items={items}
+            activeKey={activeKey}
+            onChange={onChange}
+            destroyOnHidden={true}
+          />
+        );
 
-            case 'card':
-                return <div>
-                    <Tabs
-                        items={items} defaultActiveKey="1" type='card'
-                        animated={true}
-                        centered
-                        style={{ marginBottom: 32 }} size="middle" /></div>;
-            default:
-                return null;
-        }
+      case 'card':
+        return (
+          <Tabs
+            className="h-full"
+            items={items}
+            activeKey={activeKey}
+            onChange={onChange}
+            defaultActiveKey={!activeKey ? '1' : undefined}
+            type="card"
+            animated={true}
+            centered
+            style={{ marginBottom: 32 }}
+            size="middle"
+            tabBarStyle={{ height: '10%' }}
+            destroyOnHidden={true}
+          />
+        );
+      default:
+        return null;
     }
-    return (
-        <div className='rl-tabs-container'>
-            {
-                renderTabs()
-            }
-        </div>
-    );
-}
-
+  };
+  return <div className="rl-tabs-container h-full">{renderTabs()}</div>;
+};
 
 export default memo(ReploTabs);
