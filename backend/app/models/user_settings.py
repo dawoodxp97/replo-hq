@@ -25,8 +25,6 @@ class UserSettings(Base):
     )
     
     # Profile Settings
-    first_name = Column(String, nullable=True)
-    last_name = Column(String, nullable=True)
     bio = Column(String, nullable=True)
     location = Column(String, nullable=True)
     website = Column(String, nullable=True)

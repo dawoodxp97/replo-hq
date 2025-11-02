@@ -15,6 +15,9 @@ class User(Base):
         primary_key=True,
         server_default=text("gen_random_uuid()"),
     )
+
+    first_name = Column(String, nullable=True)
+    last_name = Column(String, nullable=True)
     
     email = Column(String, unique=True, index=True, nullable=False)
     

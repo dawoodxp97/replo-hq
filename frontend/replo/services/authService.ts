@@ -26,10 +26,10 @@ export const login = (email: string, password: string): Promise<LoginResponse> =
 
 /**
  * Registers a new user.
- * Expects JSON body per UserCreate schema (email, password).
+ * Expects JSON body per UserCreate schema (first_name, last_name, email, password).
  */
-export const signup = (email: string, password: string) => {
-  return apiClient.post(API_ENDPOINTS.USER_SIGNUP, { email, password });
+export const signup = (first_name: string, last_name: string, email: string, password: string) => {
+  return apiClient.post(API_ENDPOINTS.USER_SIGNUP, { first_name, last_name, email, password });
 };
 
 /**

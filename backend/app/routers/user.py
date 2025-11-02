@@ -45,7 +45,9 @@ def create_user(
     
     # 3. Create the SQLAlchemy User model instance
     db_user = models.User(
-        email=user_in.email, 
+        email=user_in.email,
+        first_name=user_in.first_name,
+        last_name=user_in.last_name,
         hashed_password=hashed_password
     )
     

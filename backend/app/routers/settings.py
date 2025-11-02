@@ -53,8 +53,8 @@ def get_profile_settings(
     settings = get_or_create_user_settings(current_user, db)
     
     return {
-        "first_name": settings.first_name,
-        "last_name": settings.last_name,
+        "first_name": current_user.first_name,
+        "last_name": current_user.last_name,
         "email": current_user.email,
         "bio": settings.bio,
         "location": settings.location,
@@ -77,9 +77,9 @@ def update_profile_settings(
     
     # Update fields if provided
     if profile_update.first_name is not None:
-        settings.first_name = profile_update.first_name
+        current_user.first_name = profile_update.first_name
     if profile_update.last_name is not None:
-        settings.last_name = profile_update.last_name
+        current_user.last_name = profile_update.last_name
     if profile_update.email is not None:
         # Update email in User model as well
         current_user.email = profile_update.email
@@ -102,8 +102,8 @@ def update_profile_settings(
     db.refresh(current_user)
     
     return {
-        "first_name": settings.first_name,
-        "last_name": settings.last_name,
+        "first_name": current_user.first_name,
+        "last_name": current_user.last_name,
         "email": current_user.email,
         "bio": settings.bio,
         "location": settings.location,
@@ -335,8 +335,8 @@ def get_all_settings(
     return {
         "user_id": current_user.user_id,
         "profile": {
-            "first_name": settings.first_name,
-            "last_name": settings.last_name,
+            "first_name": current_user.first_name,
+            "last_name": current_user.last_name,
             "email": current_user.email,
             "bio": settings.bio,
             "location": settings.location,

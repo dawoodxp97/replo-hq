@@ -43,7 +43,7 @@ export interface CountInfo {
 /**
  * Common props across all variants
  *
- * - Covers Ant Design specific props (size, allowClear, bordered, status, variant)
+ * - Covers Ant Design specific props (size, allowClear, status, variant)
  * - Adds accessibility and responsive helpers
  */
 export interface CommonInputProps {
@@ -57,8 +57,7 @@ export interface CommonInputProps {
   disabled?: boolean;
   /** Allow clear icon to reset the content */
   allowClear?: boolean | { clearIcon?: React.ReactNode };
-  /** Border style control (prefer `appearance`) */
-  bordered?: boolean;
+
   /** Validation status for error/warning styling */
   status?: 'error' | 'warning';
   /** Ant Design appearance variant */
@@ -256,7 +255,6 @@ export interface SelectInputProps extends CommonInputProps {
   onChange?: (value: string) => void;
   placeholder?: string;
   allowClear?: boolean;
-  bordered?: boolean;
   status?: 'error' | 'warning';
   appearance?: InputAppearance;
   className?: string;
@@ -284,7 +282,7 @@ export type ReploInputProps =
  * Replo Input — Ant Design wrapper component.
  *
  * Supports: `text`, `textarea`, `search`, `password`, `number`.
- * Implements Ant Design props like `size`, `allowClear`, `bordered`, `status`, `appearance`,
+ * Implements Ant Design props like `size`, `allowClear`, `status`, `appearance`,
  * and input-specific props including `rows`, `autoSize`, `visibilityToggle`, etc.
  *
  * Accessibility: sets `aria-invalid` when `status='error'`. If `aria-label` is absent,
@@ -300,7 +298,6 @@ const ReploInput = forwardRef<unknown, ReploInputProps>((props, ref) => {
     size = 'middle',
     disabled = false,
     allowClear = false,
-    bordered = true,
     status,
     appearance = 'outlined',
 
@@ -322,7 +319,7 @@ const ReploInput = forwardRef<unknown, ReploInputProps>((props, ref) => {
         htmlFor={id}
         className="pb-2 flex items-center gap-2 text-sm leading-none font-medium select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50"
       >
-        {title}
+        {title} {required ? <span className="text-red-500">*</span> : null}
       </label>
     );
   };
@@ -367,7 +364,6 @@ const ReploInput = forwardRef<unknown, ReploInputProps>((props, ref) => {
             size={size}
             disabled={disabled}
             allowClear={allowClear as boolean}
-            bordered={bordered}
             status={status}
             variant={appearance}
             className={composedClassName}
@@ -399,7 +395,6 @@ const ReploInput = forwardRef<unknown, ReploInputProps>((props, ref) => {
             size={size}
             disabled={disabled}
             allowClear={allowClear as boolean}
-            bordered={bordered}
             status={status}
             variant={appearance}
             className={composedClassName}
@@ -442,7 +437,6 @@ const ReploInput = forwardRef<unknown, ReploInputProps>((props, ref) => {
             value={s.value}
             defaultValue={s.defaultValue}
             allowClear={s.allowClear as boolean}
-            bordered={s.bordered}
             status={s.status}
             variant={s.appearance}
             className={composedClassName}
@@ -501,7 +495,6 @@ const ReploInput = forwardRef<unknown, ReploInputProps>((props, ref) => {
             size={size}
             disabled={disabled}
             allowClear={allowClear as boolean}
-            bordered={bordered}
             status={status}
             variant={appearance}
             className={composedClassName}
@@ -536,7 +529,6 @@ const ReploInput = forwardRef<unknown, ReploInputProps>((props, ref) => {
             ref={ref as any}
             size={size}
             disabled={disabled}
-            bordered={bordered}
             status={status}
             className={composedClassName}
             style={style}
@@ -570,7 +562,6 @@ const ReploInput = forwardRef<unknown, ReploInputProps>((props, ref) => {
             size={size}
             disabled={disabled}
             allowClear={allowClear as boolean}
-            bordered={bordered}
             status={status}
             variant={appearance}
             className={composedClassName}
