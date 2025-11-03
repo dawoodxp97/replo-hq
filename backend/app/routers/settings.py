@@ -62,6 +62,7 @@ def get_profile_settings(
         "website": settings.website,
         "profile_picture_url": settings.profile_picture_url,
         "connected_accounts": settings.connected_accounts or [],
+        "openai_api_key_configured": bool(settings.openai_api_key),
     }
 
 
@@ -94,6 +95,9 @@ def update_profile_settings(
         settings.connected_accounts = [
             account.model_dump() for account in profile_update.connected_accounts
         ]
+    if profile_update.openai_api_key is not None:
+        # Store OpenAI API key (in production, you should encrypt this)
+        settings.openai_api_key = profile_update.openai_api_key
     
     db.commit()
     db.refresh(settings)
@@ -108,6 +112,7 @@ def update_profile_settings(
         "website": settings.website,
         "profile_picture_url": settings.profile_picture_url,
         "connected_accounts": settings.connected_accounts or [],
+        "openai_api_key_configured": bool(settings.openai_api_key),
     }
 
 

@@ -21,6 +21,7 @@ class ProfileSettingsUpdate(BaseModel):
     website: Optional[str] = None
     profile_picture_url: Optional[str] = None
     connected_accounts: Optional[List[ConnectedAccount]] = None
+    openai_api_key: Optional[str] = None  # OpenAI API key (stored securely)
 
 
 class ProfileSettingsResponse(BaseModel):
@@ -32,6 +33,7 @@ class ProfileSettingsResponse(BaseModel):
     website: Optional[str] = None
     profile_picture_url: Optional[str] = None
     connected_accounts: Optional[List[ConnectedAccount]] = None
+    openai_api_key_configured: bool = False  # Only return if key is set, not the actual key
 
 
 # Notification Settings Schemas

@@ -6,6 +6,9 @@ export interface AuthUser {
   id?: string;
   email?: string;
   username?: string;
+  firstName?: string;
+  lastName?: string;
+  imageUrl?: string;
 }
 
 export interface GlobalState {
@@ -22,13 +25,15 @@ export interface GlobalState {
   toggleSidebar: () => void;
 }
 
-export const useGlobalStore = create(
+export const useGlobalStore = create<GlobalState>()(
   persist(
     (set) => ({
       // --- State ---
       user: null,
+      token: null,
       // We no longer need to store the token here, the cookie is the source of truth
       isAuthenticated: false,
+      isSidebarOpen: false,
 
       // --- Actions ---
       login: (userData: AuthUser, accessToken: string, refreshToken: string) => {

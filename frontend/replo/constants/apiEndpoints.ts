@@ -1,6 +1,9 @@
 export const BASE_URL = "http://localhost:8000/api";
 
 export const API_ENDPOINTS = {
+  // Search
+  SEARCH_ENTITIES: "/search/entities",
+
   // Health
   HEALTH: "/health",
 
@@ -12,6 +15,8 @@ export const API_ENDPOINTS = {
   // Tutorial
   TUTORIAL_GET_BY_ID: (id: string) => `/tutorial/${id}`,
   TUTORIAL_GET_ALL: "/tutorial",
+  TUTORIAL_GENERATE: "/tutorial/generate",
+  TUTORIAL_GENERATION_STATUS: "/tutorial/generation/status",
 
   // User
   USER_LOGIN: "/user/login",
@@ -37,4 +42,7 @@ export const API_ENDPOINTS = {
   SETTINGS_LEARNING: "/settings/learning",
   SETTINGS_SECURITY: "/settings/security",
   SETTINGS_SECURITY_PASSWORD: "/settings/security/password",
+
+  // Notifications
+  NOTIFICATIONS_GET: "/notifications",
 };

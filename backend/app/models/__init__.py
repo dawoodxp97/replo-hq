@@ -5,5 +5,6 @@ from .modules import Module
 from .quizzes import Quiz
 from .user_progress import UserProgress
 from .user_settings import UserSettings
+from .tutorial_generation import TutorialGeneration
 
-__all__ = ["User", "Repository", "Tutorial", "Module", "Quiz", "UserProgress", "UserSettings"]
+__all__ = ["User", "Repository", "Tutorial", "Module", "Quiz", "UserProgress", "UserSettings", "TutorialGeneration"]

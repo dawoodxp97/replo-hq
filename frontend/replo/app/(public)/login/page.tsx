@@ -22,6 +22,7 @@ import Button from '@/components/ui/button/Button';
 import { login as loginService } from '@/services/authService';
 import { useGlobalStore } from '@/store/useGlobalStore';
 import { LogIn } from 'lucide-react';
+import { snakeToCamel } from '@/utils/common';
 
 // Local types for strong typing
 type Credentials = { email: string; password: string };
@@ -29,7 +30,14 @@ type LoginResponse = {
   access_token: string;
   refresh_token: string;
   token_type: string;
-  user: { id?: string; email?: string; username?: string };
+  user: {
+    userId?: string;
+    email?: string;
+    username?: string;
+    firstName?: string;
+    lastName?: string;
+    imageUrl?: string;
+  };
 };
 
 export default function LoginPage() {
@@ -65,8 +73,13 @@ export default function LoginPage() {
 
     onSuccess: (data: LoginResponse) => {
       toast.success('Welcome back! Redirecting...');
+      console.log(data.user);
       // 1. Save user and both tokens
-      loginAction(data.user, data.access_token, data.refresh_token);
+      loginAction(
+        snakeToCamel(data.user),
+        data.access_token,
+        data.refresh_token
+      );
 
       // 2. Redirect to the dashboard
       router.push('/dashboard');
@@ -118,7 +131,7 @@ export default function LoginPage() {
             }}
           >
             <StarFilled
-              className="text-2xl md:text-3xl lg:text-4xl text-white animate-pulse group-hover:animate-spin transition-all duration-500"
+              className="text-2xl md:text-3xl lg:text-4xl !text-white animate-pulse group-hover:animate-spin transition-all duration-500"
               style={{
                 filter: 'drop-shadow(0 0 8px rgba(139, 92, 246, 0.8))',
                 display: 'block',
@@ -134,7 +147,7 @@ export default function LoginPage() {
             }}
           >
             <StarFilled
-              className="text-xl md:text-2xl lg:text-3xl text-white animate-pulse"
+              className="text-xl md:text-2xl lg:text-3xl !text-white animate-pulse"
               style={{
                 animationDelay: '0.3s',
                 filter: 'drop-shadow(0 0 6px rgba(96, 165, 250, 0.7))',
@@ -151,7 +164,7 @@ export default function LoginPage() {
             }}
           >
             <StarFilled
-              className="text-lg md:text-xl lg:text-2xl text-white animate-pulse"
+              className="text-lg md:text-xl lg:text-2xl !text-white animate-pulse"
               style={{
                 animationDelay: '0.6s',
                 filter: 'drop-shadow(0 0 6px rgba(167, 139, 250, 0.7))',
@@ -175,7 +188,7 @@ export default function LoginPage() {
             }}
           >
             <StarFilled
-              className="text-lg md:text-xl lg:text-2xl text-white animate-pulse"
+              className="text-lg md:text-xl lg:text-2xl !text-white animate-pulse"
               style={{
                 animationDelay: '0.9s',
                 filter: 'drop-shadow(0 0 6px rgba(167, 139, 250, 0.7))',
@@ -192,7 +205,7 @@ export default function LoginPage() {
             }}
           >
             <StarFilled
-              className="text-xl md:text-2xl lg:text-3xl text-white animate-pulse"
+              className="text-xl md:text-2xl lg:text-3xl !text-white animate-pulse"
               style={{
                 animationDelay: '1.2s',
                 filter: 'drop-shadow(0 0 6px rgba(96, 165, 250, 0.7))',
@@ -210,7 +223,7 @@ export default function LoginPage() {
             }}
           >
             <StarFilled
-              className="text-2xl md:text-3xl lg:text-4xl text-white animate-pulse group-hover:animate-spin transition-all duration-500"
+              className="text-2xl md:text-3xl lg:text-4xl !text-white animate-pulse group-hover:animate-spin transition-all duration-500"
               style={{
                 animationDelay: '1.5s',
                 filter: 'drop-shadow(0 0 8px rgba(139, 92, 246, 0.8))',
@@ -298,7 +311,7 @@ export default function LoginPage() {
                 htmlType="submit"
                 block
                 loading={loginMutation.isPending}
-                className="h-14 rounded-xl font-semibold text-lg text-white shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 !bg-gradient-to-r !from-indigo-600 !via-purple-600 !to-pink-600 hover:!from-indigo-700 hover:!via-purple-700 hover:!to-pink-700 border-0 bg-[length:200%_auto] hover:bg-[position:100%_center]"
+                className="h-14 rounded-xl font-semibold text-lg !text-white shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 !bg-gradient-to-r !from-indigo-600 !via-purple-600 !to-pink-600 hover:!from-indigo-700 hover:!via-purple-700 hover:!to-pink-700 border-0 bg-[length:200%_auto] hover:bg-[position:100%_center]"
                 icon={<LogIn className="!text-lg" />}
               >
                 {loginMutation.isPending ? 'Signing in...' : 'Sign In'}

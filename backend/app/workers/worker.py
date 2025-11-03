@@ -5,7 +5,7 @@ from arq import create_pool
 from arq.connections import RedisSettings
 from arq.worker import Worker, Function
 
-from .analysis_worker import process_repository_analysis
+from .analysis_worker import process_repository_analysis, generate_tutorial
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -31,6 +31,7 @@ class WorkerSettings:
     # Use direct callable registration to avoid ARQ Function signature conflicts
     functions = [
         process_repository_analysis,
+        generate_tutorial,
     ]
     
     # Job execution settings

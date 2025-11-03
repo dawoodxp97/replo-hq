@@ -1,8 +1,10 @@
 # ./backend/app/routers/tutorial.py
 import uuid
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from sqlalchemy.orm import Session, joinedload
+from github import Github
+from github.GithubException import BadCredentialsException, UnknownObjectException
 
 from ..db.session import get_db
 from ..core.dependencies import get_current_user
@@ -10,7 +12,9 @@ from .. import models
 from ..models.tutorials import Tutorial
 from ..models.modules import Module
 from ..models.quizzes import Quiz
-from pydantic import BaseModel
+from ..models.tutorial_generation import TutorialGeneration
+from ..models.repositories import Repository
+from pydantic import BaseModel, HttpUrl
 
 router = APIRouter()
 
@@ -40,6 +44,22 @@ class TutorialResponse(BaseModel):
     overview_diagram_mermaid: Optional[str] = None
     generated_at: str
     modules: List[ModuleResponse]
+
+# Generation request/response models
+class GenerateTutorialRequest(BaseModel):
+    repoUrl: str
+    difficulty: str  # beginner, intermediate, advanced
+    focus: Optional[List[str]] = None
+    description: Optional[str] = None
+
+class GenerationStatusResponse(BaseModel):
+    isGenerating: bool
+    generationStep: int
+    generationProgress: int
+    generationId: Optional[str] = None
+    repoId: Optional[str] = None
+    status: str
+    errorMessage: Optional[str] = None
 
 # --- API Endpoints ---
 @router.get("/{tutorial_id}", response_model=TutorialResponse)
@@ -100,4 +120,186 @@ async def get_tutorial_content(
         "overview_diagram_mermaid": tutorial.overview_diagram_mermaid,
         "generated_at": tutorial.generated_at.isoformat(),
         "modules": modules_response
+    }
+
+# --- Generation Endpoints ---
+@router.post("/generate")
+async def generate_tutorial(
+    request_data: GenerateTutorialRequest,
+    request: Request,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Initiate tutorial generation for a repository.
+    Creates a generation record and enqueues the job.
+    """
+    # Check if user has OpenAI API key configured
+    settings = db.query(models.UserSettings).filter(
+        models.UserSettings.user_id == current_user.user_id
+    ).first()
+    
+    if not settings or not settings.openai_api_key:
+        raise HTTPException(
+            status_code=400,
+            detail="OpenAI API key is required. Please add it in your profile settings."
+        )
+    
+    # Check if user has an active generation (only one at a time)
+    active_generation = db.query(TutorialGeneration).filter(
+        TutorialGeneration.user_id == current_user.user_id,
+        TutorialGeneration.status.in_(['PENDING', 'CLONING', 'ANALYZING', 'PROCESSING', 'GENERATING'])
+    ).first()
+    
+    if active_generation:
+        raise HTTPException(
+            status_code=400,
+            detail="You already have a tutorial generation in progress. Please wait for it to complete."
+        )
+    
+    # Validate GitHub repository URL and check if it's public
+    try:
+        # Extract owner and repo from URL
+        url_parts = request_data.repoUrl.replace('https://github.com/', '').replace('http://github.com/', '').strip('/')
+        if url_parts.endswith('.git'):
+            url_parts = url_parts[:-4]
+        
+        parts = url_parts.split('/')
+        if len(parts) < 2:
+            raise HTTPException(status_code=400, detail="Invalid GitHub repository URL")
+        
+        owner = parts[0]
+        repo_name = '/'.join(parts[1:])
+        
+        # Check if repository is public (no auth needed for public repos)
+        # Using GitHub API without token to check if repo is public
+        g = Github()  # No token - only works for public repos
+        repo = g.get_repo(f"{owner}/{repo_name}")
+        
+        if repo.private:
+            raise HTTPException(
+                status_code=400,
+                detail="Private repositories are not supported. Please use a public repository."
+            )
+    except UnknownObjectException:
+        raise HTTPException(
+            status_code=404,
+            detail="Repository not found or is not accessible. Please ensure the repository is public."
+        )
+    except BadCredentialsException:
+        # This shouldn't happen with no token, but handle it
+        raise HTTPException(
+            status_code=500,
+            detail="Error validating repository"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Error validating repository: {str(e)}"
+        )
+    
+    # Normalize difficulty level
+    difficulty_upper = request_data.difficulty.upper()
+    if difficulty_upper not in ['BEGINNER', 'INTERMEDIATE', 'ADVANCED']:
+        difficulty_upper = 'INTERMEDIATE'
+    
+    # Check if repository already exists in our DB
+    repo = db.query(Repository).filter(
+        Repository.github_url == request_data.repoUrl
+    ).first()
+    
+    if not repo:
+        # Create new repository
+        repo_name = request_data.repoUrl.split('/')[-1].replace('.git', '')
+        repo = Repository(
+            github_url=request_data.repoUrl,
+            name=repo_name,
+            status='PENDING',
+            user_id=current_user.user_id,
+        )
+        db.add(repo)
+        db.commit()
+        db.refresh(repo)
+    
+    # Create generation record
+    generation = TutorialGeneration(
+        user_id=current_user.user_id,
+        repo_id=repo.repo_id,
+        repo_url=request_data.repoUrl,
+        difficulty=difficulty_upper,
+        focus_areas=request_data.focus if request_data.focus else None,
+        description=request_data.description,
+        status='PENDING',
+        generation_step=0,
+        generation_progress=0,
+    )
+    db.add(generation)
+    db.commit()
+    db.refresh(generation)
+    
+    # Enqueue the job
+    try:
+        redis_pool = request.app.state.redis_pool
+        await redis_pool.enqueue_job(
+            'generate_tutorial',
+            {
+                "generation_id": str(generation.generation_id),
+                "repo_id": str(repo.repo_id),
+                "github_url": request_data.repoUrl,
+                "user_id": str(current_user.user_id),
+                "difficulty": difficulty_upper,
+                "focus_areas": request_data.focus,
+                "description": request_data.description,
+            }
+        )
+    except Exception as e:
+        # Update generation status to FAILED
+        generation.status = 'FAILED'
+        generation.error_message = f"Failed to enqueue job: {str(e)}"
+        db.commit()
+        raise HTTPException(status_code=500, detail="Failed to enqueue generation job")
+    
+    return {
+        "generationId": str(generation.generation_id),
+        "message": "Tutorial generation started"
+    }
+
+@router.get("/generation/status", response_model=GenerationStatusResponse)
+async def get_generation_status(
+    repo_url: str = Query(..., description="Repository URL to check status for"),
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get the status of an ongoing tutorial generation.
+    """
+    # Find the most recent generation for this repo and user
+    generation = db.query(TutorialGeneration).filter(
+        TutorialGeneration.repo_url == repo_url,
+        TutorialGeneration.user_id == current_user.user_id
+    ).order_by(TutorialGeneration.created_at.desc()).first()
+    
+    if not generation:
+        # No generation found
+        return {
+            "isGenerating": False,
+            "generationStep": 0,
+            "generationProgress": 0,
+            "generationId": None,
+            "repoId": None,
+            "status": "NOT_FOUND",
+            "errorMessage": None
+        }
+    
+    # Determine if generation is active
+    is_generating = generation.status in ['PENDING', 'CLONING', 'ANALYZING', 'PROCESSING', 'GENERATING']
+    
+    return {
+        "isGenerating": is_generating,
+        "generationStep": generation.generation_step,
+        "generationProgress": generation.generation_progress,
+        "generationId": str(generation.generation_id),
+        "repoId": str(generation.repo_id),
+        "status": generation.status,
+        "errorMessage": generation.error_message
     }

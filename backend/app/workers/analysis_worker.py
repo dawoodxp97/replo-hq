@@ -11,21 +11,20 @@ import git
 from tree_sitter import Language, Parser
 from transformers import AutoTokenizer, AutoModel
 import torch
-import openai
+from openai import OpenAI
 
 from ..db.session import SessionLocal
 from ..models.repositories import Repository
 from ..models.tutorials import Tutorial
 from ..models.modules import Module
 from ..models.quizzes import Quiz
+from ..models.tutorial_generation import TutorialGeneration
+from ..models.user_settings import UserSettings
 from ..core.generation_service import create_gpt_outline_prompt, create_gpt_module_prompt, create_gpt_quiz_prompt
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Initialize OpenAI client
-openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # Initialize database session
 def get_db():
@@ -49,6 +48,55 @@ async def read_file_content(repo_path: str, file_path: str) -> str:
     except Exception as e:
         logger.error(f"Error reading file {file_path}: {str(e)}")
         return ""
+
+# Function to extract repository contents (key code files)
+async def extract_repository_contents(repo_path: str, max_files: int = 50, max_file_size: int = 50000) -> Dict[str, str]:
+    """
+    Extract contents of key code files from the repository.
+    Returns a dictionary mapping file paths to their contents.
+    """
+    repo_contents = {}
+    code_extensions = ['.js', '.jsx', '.ts', '.tsx', '.py', '.java', '.cpp', '.c', '.go', '.rs', '.rb', '.php']
+    
+    try:
+        file_count = 0
+        for root, dirs, files in os.walk(repo_path):
+            # Skip hidden directories and common ignored folders
+            dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ['node_modules', '__pycache__', 'venv', '.git', 'dist', 'build']]
+            
+            for file in files:
+                if file_count >= max_files:
+                    break
+                    
+                # Check if it's a code file
+                if any(file.endswith(ext) for ext in code_extensions):
+                    file_path = os.path.join(root, file)
+                    rel_path = os.path.relpath(file_path, repo_path)
+                    
+                    # Skip if file is too large
+                    try:
+                        file_size = os.path.getsize(file_path)
+                        if file_size > max_file_size:
+                            continue
+                    except:
+                        continue
+                    
+                    try:
+                        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                            content = f.read()
+                            # Only include substantial files (more than just comments)
+                            if len(content.strip()) > 50:
+                                repo_contents[rel_path] = content
+                                file_count += 1
+                    except Exception as e:
+                        logger.warning(f"Could not read file {rel_path}: {str(e)}")
+                        continue
+        
+        logger.info(f"Extracted {len(repo_contents)} code files from repository")
+        return repo_contents
+    except Exception as e:
+        logger.error(f"Error extracting repository contents: {str(e)}")
+        return {}
 
 # Tree-sitter analysis function
 async def run_tree_sitter_analysis(repo_path: str) -> Dict[str, Any]:
@@ -242,19 +290,23 @@ async def generate_dependency_graph(code_structure: Dict[str, Any]) -> str:
         logger.error(f"Dependency graph generation failed: {str(e)}")
         return "graph TD\n  A[Error] --> B[Failed to generate graph]"
 
-# GPT-4 API call function
-async def call_gpt4(prompt: str, response_format: str = "text") -> Any:
+# GPT-4 API call function using new OpenAI client
+async def call_gpt4(api_key: str, prompt: str, response_format: str = "text") -> Any:
     """
-    Call the GPT-4 API with the given prompt.
+    Call the GPT-4 API with the given prompt using user's API key.
     Returns the response in the specified format (text or JSON).
     """
     try:
-        response = openai.ChatCompletion.create(
+        client = OpenAI(api_key=api_key)
+        
+        messages = [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": prompt}
+        ]
+        
+        response = client.chat.completions.create(
             model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": prompt}
-            ],
+            messages=messages,
             temperature=0.2,
             response_format={"type": response_format} if response_format == "json" else None
         )
@@ -430,6 +482,281 @@ async def process_repository_analysis(ctx, job_data):
     
     finally:
         # 10. Cleanup
+        await cleanup_temp_directory(local_repo_path)
+        db.close()
+
+# Helper function to update generation progress
+def update_generation_progress(
+    db,
+    generation_id: str,
+    status: str,
+    step: int,
+    progress: int,
+    error_message: Optional[str] = None
+):
+    """Update the generation status and progress."""
+    try:
+        from sqlalchemy import UUID as UUIDType
+        generation = db.query(TutorialGeneration).filter(
+            TutorialGeneration.generation_id == uuid.UUID(generation_id)
+        ).first()
+        
+        if generation:
+            generation.status = status
+            generation.generation_step = step
+            generation.generation_progress = progress
+            if error_message:
+                generation.error_message = error_message
+            db.commit()
+    except Exception as e:
+        logger.error(f"Error updating generation progress: {str(e)}")
+
+# Tutorial generation worker function
+async def generate_tutorial(ctx, job_data):
+    """
+    Worker function to generate a tutorial with custom parameters.
+    This function is triggered by a job from the arq queue.
+    
+    Args:
+        ctx: The worker context
+        job_data: The job data containing generation_id, repo_id, github_url, difficulty, focus_areas, description
+    """
+    generation_id = job_data.get('generation_id')
+    repo_id = job_data.get('repo_id')
+    github_url = job_data.get('github_url')
+    user_id = job_data.get('user_id')
+    difficulty = job_data.get('difficulty', 'INTERMEDIATE')
+    focus_areas = job_data.get('focus_areas')
+    description = job_data.get('description')
+    
+    logger.info(f"Starting tutorial generation: {generation_id} for repo {repo_id} ({github_url})")
+    
+    # Create temp directory if it doesn't exist
+    os.makedirs("/tmp/reploai", exist_ok=True)
+    local_repo_path = f"/tmp/reploai/{generation_id}"
+    
+    db = SessionLocal()
+    
+    try:
+        # Get user's OpenAI API key
+        user_settings = db.query(UserSettings).filter(
+            UserSettings.user_id == uuid.UUID(user_id)
+        ).first()
+        
+        if not user_settings or not user_settings.openai_api_key:
+            logger.error(f"OpenAI API key not found for user {user_id}")
+            update_generation_progress(db, generation_id, 'FAILED', 0, 0, "OpenAI API key not configured")
+            return {"status": "error", "message": "OpenAI API key not configured"}
+        
+        openai_api_key = user_settings.openai_api_key
+        
+        # Get generation record
+        generation = db.query(TutorialGeneration).filter(
+            TutorialGeneration.generation_id == uuid.UUID(generation_id)
+        ).first()
+        
+        if not generation:
+            logger.error(f"Generation record {generation_id} not found")
+            return {"status": "error", "message": "Generation record not found"}
+        
+        # Get repository
+        repo = db.query(Repository).filter(Repository.repo_id == uuid.UUID(repo_id)).first()
+        if not repo:
+            logger.error(f"Repository {repo_id} not found")
+            update_generation_progress(db, generation_id, 'FAILED', 0, 0, "Repository not found")
+            return {"status": "error", "message": "Repository not found"}
+        
+        repo_name = github_url.split('/')[-1].replace('.git', '')
+        
+        # Step 1: Cloning (Step 1, Progress 10%)
+        logger.info("Step 1: Cloning repository")
+        update_generation_progress(db, generation_id, 'CLONING', 1, 10)
+        git.Repo.clone_from(github_url, local_repo_path)
+        
+        # Step 2: Structure Analysis (Step 2, Progress 30%)
+        logger.info("Step 2: Analyzing code structure")
+        update_generation_progress(db, generation_id, 'ANALYZING', 2, 30)
+        code_structure_json = await run_tree_sitter_analysis(local_repo_path)
+        
+        # Step 3: Code Summarization (Step 3, Progress 50%)
+        logger.info("Step 3: Generating code summaries")
+        update_generation_progress(db, generation_id, 'PROCESSING', 3, 50)
+        code_summaries = await run_codebert_summarization(local_repo_path, code_structure_json)
+        
+        # Step 4: Dependency Graph (Step 3, Progress 60%)
+        logger.info("Step 4: Generating dependency graph")
+        main_diagram = await generate_dependency_graph(code_structure_json)
+        
+        # Step 5: Extract repository contents (Step 4, Progress 65%)
+        logger.info("Step 5: Extracting repository contents")
+        update_generation_progress(db, generation_id, 'GENERATING', 4, 65)
+        repo_contents = await extract_repository_contents(local_repo_path)
+        
+        # Step 6: Tutorial Generation (Step 4, Progress 70-100%)
+        logger.info(f"Step 6: Generating {difficulty} tutorial with AI")
+        update_generation_progress(db, generation_id, 'GENERATING', 4, 70)
+        
+        # Build enhanced prompt with repository contents
+        outline_prompt = create_gpt_outline_prompt(difficulty, code_structure_json, code_summaries)
+        
+        # Add repository contents to prompt (limit to first 20 files to avoid token limits)
+        repo_contents_str = ""
+        file_count = 0
+        for file_path, content in list(repo_contents.items())[:20]:
+            # Truncate very long files
+            content_preview = content[:2000] + "..." if len(content) > 2000 else content
+            repo_contents_str += f"\n\n=== File: {file_path} ===\n{content_preview}"
+            file_count += 1
+        
+        if repo_contents_str:
+            outline_prompt += f"\n\n=== Repository Code Files ({file_count} files shown) ==={repo_contents_str}"
+        
+        # Add focus areas and description to the prompt if provided
+        if focus_areas or description:
+            additional_context = []
+            if focus_areas:
+                additional_context.append(f"Focus Areas: {', '.join(focus_areas)}")
+            if description:
+                additional_context.append(f"Additional Context: {description}")
+            
+            if additional_context:
+                outline_prompt += f"\n\n=== Additional Requirements ===\n{chr(10).join(additional_context)}"
+        
+        tutorial_outline_json = await call_gpt4(openai_api_key, outline_prompt, response_format="json")
+        
+        if not tutorial_outline_json or len(tutorial_outline_json) == 0:
+            raise Exception("Failed to generate tutorial outline")
+        
+        # Save Tutorial to DB
+        tutorial = Tutorial(
+            repo_id=repo_id,
+            level=difficulty,
+            title=f"{difficulty} Guide for {repo_name}",
+            overview=f"An AI-generated {difficulty.lower()} overview of {repo_name}.",
+            overview_diagram_mermaid=main_diagram
+        )
+        db.add(tutorial)
+        db.commit()
+        db.refresh(tutorial)
+        
+        # Update generation with tutorial_id
+        generation.tutorial_id = tutorial.tutorial_id
+        db.commit()
+        
+        # Generate modules and quizzes
+        total_modules = len(tutorial_outline_json)
+        for index, module_outline in enumerate(tutorial_outline_json):
+            logger.info(f"Generating module {index+1}/{total_modules} for {difficulty} tutorial")
+            
+            # Update progress: 70% + (index/total_modules) * 25%
+            progress = 70 + int((index / total_modules) * 25)
+            update_generation_progress(db, generation_id, 'GENERATING', 4, progress)
+            
+            # Read file content
+            file_content = await read_file_content(local_repo_path, module_outline['file_path'])
+            
+            # Generate module content
+            module_prompt = create_gpt_module_prompt(
+                level=difficulty,
+                module_outline=module_outline,
+                file_content=file_content,
+                full_outline=tutorial_outline_json
+            )
+            
+            module_data_json = await call_gpt4(openai_api_key, module_prompt, response_format="json")
+            
+            # Save Module to DB
+            module = Module(
+                tutorial_id=tutorial.tutorial_id,
+                order_index=index,
+                title=module_data_json.get('title', module_outline.get('title', f"Module {index+1}")),
+                content_markdown=module_data_json.get('content_markdown', ''),
+                file_path=module_outline.get('file_path'),
+                code_snippet=module_data_json.get('code_snippet'),
+                diagram_mermaid=module_data_json.get('diagram_mermaid')
+            )
+            db.add(module)
+            db.commit()
+            db.refresh(module)
+            
+            # Generate quiz
+            quiz_prompt = create_gpt_quiz_prompt(
+                module_data_json.get('content_markdown', ''),
+                module_data_json.get('code_snippet', '')
+            )
+            
+            quiz_data_json = await call_gpt4(openai_api_key, quiz_prompt, response_format="json")
+            
+            # Save Quiz to DB
+            if quiz_data_json and 'question_text' in quiz_data_json:
+                quiz = Quiz(
+                    module_id=module.module_id,
+                    question_text=quiz_data_json['question_text'],
+                    question_type='MULTIPLE_CHOICE',
+                    options=quiz_data_json.get('options', []),
+                    correct_answer=next((opt['text'] for opt in quiz_data_json.get('options', []) if opt.get('is_correct')), None)
+                )
+                db.add(quiz)
+                db.commit()
+        
+        # Update repository status
+        repo.status = 'COMPLETED'
+        db.commit()
+        
+        # Mark generation as completed
+        from datetime import datetime
+        generation.status = 'COMPLETED'
+        generation.generation_step = 4
+        generation.generation_progress = 100
+        generation.completed_at = datetime.now()
+        db.commit()
+        
+        logger.info(f"Tutorial generation completed: {generation_id}")
+        
+        # Note: ARQ automatically handles job completion and cleanup.
+        # When this function returns successfully, ARQ:
+        # 1. Marks the job as complete in Redis
+        # 2. Moves it from "in_progress" to "complete" queue
+        # 3. Cleans up after the retention period (default: 1 hour)
+        # No manual Redis cleanup is required.
+        
+        return {
+            "status": "success",
+            "generation_id": str(generation_id),
+            "tutorial_id": str(tutorial.tutorial_id),
+            "message": "Tutorial generation completed successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Tutorial generation failed: {str(e)}")
+        
+        # Update generation status to FAILED
+        update_generation_progress(
+            db,
+            generation_id,
+            'FAILED',
+            0,
+            0,
+            f"Generation failed: {str(e)}"
+        )
+        
+        # Update repo status if it exists
+        try:
+            repo = db.query(Repository).filter(Repository.repo_id == repo_id).first()
+            if repo:
+                repo.status = 'FAILED'
+                db.commit()
+        except:
+            pass
+        
+        return {
+            "status": "error",
+            "generation_id": str(generation_id) if generation_id else None,
+            "message": f"Tutorial generation failed: {str(e)}"
+        }
+    
+    finally:
+        # Cleanup
         await cleanup_temp_directory(local_repo_path)
         db.close()
 

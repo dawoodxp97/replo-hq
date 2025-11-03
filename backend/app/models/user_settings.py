@@ -51,5 +51,8 @@ class UserSettings(Base):
     show_code_hints = Column(Boolean, default=True)
     quiz_mode = Column(Boolean, default=True)
     
+    # API Keys
+    openai_api_key = Column(String, nullable=True)  # Encrypted OpenAI API key for user
+    
     # Relationship
     user = relationship("User", back_populates="settings")
