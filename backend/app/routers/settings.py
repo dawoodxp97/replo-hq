@@ -96,8 +96,20 @@ def update_profile_settings(
             account.model_dump() for account in profile_update.connected_accounts
         ]
     if profile_update.openai_api_key is not None:
-        # Store OpenAI API key (in production, you should encrypt this)
-        settings.openai_api_key = profile_update.openai_api_key
+        # Store OpenAI API key
+        # Note: In production, you should encrypt this before storing
+        # Allow empty string to clear/remove the key
+        if profile_update.openai_api_key.strip() == "":
+            settings.openai_api_key = None
+        else:
+            # Basic validation: OpenAI API keys typically start with "sk-"
+            if not profile_update.openai_api_key.startswith("sk-"):
+                from fastapi import HTTPException, status
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid OpenAI API key format. Keys should start with 'sk-'"
+                )
+            settings.openai_api_key = profile_update.openai_api_key.strip()
     
     db.commit()
     db.refresh(settings)

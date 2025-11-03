@@ -21,7 +21,10 @@ class ProfileSettingsUpdate(BaseModel):
     website: Optional[str] = None
     profile_picture_url: Optional[str] = None
     connected_accounts: Optional[List[ConnectedAccount]] = None
-    openai_api_key: Optional[str] = None  # OpenAI API key (stored securely)
+    openai_api_key: Optional[str] = Field(
+        None, 
+        description="OpenAI API key string. Send empty string '' to remove/clear the key."
+    )  # OpenAI API key (stored in database)
 
 
 class ProfileSettingsResponse(BaseModel):
