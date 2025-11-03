@@ -9,6 +9,23 @@ from ..db.session import get_db
 router = APIRouter()
 
 
+def mask_api_key(api_key: Optional[str]) -> Optional[str]:
+    """
+    Mask an API key for display purposes.
+    Shows first 4 characters and last 4 characters with dots in between.
+    Example: sk-proj-abcdef123456 -> sk-...3456
+    """
+    if not api_key or len(api_key) <= 8:
+        return None
+    
+    # Show first 4 chars and last 4 chars
+    if len(api_key) <= 12:
+        # For short keys, show first 3 and last 3
+        return f"{api_key[:3]}...{api_key[-3:]}"
+    else:
+        return f"{api_key[:4]}...{api_key[-4:]}"
+
+
 def get_or_create_user_settings(
     user: models.User,
     db: Session
@@ -34,6 +51,7 @@ def get_or_create_user_settings(
         auto_play_next_module=True,
         show_code_hints=True,
         quiz_mode=True,
+        llm_provider="openai",  # Default to OpenAI
     )
     db.add(default_settings)
     db.commit()
@@ -336,6 +354,101 @@ def delete_account(
     return {"message": "Account deleted successfully"}
 
 
+# --- LLM Provider Settings Endpoints ---
+@router.get("/llm", response_model=schemas.LLMSettingsResponse)
+def get_llm_settings(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get user's LLM provider settings.
+    """
+    settings = get_or_create_user_settings(current_user, db)
+    
+    # Determine provider (default to openai if not set, with backward compatibility)
+    provider = settings.llm_provider or "openai"
+    
+    # Backward compatibility: if old openai_api_key exists but no llm_api_key, migrate
+    api_key_configured = bool(settings.llm_api_key)
+    api_key_to_mask = settings.llm_api_key
+    if not api_key_configured and settings.openai_api_key:
+        api_key_configured = True
+        api_key_to_mask = settings.openai_api_key
+        provider = "openai"
+    
+    return {
+        "llm_provider": provider,
+        "llm_model": settings.llm_model,
+        "llm_base_url": settings.llm_base_url,
+        "llm_api_key_configured": api_key_configured,
+        "llm_api_key_masked": mask_api_key(api_key_to_mask) if api_key_configured else None,
+    }
+
+
+@router.put("/llm", response_model=schemas.LLMSettingsResponse)
+def update_llm_settings(
+    llm_update: schemas.LLMSettingsUpdate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Update user's LLM provider settings.
+    Only one primary LLM provider and API key is stored at a time.
+    """
+    settings = get_or_create_user_settings(current_user, db)
+    
+    # Validate provider type
+    valid_providers = ["openai", "ollama", "huggingface", "together", "groq", "replicate", "gemini"]
+    
+    if llm_update.llm_provider is not None:
+        if llm_update.llm_provider.lower() not in valid_providers:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid LLM provider. Must be one of: {', '.join(valid_providers)}"
+            )
+        settings.llm_provider = llm_update.llm_provider.lower()
+    
+    if llm_update.llm_api_key is not None:
+        # Allow empty string to clear/remove the key
+        if llm_update.llm_api_key.strip() == "":
+            settings.llm_api_key = None
+        else:
+            # Basic validation based on provider
+            provider = settings.llm_provider or "openai"
+            api_key = llm_update.llm_api_key.strip()
+            
+            if provider == "openai" and not api_key.startswith("sk-"):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid OpenAI API key format. Keys should start with 'sk-'"
+                )
+            
+            if provider == "gemini" and not api_key.startswith("AIza"):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid Gemini API key format. Keys should start with 'AIza'"
+                )
+            
+            settings.llm_api_key = api_key
+    
+    if llm_update.llm_model is not None:
+        settings.llm_model = llm_update.llm_model.strip() if llm_update.llm_model else None
+    
+    if llm_update.llm_base_url is not None:
+        settings.llm_base_url = llm_update.llm_base_url.strip() if llm_update.llm_base_url else None
+    
+    db.commit()
+    db.refresh(settings)
+    
+    return {
+        "llm_provider": settings.llm_provider or "openai",
+        "llm_model": settings.llm_model,
+        "llm_base_url": settings.llm_base_url,
+        "llm_api_key_configured": bool(settings.llm_api_key),
+        "llm_api_key_masked": mask_api_key(settings.llm_api_key) if settings.llm_api_key else None,
+    }
+
+
 # --- Get All Settings (Optional convenience endpoint) ---
 @router.get("/all", response_model=schemas.UserSettingsResponse)
 def get_all_settings(
@@ -346,6 +459,15 @@ def get_all_settings(
     Get all user settings at once.
     """
     settings = get_or_create_user_settings(current_user, db)
+    
+    # Determine LLM provider (backward compatibility)
+    provider = settings.llm_provider or "openai"
+    api_key_configured = bool(settings.llm_api_key)
+    api_key_to_mask = settings.llm_api_key
+    if not api_key_configured and settings.openai_api_key:
+        api_key_configured = True
+        api_key_to_mask = settings.openai_api_key
+        provider = "openai"
     
     return {
         "user_id": current_user.user_id,
@@ -358,6 +480,7 @@ def get_all_settings(
             "website": settings.website,
             "profile_picture_url": settings.profile_picture_url,
             "connected_accounts": settings.connected_accounts or [],
+            "openai_api_key_configured": bool(settings.openai_api_key),
         },
         "notifications": {
             "email_notifications_enabled": settings.email_notifications_enabled,
@@ -376,5 +499,12 @@ def get_all_settings(
             "auto_play_next_module": settings.auto_play_next_module,
             "show_code_hints": settings.show_code_hints,
             "quiz_mode": settings.quiz_mode,
+        },
+        "llm": {
+            "llm_provider": provider,
+            "llm_model": settings.llm_model,
+            "llm_base_url": settings.llm_base_url,
+            "llm_api_key_configured": api_key_configured,
+            "llm_api_key_masked": mask_api_key(api_key_to_mask) if api_key_configured else None,
         },
     }

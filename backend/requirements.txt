@@ -20,6 +20,7 @@ openai==1.3.5               # For GPT-4
 transformers==4.35.2        # For CodeBERT
 torch==2.1.1                # For CodeBERT
 tree-sitter==0.20.2         # For AST Parsing
+aiohttp==3.9.1              # For async HTTP requests (Ollama, HuggingFace, Together AI, Groq)
 
 # GitHub Integration
 gitpython==3.1.40           # For cloning repositories

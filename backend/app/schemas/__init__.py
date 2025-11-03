@@ -12,6 +12,8 @@ from .settings import (
     PasswordChangeRequest,
     PasswordChangeResponse,
     UserSettingsResponse,
+    LLMSettingsUpdate,
+    LLMSettingsResponse,
 )
 
 # You can add imports from other schema files here as you create them

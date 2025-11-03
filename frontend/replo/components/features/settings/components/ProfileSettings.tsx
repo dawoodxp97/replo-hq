@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { Button } from 'antd';
-import { Github, Gitlab, Plug2, User } from 'lucide-react';
+import { Button, Select } from 'antd';
+import { Github, Gitlab, Plug2, User, Key } from 'lucide-react';
 import Image from 'next/image';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -18,6 +18,10 @@ import {
   ProfileSettingsResponse,
   ProfileSettingsUpdate,
   updateUserProfileSettings,
+  getUserLLMSettings,
+  LLMSettingsResponse,
+  LLMSettingsUpdate,
+  updateUserLLMSettings,
 } from '@/services/settingsService';
 import { SettingsCard, SettingsContentWrapper } from '../layout/SettingsLayout';
 
@@ -29,6 +33,7 @@ type PIIDetailsState = {
   location: string;
   website: string;
   profilePic: string;
+  openaiApiKeyConfigured: boolean;
   connectedAccounts: {
     id: number;
     name: string;
@@ -74,6 +79,63 @@ const ProfileSettings = () => {
 
   const isLoadingProfileSettings = isPending || isFetching;
 
+  // LLM Settings
+  type LLMSettingsCamel = {
+    llmProvider: string;
+    llmModel: string | null;
+    llmBaseUrl: string | null;
+    llmApiKeyConfigured: boolean;
+    llmApiKeyMasked: string | null;
+  };
+
+  const {
+    data: llmSettingsData,
+    isPending: isPendingLLM,
+    error: errorLLM,
+  } = useQuery<LLMSettingsCamel>({
+    queryKey: ['llmSettings'],
+    queryFn: async () => {
+      const response = await getUserLLMSettings();
+      return snakeToCamel<LLMSettingsCamel>(response);
+    },
+    retry: false,
+  });
+
+  const updateLLMMutation = useMutation({
+    mutationFn: async (llmData: LLMSettingsUpdate) => {
+      return await updateUserLLMSettings(llmData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['llmSettings'] });
+      toast.success('LLM settings updated successfully!');
+    },
+    onError: (error: any) => {
+      toast.error(
+        error?.response?.data?.detail || 'Failed to update LLM settings'
+      );
+    },
+  });
+
+  const [llmProvider, setLlmProvider] = useState('openai');
+  const [llmApiKey, setLlmApiKey] = useState('');
+  const [llmModel, setLlmModel] = useState('');
+  const [llmBaseUrl, setLlmBaseUrl] = useState('');
+
+  useEffect(() => {
+    if (llmSettingsData) {
+      console.log('llmSettingsData', llmSettingsData);
+      setLlmProvider(llmSettingsData.llmProvider || 'openai');
+      setLlmModel(llmSettingsData.llmModel || '');
+      setLlmBaseUrl(llmSettingsData.llmBaseUrl || '');
+      // Show masked key if configured, otherwise empty string
+      setLlmApiKey(
+        llmSettingsData.llmApiKeyConfigured && llmSettingsData.llmApiKeyMasked
+          ? llmSettingsData.llmApiKeyMasked
+          : ''
+      );
+    }
+  }, [llmSettingsData]);
+
   const [pIIDetails, setPIIDetails] = useState<PIIDetailsState>({
     firstName: '',
     lastName: '',
@@ -82,6 +144,7 @@ const ProfileSettings = () => {
     location: '',
     website: '',
     profilePic: '',
+    openaiApiKeyConfigured: false,
     connectedAccounts: [
       {
         id: 1,
@@ -323,6 +386,163 @@ const ProfileSettings = () => {
           </div>
         </div>
       </SettingsCard>
+
+      <SettingsCard
+        header={{
+          icon: <Key className="w-5 h-5 text-blue-600 mr-1" />,
+          title: 'LLM Provider Settings',
+          description:
+            'Configure your AI model provider for tutorial generation. Select one provider and add its API key.',
+        }}
+      >
+        <div className="space-y-6">
+          <div className="bg-gradient-to-br from-blue-50/50 via-purple-50/50 to-pink-50/50 rounded-xl p-6 border border-blue-100/50">
+            <h3 className="text-sm font-semibold text-gray-900 mb-4">
+              LLM Provider Configuration
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Provider
+                </label>
+                <Select
+                  value={llmProvider}
+                  onChange={value => setLlmProvider(value)}
+                  className="w-full"
+                  size="middle"
+                  options={[
+                    { value: 'openai', label: 'OpenAI (GPT-4, GPT-3.5)' },
+                    { value: 'ollama', label: 'Ollama (Local - Free)' },
+                    { value: 'groq', label: 'Groq (Fast Inference)' },
+                    { value: 'together', label: 'Together AI' },
+                    { value: 'huggingface', label: 'HuggingFace' },
+                    { value: 'replicate', label: 'Replicate' },
+                    { value: 'gemini', label: 'Gemini (Google AI)' },
+                  ]}
+                />
+              </div>
+
+              {llmProvider !== 'ollama' && (
+                <div>
+                  <div
+                    onClick={() => {
+                      // Clear masked key when user clicks to allow editing
+                      if (
+                        llmSettingsData?.llmApiKeyConfigured &&
+                        llmSettingsData?.llmApiKeyMasked &&
+                        llmApiKey === llmSettingsData.llmApiKeyMasked
+                      ) {
+                        setLlmApiKey('');
+                      }
+                    }}
+                    style={{
+                      cursor:
+                        llmSettingsData?.llmApiKeyConfigured &&
+                        llmApiKey === llmSettingsData?.llmApiKeyMasked
+                          ? 'pointer'
+                          : 'default',
+                    }}
+                  >
+                    <ReploInput
+                      title="API Key"
+                      kind="password"
+                      value={llmApiKey}
+                      onChange={e => setLlmApiKey(e.target.value)}
+                      disabled={
+                        llmSettingsData?.llmApiKeyConfigured &&
+                        llmApiKey === llmSettingsData?.llmApiKeyMasked
+                      }
+                      placeholder={
+                        llmProvider === 'openai'
+                          ? 'sk-proj-...'
+                          : llmProvider === 'groq'
+                          ? 'gsk_...'
+                          : llmProvider === 'gemini'
+                          ? 'AIza...'
+                          : 'Enter API key'
+                      }
+                      className="font-mono"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {llmSettingsData?.llmApiKeyConfigured
+                      ? 'API key is configured. Click the field to edit and enter a new key to update it.'
+                      : llmProvider === 'openai'
+                      ? 'Get your key at platform.openai.com/api-keys'
+                      : llmProvider === 'groq'
+                      ? 'Get your key at console.groq.com'
+                      : llmProvider === 'together'
+                      ? 'Get your key at together.ai'
+                      : llmProvider === 'huggingface'
+                      ? 'Get your key at huggingface.co/settings/tokens'
+                      : llmProvider === 'replicate'
+                      ? 'Get your key at replicate.com/account/api-tokens'
+                      : llmProvider === 'gemini'
+                      ? 'Get your key at aistudio.google.com/app/apikey'
+                      : 'Enter your API key'}
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <ReploInput
+                  title="Model Name (Optional)"
+                  kind="text"
+                  value={llmModel}
+                  onChange={e => setLlmModel(e.target.value)}
+                  placeholder={
+                    llmProvider === 'openai'
+                      ? 'gpt-4o'
+                      : llmProvider === 'ollama'
+                      ? 'llama3'
+                      : llmProvider === 'groq'
+                      ? 'llama-3.1-8b-instant'
+                      : llmProvider === 'gemini'
+                      ? 'gemini-pro'
+                      : 'Leave empty for default'
+                  }
+                />
+              </div>
+
+              {llmProvider === 'ollama' && (
+                <div>
+                  <ReploInput
+                    title="Base URL"
+                    kind="text"
+                    value={llmBaseUrl}
+                    onChange={e => setLlmBaseUrl(e.target.value)}
+                    placeholder="http://localhost:11434"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Ollama runs locally. Install from ollama.com
+                  </p>
+                </div>
+              )}
+
+              <Button
+                onClick={() => {
+                  const update: LLMSettingsUpdate = {
+                    llm_provider: llmProvider,
+                    llm_api_key: llmApiKey || null,
+                    llm_model: llmModel || null,
+                    llm_base_url:
+                      llmProvider === 'ollama' ? llmBaseUrl || null : null,
+                  };
+                  updateLLMMutation.mutate(update);
+                }}
+                disabled={
+                  updateLLMMutation.isPending ||
+                  (llmProvider !== 'ollama' && !llmApiKey)
+                }
+                className="w-full rounded-lg !bg-gradient-to-r !from-blue-600 !to-purple-600 !border-0 !text-white hover:!from-blue-700 hover:!to-purple-700"
+              >
+                {updateLLMMutation.isPending ? 'Saving...' : 'Save Settings'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </SettingsCard>
+
       <SettingsCard
         header={{
           icon: <Plug2 className="w-5 h-5 text-blue-600 mr-1" />,

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Modal, Input, Select, Form } from 'antd';
 import { Github, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import TutorialGeneratingUi from '../shared/tutorial-generating-ui/TutorialGeneratingUi';
 import {
   generateTutorial,
@@ -22,33 +22,84 @@ const { TextArea } = Input;
 
 export function GenerateModal({ open, onClose }: GenerateModalProps) {
   const [form] = Form.useForm();
-  const [repoUrlToCheck, setRepoUrlToCheck] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  // Initialize repoUrlToCheck from localStorage synchronously when modal opens
+  const getStoredRepoUrl = () => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('pendingGenerationRepoUrl');
+    }
+    return null;
+  };
+
+  const [repoUrlToCheck, setRepoUrlToCheck] = useState<string | null>(() => {
+    // Initialize from localStorage on mount
+    return getStoredRepoUrl();
+  });
 
   // Query to check generation status (polls every 10 seconds)
-  const { data: generationStatus, refetch: refetchStatus } =
-    useQuery<GenerationStatus>({
-      queryKey: ['generationStatus', repoUrlToCheck],
-      queryFn: () => getGenerationStatus(repoUrlToCheck!),
-      enabled: open && !!repoUrlToCheck,
-      refetchInterval: query => {
-        // Poll every 10 seconds if generation is in progress
-        const data = query.state.data;
-        return data?.isGenerating ? 10000 : false;
-      },
-      refetchIntervalInBackground: true,
-    });
+  const {
+    data: generationStatus,
+    refetch: refetchStatus,
+    isFetching,
+    error: statusError,
+  } = useQuery<GenerationStatus>({
+    queryKey: ['generationStatus', repoUrlToCheck],
+    queryFn: () => getGenerationStatus(repoUrlToCheck!),
+    enabled: open && !!repoUrlToCheck,
+    refetchInterval: query => {
+      // Poll every 10 seconds if generation is in progress
+      // Also poll if we have no data yet (initial load)
+      const data = query.state.data;
+      if (!data) {
+        return 10000; // Poll while waiting for initial data
+      }
+      // Stop polling if generation is complete or failed
+      if (data && !data.isGenerating && data.generationProgress === 100) {
+        return false;
+      }
+      // Stop polling if we got a failed status
+      if (
+        data &&
+        !data.isGenerating &&
+        data.generationProgress < 100 &&
+        data.generationProgress > 0
+      ) {
+        return false; // Likely failed
+      }
+      return data?.isGenerating ? 10000 : false;
+    },
+    refetchIntervalInBackground: true,
+    retry: 3,
+    retryDelay: 1000,
+  });
 
   // Mutation to initiate tutorial generation
   const generateMutation = useMutation({
     mutationFn: (data: GenerateTutorialRequest) => generateTutorial(data),
-    onSuccess: response => {
-      const repoUrl = form.getFieldValue('repoUrl');
+    onSuccess: async (response, variables) => {
+      const repoUrl = variables.repoUrl;
+
+      // Show success toast immediately
+      toast.success('Tutorial generation started!');
+
+      // Set the repo URL to check - this enables the query and shows generating UI immediately
       setRepoUrlToCheck(repoUrl);
+
       // Store in localStorage for persistence across modal closes
       if (typeof window !== 'undefined') {
         localStorage.setItem('pendingGenerationRepoUrl', repoUrl);
       }
-      toast.success('Tutorial generation started!');
+
+      // Manually trigger a refetch after a short delay to ensure the backend has created the record
+      // The delay allows the backend to create the generation record before we query
+      // Note: The query will automatically start when repoUrlToCheck is set, but we add
+      // this refetch to ensure we get the status immediately after the record is created
+      setTimeout(() => {
+        refetchStatus().catch(error => {
+          console.error('Error fetching initial status:', error);
+        });
+      }, 1000);
     },
     onError: (error: any) => {
       toast.error(
@@ -57,27 +108,64 @@ export function GenerateModal({ open, onClose }: GenerateModalProps) {
     },
   });
 
-  // Check status when modal opens
+  // Check status when modal opens - ensure we check localStorage and trigger API call
   useEffect(() => {
-    if (open) {
-      // Check if we have a stored repo URL from previous generation
-      if (typeof window !== 'undefined') {
-        const storedRepoUrl = localStorage.getItem('pendingGenerationRepoUrl');
-        if (storedRepoUrl) {
-          setRepoUrlToCheck(storedRepoUrl);
-          // Also set it in the form if form is empty
-          if (!form.getFieldValue('repoUrl')) {
-            form.setFieldValue('repoUrl', storedRepoUrl);
-          }
-        }
-      }
-    }
-  }, [open, form]);
+    if (!open) return;
 
-  // Handle generation completion
+    // Always check localStorage when modal opens to ensure we catch any active generation
+    const storedRepoUrl = getStoredRepoUrl();
+
+    if (storedRepoUrl) {
+      // Update repoUrlToCheck if it's different from stored value
+      // This ensures the query key updates and triggers a refetch
+      setRepoUrlToCheck(prev =>
+        prev !== storedRepoUrl ? storedRepoUrl : prev
+      );
+
+      // Also set it in the form if form is empty
+      const currentRepoUrl = form.getFieldValue('repoUrl');
+      if (!currentRepoUrl) {
+        form.setFieldValue('repoUrl', storedRepoUrl);
+      }
+
+      // Always trigger the API call when modal opens, even if repoUrlToCheck is already set
+      // This ensures we get the latest status every time the modal opens
+      console.log(
+        '[GenerateModal] Modal opened, fetching generation status for:',
+        storedRepoUrl
+      );
+
+      // Use fetchQuery to bypass the enabled condition and ensure it runs
+      queryClient
+        .fetchQuery({
+          queryKey: ['generationStatus', storedRepoUrl],
+          queryFn: () => getGenerationStatus(storedRepoUrl),
+          staleTime: 0, // Always consider stale to force fetch
+        })
+        .then(data => {
+          console.log('[GenerateModal] Status fetched successfully:', data);
+        })
+        .catch(error => {
+          console.error(
+            '[GenerateModal] Error fetching status on modal open:',
+            error
+          );
+        });
+    } else {
+      // If no stored repo URL, clear repoUrlToCheck to stop any previous queries
+      setRepoUrlToCheck(null);
+    }
+    // Note: We don't clear repoUrlToCheck when modal closes so status can persist
+    // It will only be cleared when generation completes or fails
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, queryClient]); // Only depend on 'open' and 'queryClient' to ensure it runs every time modal opens
+
+  // Handle generation completion and errors
   useEffect(() => {
+    if (!generationStatus) return;
+
+    // Check for successful completion
     if (
-      generationStatus &&
       !generationStatus.isGenerating &&
       generationStatus.generationProgress === 100
     ) {
@@ -93,8 +181,50 @@ export function GenerateModal({ open, onClose }: GenerateModalProps) {
         form.resetFields();
         onClose();
       }, 1500);
+      return;
+    }
+
+    // Check for failure - if status is not generating and progress is less than 100
+    // and we have an error message or status indicates failure
+    if (
+      !generationStatus.isGenerating &&
+      generationStatus.generationProgress < 100
+    ) {
+      // Check if there's an explicit error message or FAILED status
+      const hasError =
+        generationStatus.errorMessage || generationStatus.status === 'FAILED';
+
+      if (hasError) {
+        const errorMessage =
+          generationStatus.errorMessage ||
+          'Tutorial generation failed. Please try again.';
+
+        toast.error(errorMessage, {
+          duration: 5000,
+        });
+
+        // Clear stored repo URL on failure
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('pendingGenerationRepoUrl');
+        }
+
+        // Reset after showing error
+        setTimeout(() => {
+          setRepoUrlToCheck(null);
+          form.resetFields();
+        }, 3000);
+      }
     }
   }, [generationStatus, form, onClose]);
+
+  // Handle query errors
+  useEffect(() => {
+    if (statusError) {
+      console.error('Status query error:', statusError);
+      // Don't show toast for query errors, just log them
+      // The status will retry automatically
+    }
+  }, [statusError]);
 
   const handleGenerate = async (values: any) => {
     const generateData: GenerateTutorialRequest = {
@@ -107,7 +237,14 @@ export function GenerateModal({ open, onClose }: GenerateModalProps) {
     generateMutation.mutate(generateData);
   };
 
-  const isGenerating = generationStatus?.isGenerating ?? false;
+  // Determine if we're generating
+  // Show generating UI immediately after successful submission (before status check)
+  // Then rely on actual status from API
+  const isGenerating =
+    (generateMutation.isSuccess && repoUrlToCheck) || // Immediately show UI after API success
+    (generationStatus?.isGenerating ?? false) || // Use actual status from API
+    (repoUrlToCheck && !generationStatus && isFetching); // While fetching initial status
+
   const generationStep = generationStatus?.generationStep ?? 0;
   const generationProgress = generationStatus?.generationProgress ?? 0;
 
@@ -130,7 +267,12 @@ export function GenerateModal({ open, onClose }: GenerateModalProps) {
         </div>
       }
     >
-      {!isGenerating ? (
+      {isGenerating ? (
+        <TutorialGeneratingUi
+          generationStep={generationStep}
+          generationProgress={generationProgress}
+        />
+      ) : (
         <Form
           form={form}
           layout="vertical"
@@ -205,11 +347,6 @@ export function GenerateModal({ open, onClose }: GenerateModalProps) {
             </button>
           </div>
         </Form>
-      ) : (
-        <TutorialGeneratingUi
-          generationStep={generationStep}
-          generationProgress={generationProgress}
-        />
       )}
     </Modal>
   );

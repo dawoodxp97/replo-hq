@@ -1,7 +1,7 @@
 "use client";
 
-import ProgressTracker from "@/components/features/progress/ProgressTracker";
+import MyTutorials from "@/components/features/my-tutorials/MyTutorials";
 
-export default function ProgressPage() {
-  return <ProgressTracker />;
+export default function MyTutorialsPage() {
+  return <MyTutorials />;
 }

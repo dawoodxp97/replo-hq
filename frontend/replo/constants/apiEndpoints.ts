@@ -42,7 +42,7 @@ export const API_ENDPOINTS = {
   SETTINGS_LEARNING: "/settings/learning",
   SETTINGS_SECURITY: "/settings/security",
   SETTINGS_SECURITY_PASSWORD: "/settings/security/password",
-
+  SETTINGS_LLM: "/settings/llm",
   // Notifications
   NOTIFICATIONS_GET: "/notifications",
 };

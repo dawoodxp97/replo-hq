@@ -33,6 +33,8 @@ export interface GenerationStatus {
   generationProgress: number;
   generationId?: string;
   repoId?: string;
+  status?: string;
+  errorMessage?: string | null;
 }
 
 /**
@@ -55,6 +57,20 @@ export const getGenerationStatus = (repoUrl: string): Promise<GenerationStatus> 
   });
 };
 
-// You can add all other tutorial-related API calls here:
-// export const getAllTutorials = () => { ... }
-// export const updateUserProgress = (tutorialId, progress) => { ... }
+export interface TutorialListItem {
+  tutorial_id: string;
+  repo_id: string;
+  level: string;
+  title: string;
+  overview: string | null;
+  generated_at: string;
+  module_count: number;
+}
+
+/**
+ * Gets all tutorials for the current user.
+ * @returns {Promise<TutorialListItem[]>} List of tutorials.
+ */
+export const getAllTutorials = (): Promise<TutorialListItem[]> => {
+  return apiClient.get(API_ENDPOINTS.TUTORIAL_GET_ALL);
+};

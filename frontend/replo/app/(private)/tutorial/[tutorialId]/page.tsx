@@ -1,11 +1,15 @@
+'use client';
+
 import React from 'react';
-import { notFound } from 'next/navigation';
+import { notFound, useParams } from 'next/navigation';
 import { z } from 'zod';
 import TutorialPlayer from '@/components/features/tutorial/TutorialPlayer';
 
-const ParamsSchema = z.object({ tutorialId: z.string().nonempty() });
+const ParamsSchema = z.object({ tutorialId: z.string().min(1) });
 
-export default function TutorialPlaybackPage({ params }: { params: { tutorialId?: string } }) {
+export default function TutorialPlaybackPage() {
+  const params = useParams();
+  
   const parse = ParamsSchema.safeParse(params);
   if (!parse.success) {
     notFound();

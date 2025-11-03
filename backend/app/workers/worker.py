@@ -41,11 +41,19 @@ class WorkerSettings:
     # Startup and shutdown handlers
     async def startup(self, ctx):
         """Called when the worker starts up."""
-        logger.info('Worker starting up...')
+        logger.info('=' * 80)
+        logger.info('🔧 ARQ WORKER STARTING UP...')
+        logger.info(f'Redis Settings: host={REDIS_HOST}, port={REDIS_PORT}, db={REDIS_DB}')
+        logger.info(f'Registered Functions: {[f.__name__ for f in self.functions]}')
+        logger.info(f'Max Jobs: {self.max_jobs}')
+        logger.info(f'Job Timeout: {self.job_timeout}s')
+        logger.info('=' * 80)
     
     async def shutdown(self, ctx):
         """Called when the worker shuts down."""
-        logger.info('Worker shutting down...')
+        logger.info('=' * 80)
+        logger.info('🔧 ARQ WORKER SHUTTING DOWN...')
+        logger.info('=' * 80)
 
 # Function to create a Redis pool for enqueueing jobs
 async def get_redis_pool():

@@ -3,6 +3,7 @@ import uuid
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func
 from github import Github
 from github.GithubException import BadCredentialsException, UnknownObjectException
 
@@ -61,7 +62,56 @@ class GenerationStatusResponse(BaseModel):
     status: str
     errorMessage: Optional[str] = None
 
+class TutorialListItemResponse(BaseModel):
+    tutorial_id: uuid.UUID
+    repo_id: uuid.UUID
+    level: str
+    title: str
+    overview: Optional[str] = None
+    generated_at: str
+    module_count: int = 0
+
 # --- API Endpoints ---
+@router.get("", response_model=List[TutorialListItemResponse])
+async def list_tutorials(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get all tutorials for the current user.
+    Returns a list of tutorials with basic information.
+    """
+    # Get all tutorials for repositories owned by the current user
+    tutorials = db.query(Tutorial).join(
+        Repository, Tutorial.repo_id == Repository.repo_id
+    ).filter(
+        Repository.user_id == current_user.user_id
+    ).order_by(Tutorial.generated_at.desc()).all()
+    
+    # Get module counts for each tutorial
+    module_counts = db.query(
+        Module.tutorial_id,
+        func.count(Module.module_id).label('count')
+    ).filter(
+        Module.tutorial_id.in_([t.tutorial_id for t in tutorials])
+    ).group_by(Module.tutorial_id).all()
+    
+    module_count_map = {str(tutorial_id): count for tutorial_id, count in module_counts}
+    
+    # Build response
+    tutorials_response = []
+    for tutorial in tutorials:
+        tutorials_response.append({
+            "tutorial_id": tutorial.tutorial_id,
+            "repo_id": tutorial.repo_id,
+            "level": tutorial.level,
+            "title": tutorial.title,
+            "overview": tutorial.overview,
+            "generated_at": tutorial.generated_at.isoformat(),
+            "module_count": module_count_map.get(str(tutorial.tutorial_id), 0)
+        })
+    
+    return tutorials_response
 @router.get("/{tutorial_id}", response_model=TutorialResponse)
 async def get_tutorial_content(
     tutorial_id: uuid.UUID,
@@ -134,15 +184,30 @@ async def generate_tutorial(
     Initiate tutorial generation for a repository.
     Creates a generation record and enqueues the job.
     """
-    # Check if user has OpenAI API key configured
+    # Check if user has LLM API key configured (primary provider)
     settings = db.query(models.UserSettings).filter(
         models.UserSettings.user_id == current_user.user_id
     ).first()
     
-    if not settings or not settings.openai_api_key:
+    if not settings:
         raise HTTPException(
             status_code=400,
-            detail="OpenAI API key is required. Please add it in your profile settings."
+            detail="LLM provider not configured. Please configure your LLM provider in settings."
+        )
+    
+    # Check for primary LLM API key or backward compatibility with openai_api_key
+    llm_provider = settings.llm_provider or "openai"
+    has_api_key = bool(settings.llm_api_key)
+    
+    # Backward compatibility: check openai_api_key if no llm_api_key and provider is openai
+    if not has_api_key and llm_provider == "openai" and settings.openai_api_key:
+        has_api_key = True
+    
+    # Ollama doesn't require an API key
+    if llm_provider != "ollama" and not has_api_key:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{llm_provider.upper()} API key is required. Please add it in your LLM settings."
         )
     
     # Check if user has an active generation (only one at a time)
@@ -239,8 +304,22 @@ async def generate_tutorial(
     
     # Enqueue the job
     try:
+        import logging
+        logging.basicConfig(level=logging.INFO)
+        log = logging.getLogger(__name__)
+        
+        log.info(f"[GENERATION INIT] Starting job enqueue for generation_id: {generation.generation_id}")
+        log.info(f"[GENERATION INIT] Repo URL: {request_data.repoUrl}")
+        log.info(f"[GENERATION INIT] Difficulty: {difficulty_upper}")
+        log.info(f"[GENERATION INIT] User ID: {current_user.user_id}")
+        
         redis_pool = request.app.state.redis_pool
-        await redis_pool.enqueue_job(
+        if not redis_pool:
+            log.error("[GENERATION INIT] ERROR: Redis pool not initialized!")
+            raise Exception("Redis pool not initialized")
+        
+        log.info("[GENERATION INIT] Redis pool found, enqueueing job...")
+        job = await redis_pool.enqueue_job(
             'generate_tutorial',
             {
                 "generation_id": str(generation.generation_id),
@@ -252,12 +331,23 @@ async def generate_tutorial(
                 "description": request_data.description,
             }
         )
+        log.info(f"[GENERATION INIT] ✅ Job enqueued successfully! Job ID: {job.job_id if hasattr(job, 'job_id') else 'unknown'}")
+        log.info(f"[GENERATION INIT] Job data: generation_id={generation.generation_id}, repo_id={repo.repo_id}")
+        
     except Exception as e:
+        import logging
+        logging.basicConfig(level=logging.ERROR)
+        log = logging.getLogger(__name__)
+        log.error(f"[GENERATION INIT] ❌ ERROR enqueueing job: {str(e)}")
+        log.error(f"[GENERATION INIT] Exception type: {type(e).__name__}")
+        import traceback
+        log.error(f"[GENERATION INIT] Traceback: {traceback.format_exc()}")
+        
         # Update generation status to FAILED
         generation.status = 'FAILED'
         generation.error_message = f"Failed to enqueue job: {str(e)}"
         db.commit()
-        raise HTTPException(status_code=500, detail="Failed to enqueue generation job")
+        raise HTTPException(status_code=500, detail=f"Failed to enqueue generation job: {str(e)}")
     
     return {
         "generationId": str(generation.generation_id),

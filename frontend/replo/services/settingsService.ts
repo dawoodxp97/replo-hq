@@ -11,16 +11,18 @@ export type ProfileSettingsResponse = {
   website: string | null;
   profile_picture_url: string | null;
   connected_accounts: ConnectedAccount[];
+  openai_api_key_configured: boolean;
 };
 
 export type ProfileSettingsUpdate = {
-  first_name: string | null;
-  last_name: string | null;
-  bio: string | null;
-  location: string | null;
-  website: string | null;
-  profile_picture_url: string | null;
-  connected_accounts: ConnectedAccount[];
+  first_name?: string | null;
+  last_name?: string | null;
+  bio?: string | null;
+  location?: string | null;
+  website?: string | null;
+  profile_picture_url?: string | null;
+  connected_accounts?: ConnectedAccount[];
+  openai_api_key?: string | null;
 };
 
 export type ConnectedAccount = {
@@ -139,4 +141,29 @@ export const updateUserSecuritySettings = async (securitySettings: SecuritySetti
 export const updateUserPassword = async (password: PasswordChangeResponse): Promise<PasswordChangeResponse> => {
   const response = await apiClient.put<PasswordChangeResponse>(API_ENDPOINTS.SETTINGS_SECURITY_PASSWORD, password);
   return response as unknown as PasswordChangeResponse;
+};
+
+export type LLMSettingsResponse = {
+  llm_provider: string;
+  llm_model: string | null;
+  llm_base_url: string | null;
+  llm_api_key_configured: boolean;
+  llm_api_key_masked: string | null;
+};
+
+export type LLMSettingsUpdate = {
+  llm_provider?: string;
+  llm_api_key?: string | null;
+  llm_model?: string | null;
+  llm_base_url?: string | null;
+};
+
+export const getUserLLMSettings = async (): Promise<LLMSettingsResponse> => {
+  const response = await apiClient.get<LLMSettingsResponse>(API_ENDPOINTS.SETTINGS_LLM);
+  return response as unknown as LLMSettingsResponse;
+};
+
+export const updateUserLLMSettings = async (llmSettings: LLMSettingsUpdate): Promise<LLMSettingsResponse> => {
+  const response = await apiClient.put<LLMSettingsResponse>(API_ENDPOINTS.SETTINGS_LLM, llmSettings);
+  return response as unknown as LLMSettingsResponse;
 };

@@ -51,8 +51,14 @@ class UserSettings(Base):
     show_code_hints = Column(Boolean, default=True)
     quiz_mode = Column(Boolean, default=True)
     
-    # API Keys
-    openai_api_key = Column(String, nullable=True)  # Encrypted OpenAI API key for user
+    # LLM Provider Settings
+    llm_provider = Column(String, nullable=True, default="openai")  # Primary provider: openai, ollama, huggingface, together, groq, replicate
+    llm_api_key = Column(String, nullable=True)  # API key for the primary LLM provider (only one key stored at a time)
+    llm_model = Column(String, nullable=True)  # Model name (e.g., "gpt-4o", "llama3", "mistralai/Mistral-7B-Instruct-v0.2")
+    llm_base_url = Column(String, nullable=True)  # Base URL (mainly for Ollama, e.g., "http://localhost:11434")
+    
+    # API Keys (kept for backward compatibility)
+    openai_api_key = Column(String, nullable=True)  # Legacy OpenAI API key (deprecated, use llm_api_key instead)
     
     # Relationship
     user = relationship("User", back_populates="settings")

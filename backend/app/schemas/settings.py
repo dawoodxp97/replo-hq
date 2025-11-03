@@ -1,6 +1,6 @@
 # ./backend/app/schemas/settings.py
 from uuid import UUID
-from typing import List, Optional
+from typing import List, Optional, Dict
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 
@@ -21,10 +21,11 @@ class ProfileSettingsUpdate(BaseModel):
     website: Optional[str] = None
     profile_picture_url: Optional[str] = None
     connected_accounts: Optional[List[ConnectedAccount]] = None
+    # Legacy OpenAI API key (deprecated, use LLMSettingsUpdate instead)
     openai_api_key: Optional[str] = Field(
         None, 
-        description="OpenAI API key string. Send empty string '' to remove/clear the key."
-    )  # OpenAI API key (stored in database)
+        description="OpenAI API key string (deprecated). Send empty string '' to remove/clear the key. Use LLM settings instead."
+    )
 
 
 class ProfileSettingsResponse(BaseModel):
@@ -36,7 +37,37 @@ class ProfileSettingsResponse(BaseModel):
     website: Optional[str] = None
     profile_picture_url: Optional[str] = None
     connected_accounts: Optional[List[ConnectedAccount]] = None
-    openai_api_key_configured: bool = False  # Only return if key is set, not the actual key
+    openai_api_key_configured: bool = False  # Legacy field (deprecated)
+
+
+# LLM Provider Settings Schemas
+class LLMSettingsUpdate(BaseModel):
+    """Update LLM provider settings."""
+    llm_provider: Optional[str] = Field(
+        None,
+        description="Primary LLM provider type: 'openai', 'ollama', 'huggingface', 'together', 'groq', 'replicate'"
+    )
+    llm_api_key: Optional[str] = Field(
+        None,
+        description="API key for the primary LLM provider. Send empty string '' to remove/clear the key. Not required for Ollama. Only one primary key is stored at a time."
+    )
+    llm_model: Optional[str] = Field(
+        None,
+        description="Model name (e.g., 'gpt-4o', 'llama3', 'mistralai/Mistral-7B-Instruct-v0.2')"
+    )
+    llm_base_url: Optional[str] = Field(
+        None,
+        description="Base URL for the LLM provider (mainly for Ollama, e.g., 'http://localhost:11434')"
+    )
+
+
+class LLMSettingsResponse(BaseModel):
+    """Response for LLM provider settings (never returns the actual API key)."""
+    llm_provider: str = "openai"
+    llm_model: Optional[str] = None
+    llm_base_url: Optional[str] = None
+    llm_api_key_configured: bool = False  # Only indicates if key is set, not the actual key
+    llm_api_key_masked: Optional[str] = None  # Masked version of the API key (e.g., "sk-...1234")
 
 
 # Notification Settings Schemas
@@ -102,3 +133,4 @@ class UserSettingsResponse(BaseModel):
     notifications: Optional[NotificationSettingsResponse] = None
     appearance: Optional[AppearanceSettingsResponse] = None
     learning: Optional[LearningSettingsResponse] = None
+    llm: Optional[LLMSettingsResponse] = None
