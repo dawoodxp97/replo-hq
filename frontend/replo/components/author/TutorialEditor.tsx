@@ -5,6 +5,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/apiClient';
 import { API_ENDPOINTS } from '@/constants/apiEndpoints';
 import dynamic from 'next/dynamic';
+import Loader from '../ui/loader/Loader';
+import Error from '../ui/error/Error';
 
 const ModuleEditor = dynamic(() => import('./ModuleEditor'), { ssr: false });
 const QuizEditor = dynamic(() => import('./QuizEditor'), { ssr: false });
@@ -51,7 +53,11 @@ const TutorialEditor = ({ tutorialId }: TutorialEditorProps) => {
   const queryClient = useQueryClient();
 
   // Fetch tutorial data
-  const { data: tutorial, isLoading, error } = useQuery<Tutorial>({
+  const {
+    data: tutorial,
+    isLoading,
+    error,
+  } = useQuery<Tutorial>({
     queryKey: ['tutorial', tutorialId],
     queryFn: async () => {
       return apiClient.get(API_ENDPOINTS.TUTORIAL_GET_BY_ID(tutorialId));
@@ -61,20 +67,20 @@ const TutorialEditor = ({ tutorialId }: TutorialEditorProps) => {
 
   // Mutation for updating a module
   const updateModuleMutation = useMutation({
-    mutationFn: async (moduleData: { 
-      moduleId: string; 
-      title: string; 
-      content_markdown: string; 
+    mutationFn: async (moduleData: {
+      moduleId: string;
+      title: string;
+      content_markdown: string;
       code_snippet: string;
       diagram_mermaid?: string;
     }) => {
       return apiClient.put(
-        API_ENDPOINTS.AUTHOR_UPDATE_MODULE(moduleData.moduleId), 
+        API_ENDPOINTS.AUTHOR_UPDATE_MODULE(moduleData.moduleId),
         {
           title: moduleData.title,
           content_markdown: moduleData.content_markdown,
           code_snippet: moduleData.code_snippet,
-          diagram_mermaid: moduleData.diagram_mermaid
+          diagram_mermaid: moduleData.diagram_mermaid,
         }
       );
     },
@@ -85,18 +91,15 @@ const TutorialEditor = ({ tutorialId }: TutorialEditorProps) => {
 
   // Mutation for updating a quiz
   const updateQuizMutation = useMutation({
-    mutationFn: async (quizData: { 
-      quizId: string; 
-      question_text: string; 
+    mutationFn: async (quizData: {
+      quizId: string;
+      question_text: string;
       options: Array<{ text: string; is_correct: boolean }>;
     }) => {
-      return apiClient.put(
-        API_ENDPOINTS.AUTHOR_UPDATE_QUIZ(quizData.quizId), 
-        {
-          question_text: quizData.question_text,
-          options: quizData.options
-        }
-      );
+      return apiClient.put(API_ENDPOINTS.AUTHOR_UPDATE_QUIZ(quizData.quizId), {
+        question_text: quizData.question_text,
+        options: quizData.options,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tutorial', tutorialId] });
@@ -106,16 +109,20 @@ const TutorialEditor = ({ tutorialId }: TutorialEditorProps) => {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <Loader type="spinner" size="lg" />
+        <p className="text-lg text-gray-600">Loading tutorial...</p>
       </div>
     );
   }
 
   if (error || !tutorial) {
     return (
-      <div className="bg-red-50 p-4 rounded-lg text-red-700">
-        Failed to load tutorial. Please try again later.
-      </div>
+      <Error
+        variant="full"
+        title="Error loading tutorial"
+        message="Failed to load tutorial. Please try again later."
+        error={error}
+      />
     );
   }
 
@@ -129,7 +136,7 @@ const TutorialEditor = ({ tutorialId }: TutorialEditorProps) => {
   }) => {
     updateModuleMutation.mutate({
       moduleId: currentModule.module_id,
-      ...moduleData
+      ...moduleData,
     });
   };
 
@@ -140,7 +147,7 @@ const TutorialEditor = ({ tutorialId }: TutorialEditorProps) => {
     if (currentModule.quiz) {
       updateQuizMutation.mutate({
         quizId: currentModule.quiz.quiz_id,
-        ...quizData
+        ...quizData,
       });
     }
   };
@@ -151,7 +158,7 @@ const TutorialEditor = ({ tutorialId }: TutorialEditorProps) => {
       <div className="w-64 bg-gray-100 p-4 overflow-y-auto border-r">
         <h2 className="text-lg font-semibold mb-4">{tutorial.title}</h2>
         <p className="text-sm text-gray-600 mb-4">Level: {tutorial.level}</p>
-        
+
         <h3 className="font-medium mb-2">Modules</h3>
         <ul className="space-y-1">
           {tutorial.modules.map((module, index) => (
@@ -170,19 +177,19 @@ const TutorialEditor = ({ tutorialId }: TutorialEditorProps) => {
           ))}
         </ul>
       </div>
-      
+
       {/* Main content area */}
       <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-2xl font-bold mb-6">Edit Module</h2>
-          
+
           {/* Module editor */}
           <ModuleEditor
             module={currentModule}
             onUpdate={handleModuleUpdate}
             isUpdating={updateModuleMutation.isPending}
           />
-          
+
           {/* Quiz editor */}
           {currentModule.quiz && (
             <div className="mt-8">

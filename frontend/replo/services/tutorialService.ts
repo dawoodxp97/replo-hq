@@ -65,6 +65,10 @@ export interface TutorialListItem {
   overview: string | null;
   generated_at: string;
   module_count: number;
+  completed_modules: number;
+  progress_percentage: number;
+  repo_name: string | null;
+  repo_url: string | null;
 }
 
 /**

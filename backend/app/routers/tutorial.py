@@ -15,6 +15,7 @@ from ..models.modules import Module
 from ..models.quizzes import Quiz
 from ..models.tutorial_generation import TutorialGeneration
 from ..models.repositories import Repository
+from ..models.user_progress import UserProgress
 from pydantic import BaseModel, HttpUrl
 
 router = APIRouter()
@@ -45,6 +46,8 @@ class TutorialResponse(BaseModel):
     overview_diagram_mermaid: Optional[str] = None
     generated_at: str
     modules: List[ModuleResponse]
+    repo_name: Optional[str] = None
+    repo_url: Optional[str] = None
 
 # Generation request/response models
 class GenerateTutorialRequest(BaseModel):
@@ -70,6 +73,10 @@ class TutorialListItemResponse(BaseModel):
     overview: Optional[str] = None
     generated_at: str
     module_count: int = 0
+    completed_modules: int = 0
+    progress_percentage: int = 0
+    repo_name: Optional[str] = None
+    repo_url: Optional[str] = None
 
 # --- API Endpoints ---
 @router.get("", response_model=List[TutorialListItemResponse])
@@ -98,9 +105,45 @@ async def list_tutorials(
     
     module_count_map = {str(tutorial_id): count for tutorial_id, count in module_counts}
     
+    # Get all modules for all tutorials in a single query
+    tutorial_ids = [t.tutorial_id for t in tutorials]
+    all_modules = db.query(Module.tutorial_id, Module.module_id).filter(
+        Module.tutorial_id.in_(tutorial_ids)
+    ).all()
+    
+    # Build module_ids_by_tutorial map
+    module_ids_by_tutorial = {}
+    all_module_ids = []
+    for tutorial_id, module_id in all_modules:
+        tutorial_id_str = str(tutorial_id)
+        if tutorial_id_str not in module_ids_by_tutorial:
+            module_ids_by_tutorial[tutorial_id_str] = []
+        module_ids_by_tutorial[tutorial_id_str].append(module_id)
+        all_module_ids.append(module_id)
+    
+    # Get completed progress for current user
+    completed_progress = db.query(UserProgress.module_id).filter(
+        UserProgress.user_id == current_user.user_id,
+        UserProgress.module_id.in_(all_module_ids)
+    ).all()
+    completed_module_ids = {str(p.module_id) for p in completed_progress}
+    
+    # Get repository information
+    repo_ids = [t.repo_id for t in tutorials]
+    repositories = db.query(Repository).filter(Repository.repo_id.in_(repo_ids)).all()
+    repo_map = {str(r.repo_id): r for r in repositories}
+    
     # Build response
     tutorials_response = []
     for tutorial in tutorials:
+        tutorial_id_str = str(tutorial.tutorial_id)
+        module_ids = module_ids_by_tutorial.get(tutorial_id_str, [])
+        completed_count = sum(1 for mid in module_ids if str(mid) in completed_module_ids)
+        total_modules = module_count_map.get(tutorial_id_str, 0)
+        progress_pct = int((completed_count / total_modules * 100)) if total_modules > 0 else 0
+        
+        repo = repo_map.get(str(tutorial.repo_id))
+        
         tutorials_response.append({
             "tutorial_id": tutorial.tutorial_id,
             "repo_id": tutorial.repo_id,
@@ -108,7 +151,11 @@ async def list_tutorials(
             "title": tutorial.title,
             "overview": tutorial.overview,
             "generated_at": tutorial.generated_at.isoformat(),
-            "module_count": module_count_map.get(str(tutorial.tutorial_id), 0)
+            "module_count": total_modules,
+            "completed_modules": completed_count,
+            "progress_percentage": progress_pct,
+            "repo_name": repo.name if repo else None,
+            "repo_url": repo.github_url if repo else None
         })
     
     return tutorials_response
@@ -126,6 +173,9 @@ async def get_tutorial_content(
     tutorial = db.query(Tutorial).filter(Tutorial.tutorial_id == tutorial_id).first()
     if not tutorial:
         raise HTTPException(status_code=404, detail="Tutorial not found")
+    
+    # Get repository information
+    repo = db.query(Repository).filter(Repository.repo_id == tutorial.repo_id).first()
     
     # Get all modules for this tutorial, ordered by order_index
     modules = db.query(Module).filter(Module.tutorial_id == tutorial_id).order_by(Module.order_index).all()
@@ -169,7 +219,9 @@ async def get_tutorial_content(
         "overview": tutorial.overview,
         "overview_diagram_mermaid": tutorial.overview_diagram_mermaid,
         "generated_at": tutorial.generated_at.isoformat(),
-        "modules": modules_response
+        "modules": modules_response,
+        "repo_name": repo.name if repo else None,
+        "repo_url": repo.github_url if repo else None
     }
 
 # --- Generation Endpoints ---

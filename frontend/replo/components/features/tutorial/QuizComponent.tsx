@@ -29,11 +29,20 @@ const QuizComponent = ({ quiz, onComplete }: QuizComponentProps) => {
 
   // Mutation for submitting quiz answer
   const submitQuizMutation = useMutation({
-    mutationFn: async ({ quizId, answer }: { quizId: string; answer: string }) => {
-      const response = await apiClient.post(API_ENDPOINTS.PROGRESS_SUBMIT_QUIZ, {
-        quiz_id: quizId,
-        submitted_answer: answer,
-      });
+    mutationFn: async ({
+      quizId,
+      answer,
+    }: {
+      quizId: string;
+      answer: string;
+    }) => {
+      const response = await apiClient.post(
+        API_ENDPOINTS.PROGRESS_SUBMIT_QUIZ,
+        {
+          quiz_id: quizId,
+          submitted_answer: answer,
+        }
+      );
       return response as unknown as { is_correct: boolean };
     },
     onSuccess: (data: { is_correct: boolean }) => {
@@ -65,39 +74,65 @@ const QuizComponent = ({ quiz, onComplete }: QuizComponentProps) => {
   return (
     <div className="quiz-component">
       <p className="font-medium mb-4">{quiz.question_text}</p>
-      
-      <div className="space-y-2 mb-6">
+
+      <div className="space-y-3 mb-6">
         {quiz.options.map((option, index) => (
           <div
             key={index}
-            className={`p-3 border rounded cursor-pointer ${
+            className={`group relative p-4 border-2 rounded-xl cursor-pointer transition-all duration-300 ease-in-out transform ${
               selectedAnswer === option.text
                 ? submitted
                   ? isCorrect
-                    ? 'bg-green-100 border-green-500'
+                    ? 'bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-400 shadow-lg shadow-emerald-100 scale-[1.02]'
                     : option.is_correct
-                    ? 'bg-green-100 border-green-500'
-                    : 'bg-red-100 border-red-500'
-                  : 'bg-blue-50 border-blue-500'
-                : 'hover:bg-gray-100'
-            }`}
+                    ? 'bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-400 shadow-lg shadow-emerald-100 scale-[1.02]'
+                    : 'bg-gradient-to-r from-red-50 to-rose-50 border-red-400 shadow-lg shadow-red-100 scale-[1.02]'
+                  : 'bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border-blue-400 shadow-md shadow-blue-100 scale-[1.01]'
+                : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-md hover:scale-[1.01] hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100'
+            } ${submitted ? 'cursor-default' : ''}`}
             onClick={() => handleOptionSelect(option.text)}
           >
-            {option.text}
-            
-            {submitted && selectedAnswer === option.text && (
-              <span className="float-right">
-                {option.is_correct ? '✓' : '✗'}
+            <div className="flex items-center justify-between">
+              <span
+                className={`font-medium ${
+                  selectedAnswer === option.text
+                    ? submitted
+                      ? isCorrect
+                        ? 'text-emerald-700'
+                        : option.is_correct
+                        ? 'text-emerald-700'
+                        : 'text-red-700'
+                      : 'text-blue-700'
+                    : 'text-gray-700'
+                }`}
+              >
+                {option.text}
               </span>
-            )}
-            
-            {submitted && option.is_correct && selectedAnswer !== option.text && (
-              <span className="float-right text-green-600">✓</span>
-            )}
+
+              {submitted && selectedAnswer === option.text && (
+                <span
+                  className={`ml-3 flex items-center justify-center w-6 h-6 rounded-full font-bold text-sm transition-all duration-300 ${
+                    option.is_correct
+                      ? 'bg-emerald-500 text-white shadow-md shadow-emerald-200'
+                      : 'bg-red-500 text-white shadow-md shadow-red-200'
+                  }`}
+                >
+                  {option.is_correct ? '✓' : '✗'}
+                </span>
+              )}
+
+              {submitted &&
+                option.is_correct &&
+                selectedAnswer !== option.text && (
+                  <span className="ml-3 flex items-center justify-center w-6 h-6 rounded-full bg-emerald-500 text-white font-bold text-sm shadow-md shadow-emerald-200 transition-all duration-300">
+                    ✓
+                  </span>
+                )}
+            </div>
           </div>
         ))}
       </div>
-      
+
       {!submitted ? (
         <button
           onClick={handleSubmit}
@@ -105,13 +140,15 @@ const QuizComponent = ({ quiz, onComplete }: QuizComponentProps) => {
           className={`px-4 py-2 rounded ${
             !selectedAnswer
               ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-              : 'bg-blue-600 text-white hover:bg-blue-700'
+              : 'bg-blue-600 !text-white hover:bg-blue-700 cursor-pointer'
           }`}
         >
           Submit Answer
         </button>
       ) : (
-        <div className={`p-4 rounded ${isCorrect ? 'bg-green-100' : 'bg-red-100'}`}>
+        <div
+          className={`p-4 rounded ${isCorrect ? 'bg-green-100' : 'bg-red-100'}`}
+        >
           <p className="font-medium">
             {isCorrect
               ? 'Correct! Well done!'
