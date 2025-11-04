@@ -1,9 +1,18 @@
 'use client';
 
-import { Badge, Popover, Skeleton, Typography, Empty, Divider } from 'antd';
+import {
+  Badge,
+  Popover,
+  Skeleton,
+  Typography,
+  Empty,
+  Divider,
+  message,
+} from 'antd';
 import { Bell, CheckCircle2, AlertCircle, Info, Sparkles } from 'lucide-react';
 import { memo, useState, useMemo, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import apiClient from '@/lib/apiClient';
 import { API_ENDPOINTS } from '@/constants/apiEndpoints';
 import {
@@ -79,71 +88,87 @@ const groupNotificationsByDate = (
   }, {} as Record<string, Notification[]>);
 };
 
+// API response interface
+interface NotificationListResponse {
+  notifications: Notification[];
+  unread_count: number;
+}
+
 // Fetch notifications
-const fetchNotifications = async (): Promise<Notification[]> => {
+const fetchNotifications = async (): Promise<NotificationListResponse> => {
   try {
     const response: any = await apiClient.get(API_ENDPOINTS.NOTIFICATIONS_GET);
     // Support both AxiosResponse and plain data returns
     const data = response?.data ?? response;
-    return Array.isArray(data) ? data : [];
+
+    // Handle the response format from backend
+    if (data && typeof data === 'object' && 'notifications' in data) {
+      return {
+        notifications: data.notifications || [],
+        unread_count: data.unread_count || 0,
+      };
+    }
+
+    // Fallback for old format (if API returns array directly)
+    if (Array.isArray(data)) {
+      return {
+        notifications: data,
+        unread_count: data.filter((n: Notification) => !n.read).length,
+      };
+    }
+
+    return { notifications: [], unread_count: 0 };
   } catch (error) {
     console.error('Failed to fetch notifications:', error);
-    return [];
+    return { notifications: [], unread_count: 0 };
   }
 };
 
-const dummyNotifications: Notification[] = [
-  {
-    id: '1',
-    title: 'Notification 1',
-    message: 'This is a notification',
-    type: 'success',
-    created_at: new Date().toISOString(),
-    read: false,
-  },
-  {
-    id: '2',
-    title: 'Notification 2',
-    message: 'This is a notification',
-    type: 'info',
-    created_at: new Date().toISOString(),
-    read: false,
-  },
-  {
-    id: '3',
-    title: 'Notification 3',
-    message: 'This is a notification',
-    type: 'warning',
-    created_at: new Date().toISOString(),
-    read: true,
-  },
-  {
-    id: '4',
-    title: 'Notification 4',
-    message: 'This is a notification',
-    type: 'default',
-    created_at: new Date().toISOString(),
-    read: false,
-  },
-];
+// Mark notification as read
+const markNotificationAsRead = async (
+  notificationId: string
+): Promise<void> => {
+  try {
+    await apiClient.put(API_ENDPOINTS.NOTIFICATIONS_MARK_READ(notificationId));
+  } catch (error) {
+    console.error('Failed to mark notification as read:', error);
+    throw error;
+  }
+};
+
+// Mark all notifications as read
+const markAllNotificationsAsRead = async (): Promise<void> => {
+  try {
+    await apiClient.put(API_ENDPOINTS.NOTIFICATIONS_MARK_ALL_READ);
+  } catch (error) {
+    console.error('Failed to mark all notifications as read:', error);
+    throw error;
+  }
+};
 
 const Notification = () => {
   const [open, setOpen] = useState(false);
+  const router = useRouter();
+  const queryClient = useQueryClient();
 
   // Fetch notifications using useQuery
   const {
-    data: notifications = dummyNotifications,
+    data: notificationData,
     isLoading,
     isFetching,
     error,
     refetch,
-  } = useQuery<Notification[]>({
+  } = useQuery<NotificationListResponse>({
     queryKey: ['notifications'],
     queryFn: fetchNotifications,
-    enabled: false, // Don't auto-fetch, we'll trigger it manually
-    refetchOnWindowFocus: false,
-    staleTime: 0, // Always consider data stale, so it refetches every time
+    enabled: true, // Enable auto-fetching
+    refetchOnWindowFocus: true,
+    staleTime: 30000, // Consider data stale after 30 seconds
+    refetchInterval: 60000, // Refetch every minute when open
   });
+
+  const notifications = notificationData?.notifications || [];
+  const unreadCount = notificationData?.unread_count || 0;
 
   // Refetch notifications whenever dropdown opens
   useEffect(() => {
@@ -152,14 +177,82 @@ const Notification = () => {
     }
   }, [open, refetch]);
 
+  // Handle mark as read
+  const handleMarkAsRead = async (
+    notification: Notification,
+    e?: React.MouseEvent
+  ) => {
+    if (e) {
+      e.stopPropagation();
+    }
+
+    if (notification.read) return;
+
+    try {
+      await markNotificationAsRead(notification.id);
+      // Optimistically update the cache
+      queryClient.setQueryData<NotificationListResponse>(
+        ['notifications'],
+        old => {
+          if (!old) return old;
+          return {
+            notifications: old.notifications.map(n =>
+              n.id === notification.id ? { ...n, read: true } : n
+            ),
+            unread_count: Math.max(0, old.unread_count - 1),
+          };
+        }
+      );
+    } catch (error) {
+      message.error('Failed to mark notification as read');
+    }
+  };
+
+  // Handle mark all as read
+  const handleMarkAllAsRead = async () => {
+    if (unreadCount === 0) return;
+
+    try {
+      await markAllNotificationsAsRead();
+      // Optimistically update the cache
+      queryClient.setQueryData<NotificationListResponse>(
+        ['notifications'],
+        old => {
+          if (!old) return old;
+          return {
+            notifications: old.notifications.map(n => ({ ...n, read: true })),
+            unread_count: 0,
+          };
+        }
+      );
+      message.success('All notifications marked as read');
+    } catch (error) {
+      message.error('Failed to mark all notifications as read');
+    }
+  };
+
+  // Handle notification click
+  const handleNotificationClick = async (notification: Notification) => {
+    // Mark as read if unread
+    if (!notification.read) {
+      await handleMarkAsRead(notification);
+    }
+
+    // Navigate if link exists
+    if (notification.link) {
+      // Check if it's an absolute URL or relative path
+      if (notification.link.startsWith('http')) {
+        window.location.href = notification.link;
+      } else {
+        router.push(notification.link);
+        setOpen(false);
+      }
+    }
+  };
+
   // Group notifications by date
   const groupedNotifications = useMemo(() => {
     return groupNotificationsByDate(notifications);
-  }, [notifications]);
-
-  // Count unread notifications
-  const unreadCount = useMemo(() => {
-    return notifications.filter(n => !n.read).length;
   }, [notifications]);
 
   // Notification content
@@ -234,11 +327,7 @@ const Notification = () => {
                             ? 'border-b border-gray-100'
                             : ''
                         }`}
-                        onClick={() => {
-                          if (notification.link) {
-                            window.location.href = notification.link;
-                          }
-                        }}
+                        onClick={() => handleNotificationClick(notification)}
                       >
                         <div className="flex gap-3">
                           {/* Icon */}
@@ -306,16 +395,22 @@ const Notification = () => {
       </div>
 
       {/* Footer */}
-      {!isLoading && !isFetching && notifications.length > 0 && (
-        <div className="px-4 py-3 border-t border-gray-200 bg-gray-50">
-          <Text
-            type="secondary"
-            className="text-xs text-center block cursor-pointer hover:text-indigo-600 transition-colors"
+      {!isLoading &&
+        !isFetching &&
+        notifications.length > 0 &&
+        unreadCount > 0 && (
+          <div
+            className="px-4 py-3 border-t border-gray-200 bg-gray-50"
+            onClick={handleMarkAllAsRead}
           >
-            Mark all as read
-          </Text>
-        </div>
-      )}
+            <Text
+              type="secondary"
+              className="text-xs text-center block cursor-pointer hover:text-indigo-600 transition-colors"
+            >
+              Mark all as read
+            </Text>
+          </div>
+        )}
     </div>
   );
 

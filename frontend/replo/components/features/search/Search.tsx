@@ -3,7 +3,10 @@ import { useRouter } from 'next/navigation';
 import { Select, Spin, Avatar, Tag } from 'antd';
 import type { SelectProps } from 'antd';
 import { debounce } from 'lodash';
-import { searchEntities } from '@/services/searchService';
+import {
+  searchEntities,
+  type EntityValue as SearchEntityValue,
+} from '@/services/searchService';
 import { SearchOutlined } from '@ant-design/icons';
 import { TextSearch } from 'lucide-react';
 import {
@@ -19,11 +22,12 @@ import {
 } from '@/constants/gradientColors';
 
 interface EntityValue {
-  label: string;
-  value: string;
   id: string;
-  avatar?: string;
+  label: string;
   type: 'repository' | 'tutorial' | 'module' | 'quiz';
+  avatar?: string;
+  tutorial_id?: string;
+  module_index?: number;
 }
 
 export interface DebounceSelectProps<ValueType = any>
@@ -31,6 +35,12 @@ export interface DebounceSelectProps<ValueType = any>
   fetchOptions: (search: string) => Promise<ValueType[]>;
   debounceTimeout?: number;
 }
+
+// Extended type that includes both Ant Design's required fields and our EntityValue
+type SelectOptionValue = SearchEntityValue & {
+  value: string;
+  key?: string;
+};
 
 // Type icons mapping
 const getTypeIcon = (type: EntityValue['type']) => {
@@ -60,7 +70,7 @@ function DebounceSelect<
     label: React.ReactNode;
     value: string | number;
     avatar?: string;
-    type?: EntityValue['type'];
+    type?: SearchEntityValue['type'];
   } = any
 >({
   fetchOptions,
@@ -69,6 +79,7 @@ function DebounceSelect<
 }: DebounceSelectProps<ValueType>) {
   const [fetching, setFetching] = useState(false);
   const [options, setOptions] = useState<ValueType[]>([]);
+  const [open, setOpen] = useState(false);
   const fetchRef = useRef(0);
 
   const debounceFetcher = useMemo(() => {
@@ -81,7 +92,6 @@ function DebounceSelect<
 
       fetchRef.current += 1;
       const fetchId = fetchRef.current;
-      setOptions([]);
       setFetching(true);
 
       fetchOptions(value)
@@ -91,8 +101,15 @@ function DebounceSelect<
             return;
           }
 
-          setOptions(newOptions);
+          console.log('Search results received:', newOptions);
+          // Options are already in the correct format from handleSearch
+          // They should have label, value, and all entity fields
+          setOptions(newOptions as ValueType[]);
           setFetching(false);
+          // Open dropdown if we have results
+          if (newOptions.length > 0) {
+            setOpen(true);
+          }
         })
         .catch(error => {
           if (fetchId !== fetchRef.current) {
@@ -111,13 +128,23 @@ function DebounceSelect<
     <Select
       labelInValue
       filterOption={false}
-      onSearch={debounceFetcher}
-      prefix={<TextSearch className="text-purple-500" />}
-      onFocus={() => {
-        // Clear options when focusing to allow fresh search
-        if (options.length > 0) {
-          setOptions([]);
+      open={open}
+      onDropdownVisibleChange={setOpen}
+      onSearch={value => {
+        if (value.trim().length > 0) {
+          setOpen(true);
         }
+        debounceFetcher(value);
+      }}
+      onFocus={() => {
+        // Open dropdown if there are options
+        if (options.length > 0) {
+          setOpen(true);
+        }
+      }}
+      onBlur={() => {
+        // Keep dropdown open briefly to allow selection
+        setTimeout(() => setOpen(false), 200);
       }}
       loading={fetching}
       notFoundContent={
@@ -135,7 +162,11 @@ function DebounceSelect<
       {...props}
       options={options}
       optionRender={option => {
-        const entity = option.data as unknown as EntityValue;
+        // Find the full entity data from options array
+        const fullOption = options.find(
+          opt => String(opt.value) === String(option.value)
+        );
+        const entity = (fullOption || option) as unknown as SelectOptionValue;
         const type = entity?.type || 'repository';
         return (
           <div className="flex items-center gap-3 py-1">
@@ -168,6 +199,7 @@ function DebounceSelect<
       showSearch
       allowClear
       size="large"
+      suffixIcon={<TextSearch className="text-purple-500 w-4 h-4" />}
     />
   );
 }
@@ -178,7 +210,7 @@ const Search = () => {
   const [isSearching, setIsSearching] = useState(false);
 
   const handleSearch = useCallback(
-    async (query: string): Promise<EntityValue[]> => {
+    async (query: string): Promise<SelectOptionValue[]> => {
       if (!query || query.trim().length === 0) {
         return [];
       }
@@ -188,7 +220,6 @@ const Search = () => {
         const results = await searchEntities(query.trim());
         return results.map(entity => ({
           ...entity,
-          label: entity.label,
           value: entity.id,
           key: entity.id,
         }));
@@ -203,7 +234,7 @@ const Search = () => {
   );
 
   const navigateToEntity = useCallback(
-    (entity: EntityValue) => {
+    (entity: SelectOptionValue) => {
       switch (entity.type) {
         case 'repository':
           router.push(`/repo/${entity.id}`);
@@ -212,13 +243,28 @@ const Search = () => {
           router.push(`/tutorial/${entity.id}`);
           break;
         case 'module':
-          // Modules are typically part of tutorials, navigate to parent tutorial if possible
-          // For now, just log - you may need to adjust based on your data structure
-          console.log('Module navigation:', entity);
+          // Navigate to the parent tutorial and jump to the specific module
+          if (entity.tutorial_id) {
+            const moduleIndex =
+              entity.module_index !== undefined ? entity.module_index : 0;
+            router.push(
+              `/tutorial/${entity.tutorial_id}?module=${moduleIndex}`
+            );
+          } else {
+            console.error('Module missing tutorial_id:', entity);
+          }
           break;
         case 'quiz':
-          // Quizzes are typically part of tutorials, navigate to parent tutorial if possible
-          console.log('Quiz navigation:', entity);
+          // Navigate to the parent tutorial and jump to the module containing the quiz
+          if (entity.tutorial_id) {
+            const moduleIndex =
+              entity.module_index !== undefined ? entity.module_index : 0;
+            router.push(
+              `/tutorial/${entity.tutorial_id}?module=${moduleIndex}`
+            );
+          } else {
+            console.error('Quiz missing tutorial_id:', entity);
+          }
           break;
         default:
           console.log('Unknown entity type:', entity);
@@ -233,14 +279,23 @@ const Search = () => {
   );
 
   const handleChange = useCallback(
-    (newValue: EntityValue | EntityValue[] | null) => {
+    (newValue: SelectOptionValue | SelectOptionValue[] | null) => {
       if (!newValue) {
         setSelectedValues([]);
         return;
       }
 
       const values = Array.isArray(newValue) ? newValue : [newValue];
-      setSelectedValues(values);
+      setSelectedValues(
+        values.map(v => ({
+          id: v.id,
+          label: v.label,
+          type: v.type,
+          avatar: v.avatar,
+          tutorial_id: v.tutorial_id,
+          module_index: v.module_index,
+        }))
+      );
 
       // Navigate to the first selected item
       if (values.length > 0) {
@@ -260,7 +315,20 @@ const Search = () => {
       <div className="gradient-border-wrapper">
         <DebounceSelect
           mode="multiple"
-          value={selectedValues.length > 0 ? selectedValues : undefined}
+          value={
+            selectedValues.length > 0
+              ? selectedValues.map(v => ({
+                  label: v.label,
+                  value: v.id,
+                  key: v.id,
+                  id: v.id,
+                  type: v.type,
+                  avatar: v.avatar,
+                  tutorial_id: v.tutorial_id,
+                  module_index: v.module_index,
+                }))
+              : undefined
+          }
           placeholder="Search repositories, tutorials, modules, or quizzes..."
           fetchOptions={handleSearch}
           onChange={handleChange}

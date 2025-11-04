@@ -8,6 +8,7 @@ import {
   Settings,
   Edit3,
   Sparkles,
+  Folder,
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 
@@ -24,6 +25,7 @@ const navItems = [
   { id: 'my-tutorials', label: 'My Tutorials', icon: Library },
   { id: 'progress', label: 'Progress', icon: TrendingUp },
   { id: 'authoring', label: 'Author', icon: Edit3 },
+  { id: 'repo', label: 'Repositories', icon: Folder },
 ];
 export default function Sidebar() {
   const router = useRouter();

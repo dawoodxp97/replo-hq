@@ -63,7 +63,7 @@ export function Settings() {
   }, [activeKey]);
 
   return (
-    <div className="rl-settings-container pt-6 pb-6 h-[calc(100vh-70px)]">
+    <div className="rl-settings-container pt-6 pb-6 !max-w-[calc(100vw-220px)] !h-[calc(100vh-90px)] overflow-hidden">
       <div className="rl-settings-header h-[10%] ml-6">
         <Typography.Title level={3} className="font-bold !mb-0">
           Settings

@@ -1,15 +1,16 @@
 import apiClient from "@/lib/apiClient";
 import { API_ENDPOINTS } from "@/constants/apiEndpoints";
 
-interface EntityValue {
-  label: string;
-  value: string;
+export interface EntityValue {
   id: string;
-  avatar?: string;
+  label: string;
   type: 'repository' | 'tutorial' | 'module' | 'quiz';
+  avatar?: string;
+  tutorial_id?: string;
+  module_index?: number;
 }
 
 export const searchEntities = async (query: string): Promise<EntityValue[]> => {
   const response = await apiClient.get(API_ENDPOINTS.SEARCH_ENTITIES, { params: { query } });
-  return response.data as unknown as EntityValue[];
+  return response as unknown as EntityValue[];
 };

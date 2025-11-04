@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from pydantic import BaseModel
 
 from ..db.session import get_db
@@ -11,6 +12,8 @@ from ..core.dependencies import get_current_user
 from .. import models
 from ..models.user_progress import UserProgress
 from ..models.quizzes import Quiz
+from ..models.modules import Module
+from ..models.tutorials import Tutorial
 
 router = APIRouter()
 
@@ -28,9 +31,40 @@ class ProgressResponse(BaseModel):
     completed_at: str
     quiz_score: Optional[int] = None
 
+class ModuleProgressDetail(BaseModel):
+    progress_id: uuid.UUID
+    module_id: uuid.UUID
+    module_title: str
+    module_order_index: int
+    tutorial_id: uuid.UUID
+    tutorial_title: str
+    tutorial_level: str
+    completed_at: str
+    quiz_score: Optional[int] = None
+
+class TutorialProgressSummary(BaseModel):
+    tutorial_id: uuid.UUID
+    tutorial_title: str
+    tutorial_level: str
+    total_modules: int
+    completed_modules: int
+    progress_percentage: float
+    average_quiz_score: Optional[float] = None
+    last_completed_at: Optional[str] = None
+
+class UserProgressStats(BaseModel):
+    total_modules_completed: int
+    total_quizzes_attempted: int
+    total_quizzes_correct: int
+    average_quiz_score: float
+    total_tutorials_with_progress: int
+    last_activity_at: Optional[str] = None
+
 class UserProgressResponse(BaseModel):
     user_id: uuid.UUID
-    progress: List[ProgressResponse]
+    stats: UserProgressStats
+    progress: List[ModuleProgressDetail]
+    tutorials: List[TutorialProgressSummary]
 
 # --- API Endpoints ---
 @router.post("/complete_module", response_model=ProgressResponse)
@@ -129,21 +163,111 @@ async def get_user_progress(
     db: Session = Depends(get_db)
 ):
     """
-    Get all progress for the current user.
+    Get all progress for the current user with comprehensive details.
+    Returns enriched progress data including module titles, tutorial info, and statistics.
     """
     user_id = current_user.user_id
     
-    progress_entries = db.query(UserProgress).filter(UserProgress.user_id == user_id).all()
+    # Get all progress entries with joined module and tutorial data
+    progress_entries = (
+        db.query(
+            UserProgress,
+            Module,
+            Tutorial
+        )
+        .join(Module, UserProgress.module_id == Module.module_id)
+        .join(Tutorial, Module.tutorial_id == Tutorial.tutorial_id)
+        .filter(UserProgress.user_id == user_id)
+        .order_by(UserProgress.completed_at.desc())
+        .all()
+    )
+    
+    # Build detailed progress list
+    progress_details = []
+    tutorial_ids_set = set()
+    
+    for progress, module, tutorial in progress_entries:
+        tutorial_ids_set.add(tutorial.tutorial_id)
+        progress_details.append({
+            "progress_id": progress.progress_id,
+            "module_id": progress.module_id,
+            "module_title": module.title,
+            "module_order_index": module.order_index,
+            "tutorial_id": tutorial.tutorial_id,
+            "tutorial_title": tutorial.title,
+            "tutorial_level": tutorial.level,
+            "completed_at": progress.completed_at.isoformat(),
+            "quiz_score": progress.quiz_score
+        })
+    
+    # Calculate statistics
+    total_modules_completed = len(progress_details)
+    quizzes_attempted = sum(1 for p in progress_details if p["quiz_score"] is not None)
+    quizzes_correct = sum(1 for p in progress_details if p["quiz_score"] == 1)
+    quiz_scores = [p["quiz_score"] for p in progress_details if p["quiz_score"] is not None]
+    average_quiz_score = sum(quiz_scores) / len(quiz_scores) * 100 if quiz_scores else 0.0
+    total_tutorials_with_progress = len(tutorial_ids_set)
+    
+    last_activity = progress_details[0]["completed_at"] if progress_details else None
+    
+    stats = {
+        "total_modules_completed": total_modules_completed,
+        "total_quizzes_attempted": quizzes_attempted,
+        "total_quizzes_correct": quizzes_correct,
+        "average_quiz_score": round(average_quiz_score, 2),
+        "total_tutorials_with_progress": total_tutorials_with_progress,
+        "last_activity_at": last_activity
+    }
+    
+    # Build tutorial summaries
+    tutorial_summaries = []
+    if tutorial_ids_set:
+        for tutorial_id in tutorial_ids_set:
+            # Get all modules for this tutorial
+            tutorial_modules = db.query(Module).filter(Module.tutorial_id == tutorial_id).all()
+            total_modules = len(tutorial_modules)
+            
+            # Get completed modules for this tutorial
+            tutorial_module_ids = [m.module_id for m in tutorial_modules]
+            completed_module_ids = {
+                p["module_id"] for p in progress_details 
+                if p["tutorial_id"] == tutorial_id
+            }
+            completed_count = sum(1 for mid in tutorial_module_ids if mid in completed_module_ids)
+            
+            # Get tutorial info
+            tutorial = db.query(Tutorial).filter(Tutorial.tutorial_id == tutorial_id).first()
+            if not tutorial:
+                continue
+            
+            # Calculate average quiz score for this tutorial
+            tutorial_progress = [p for p in progress_details if p["tutorial_id"] == tutorial_id]
+            tutorial_quiz_scores = [p["quiz_score"] for p in tutorial_progress if p["quiz_score"] is not None]
+            avg_tutorial_score = sum(tutorial_quiz_scores) / len(tutorial_quiz_scores) * 100 if tutorial_quiz_scores else None
+            
+            # Get last completed date for this tutorial
+            tutorial_dates = [p["completed_at"] for p in tutorial_progress]
+            last_tutorial_activity = max(tutorial_dates) if tutorial_dates else None
+            
+            progress_pct = (completed_count / total_modules * 100) if total_modules > 0 else 0.0
+            
+            tutorial_summaries.append({
+                "tutorial_id": tutorial_id,
+                "tutorial_title": tutorial.title,
+                "tutorial_level": tutorial.level,
+                "total_modules": total_modules,
+                "completed_modules": completed_count,
+                "progress_percentage": round(progress_pct, 2),
+                "average_quiz_score": round(avg_tutorial_score, 2) if avg_tutorial_score is not None else None,
+                "last_completed_at": last_tutorial_activity
+            })
+        
+        # Sort by last completed date (most recent first)
+        tutorial_summaries.sort(key=lambda x: x["last_completed_at"] or "", reverse=True)
     
     return {
         "user_id": user_id,
-        "progress": [
-            {
-                "progress_id": entry.progress_id,
-                "module_id": entry.module_id,
-                "completed_at": entry.completed_at.isoformat(),
-                "quiz_score": entry.quiz_score
-            }
-            for entry in progress_entries
-        ]
+        "stats": stats,
+        "progress": progress_details,
+        "tutorials": tutorial_summaries
     }

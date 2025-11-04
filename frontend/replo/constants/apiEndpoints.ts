@@ -11,6 +11,8 @@ export const API_ENDPOINTS = {
   REPO_ANALYZE: "/repo",
   REPO_GET_ALL: "/repo",
   REPO_GET_BY_ID: (id: string) => `/repo/${id}`,
+  REPO_GET_TREE: (id: string) => `/repo/${id}/tree`,
+  REPO_GET_FILE: (id: string) => `/repo/${id}/file`,
 
   // Tutorial
   TUTORIAL_GET_BY_ID: (id: string) => `/tutorial/${id}`,
@@ -47,4 +49,12 @@ export const API_ENDPOINTS = {
   SETTINGS_LLM: "/settings/llm",
   // Notifications
   NOTIFICATIONS_GET: "/notifications",
+  NOTIFICATIONS_MARK_READ: (id: string) => `/notifications/${id}/read`,
+  NOTIFICATIONS_MARK_ALL_READ: "/notifications/read-all",
+
+  // Dashboard
+  DASHBOARD_STATS: "/dashboard/stats",
+  DASHBOARD_WEEKLY_ACTIVITY: "/dashboard/weekly-activity",
+  DASHBOARD_TUTORIAL_STATUS: "/dashboard/tutorial-status",
+  DASHBOARD_RECENT_ACTIVITY: "/dashboard/recent-activity",
 };

@@ -534,7 +534,7 @@ const ProfileSettings = () => {
                   updateLLMMutation.isPending ||
                   (llmProvider !== 'ollama' && !llmApiKey)
                 }
-                className="w-full rounded-lg !bg-gradient-to-r !from-blue-600 !to-purple-600 !border-0 !text-white hover:!from-blue-700 hover:!to-purple-700"
+                className="rounded-lg !bg-gradient-to-r !from-blue-600 !to-purple-600 !border-0 !text-white hover:!from-blue-700 hover:!to-purple-700"
               >
                 {updateLLMMutation.isPending ? 'Saving...' : 'Save Settings'}
               </Button>

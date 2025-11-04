@@ -22,6 +22,7 @@ from ..models.tutorial_generation import TutorialGeneration
 from ..models.user_settings import UserSettings
 from ..core.generation_service import create_gpt_outline_prompt, create_gpt_module_prompt, create_gpt_quiz_prompt
 from ..core.llm_providers import create_llm_provider, LLMProvider
+from ..core.notification_service import create_tutorial_generation_notification
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -1044,6 +1045,20 @@ async def generate_tutorial(ctx, job_data):
         db.commit()
         logger.info("[WORKER] ✅ Generation status updated to COMPLETED")
         
+        # Create success notification
+        try:
+            repo_name = repo.name if repo else "Unknown Repository"
+            create_tutorial_generation_notification(
+                db=db,
+                user_id=str(user_id),
+                repo_name=repo_name,
+                tutorial_id=str(tutorial.tutorial_id),
+                success=True,
+            )
+            logger.info("[WORKER] ✅ Success notification created")
+        except Exception as notif_error:
+            logger.error(f"[WORKER] ⚠️ Failed to create notification: {str(notif_error)}")
+        
         total_duration = time.time() - clone_start
         logger.info("=" * 80)
         logger.info(f"[WORKER] ========== ✅ TUTORIAL GENERATION COMPLETED SUCCESSFULLY ==========")
@@ -1125,6 +1140,35 @@ async def generate_tutorial(ctx, job_data):
                 detailed_error
             )
             logger.info(f"[WORKER] ✅ Generation status updated to FAILED: {detailed_error}")
+            
+            # Create failure notification
+            try:
+                # Get repo name from generation
+                repo_name = "Unknown Repository"
+                try:
+                    failed_generation = db.query(TutorialGeneration).filter(
+                        TutorialGeneration.generation_id == generation_id
+                    ).first()
+                    if failed_generation:
+                        repo_obj = db.query(Repository).filter(
+                            Repository.repo_id == failed_generation.repo_id
+                        ).first()
+                        if repo_obj:
+                            repo_name = repo_obj.name
+                except:
+                    pass
+                
+                create_tutorial_generation_notification(
+                    db=db,
+                    user_id=str(user_id),
+                    repo_name=repo_name,
+                    tutorial_id=None,
+                    success=False,
+                    error_message=detailed_error,
+                )
+                logger.info("[WORKER] ✅ Failure notification created")
+            except Exception as notif_error:
+                logger.error(f"[WORKER] ⚠️ Failed to create notification: {str(notif_error)}")
         except Exception as update_error:
             logger.error(f"[WORKER] ❌ Failed to update generation status: {str(update_error)}")
         

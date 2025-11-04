@@ -5,7 +5,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
 
 from app.db.session import engine, Base
-from app.models import user, tutorials, repositories, modules, quizzes, user_progress, tutorial_generation # 1. IMPORTANT: Import ALL your model files here
+from app.models import user, tutorials, repositories, modules, quizzes, user_progress, tutorial_generation, notifications # 1. IMPORTANT: Import ALL your model files here
 
 def reset_database():
     """

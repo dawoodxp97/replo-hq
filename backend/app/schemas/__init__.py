@@ -15,6 +15,12 @@ from .settings import (
     LLMSettingsUpdate,
     LLMSettingsResponse,
 )
+from .notifications import (
+    NotificationResponse,
+    NotificationListResponse,
+    MarkAsReadRequest,
+    MarkAsReadResponse,
+)
 
 # You can add imports from other schema files here as you create them
 # e.g.: from .tutorial import Tutorial, TutorialCreate

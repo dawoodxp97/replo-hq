@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'next/navigation';
 import apiClient from '@/lib/apiClient';
 import { API_ENDPOINTS } from '@/constants/apiEndpoints';
 import dynamic from 'next/dynamic';
@@ -82,6 +83,7 @@ interface TutorialPlayerProps {
 }
 
 const TutorialPlayer = ({ tutorialId }: TutorialPlayerProps) => {
+  const searchParams = useSearchParams();
   const [selectedModuleIndex, setSelectedModuleIndex] = useState(0);
   const [activeTab, setActiveTab] = useState('explanation');
   const [quizCompleted, setQuizCompleted] = useState(false);
@@ -99,6 +101,21 @@ const TutorialPlayer = ({ tutorialId }: TutorialPlayerProps) => {
     },
     enabled: !!tutorialId,
   });
+
+  // Handle module navigation from URL query params (e.g., from search)
+  useEffect(() => {
+    const moduleParam = searchParams.get('module');
+    if (moduleParam !== null && tutorial?.modules) {
+      const moduleIndex = parseInt(moduleParam, 10);
+      if (
+        !isNaN(moduleIndex) &&
+        moduleIndex >= 0 &&
+        moduleIndex < tutorial.modules.length
+      ) {
+        setSelectedModuleIndex(moduleIndex);
+      }
+    }
+  }, [searchParams, tutorial?.modules]);
 
   // Fetch user progress to show completed modules
   const { data: userProgress } = useQuery<UserProgress>({
