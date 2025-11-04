@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { Editor } from '@monaco-editor/react';
+import { Save, FileText, Code, GitBranch } from 'lucide-react';
+import { Card } from 'antd';
 
 interface Module {
   module_id: string;
@@ -24,9 +26,13 @@ interface ModuleEditorProps {
 
 const ModuleEditor = ({ module, onUpdate, isUpdating }: ModuleEditorProps) => {
   const [title, setTitle] = useState(module.title);
-  const [contentMarkdown, setContentMarkdown] = useState(module.content_markdown);
+  const [contentMarkdown, setContentMarkdown] = useState(
+    module.content_markdown
+  );
   const [codeSnippet, setCodeSnippet] = useState(module.code_snippet || '');
-  const [diagramMermaid, setDiagramMermaid] = useState(module.diagram_mermaid || '');
+  const [diagramMermaid, setDiagramMermaid] = useState(
+    module.diagram_mermaid || ''
+  );
   const [isDirty, setIsDirty] = useState(false);
 
   // Update state when module changes
@@ -40,116 +46,187 @@ const ModuleEditor = ({ module, onUpdate, isUpdating }: ModuleEditorProps) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     onUpdate({
       title,
       content_markdown: contentMarkdown,
       code_snippet: codeSnippet,
-      diagram_mermaid: diagramMermaid || undefined
+      diagram_mermaid: diagramMermaid || undefined,
     });
-    
+
     setIsDirty(false);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6 flex flex-col gap-4">
       {/* Title */}
-      <div>
-        <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
-          Module Title
-        </label>
-        <input
-          id="title"
-          type="text"
-          value={title}
-          onChange={(e) => {
-            setTitle(e.target.value);
-            setIsDirty(true);
-          }}
-          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          required
-        />
-      </div>
-      
+      <Card
+        className="border-0 shadow-lg bg-gradient-to-br from-white via-indigo-50/30 to-purple-50/20 backdrop-blur-sm"
+        bodyStyle={{ padding: '24px' }}
+      >
+        <div className="space-y-2">
+          <label
+            htmlFor="title"
+            className="flex items-center gap-2 text-sm font-semibold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent"
+          >
+            <FileText className="w-4 h-4 text-indigo-500" />
+            Module Title
+          </label>
+          <input
+            id="title"
+            type="text"
+            value={title}
+            onChange={e => {
+              setTitle(e.target.value);
+              setIsDirty(true);
+            }}
+            className="w-full px-4 py-3 border border-indigo-200/50 rounded-xl bg-white/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition-all duration-200 shadow-sm hover:shadow-md"
+            required
+          />
+        </div>
+      </Card>
+
       {/* Content Markdown */}
-      <div>
-        <label htmlFor="content" className="block text-sm font-medium text-gray-700 mb-1">
-          Content (Markdown)
-        </label>
-        <div className="border border-gray-300 rounded-md overflow-hidden">
-          <Editor
-            height="300px"
-            language="markdown"
-            value={contentMarkdown}
-            onChange={(value) => {
-              setContentMarkdown(value || '');
-              setIsDirty(true);
-            }}
-            options={{
-              minimap: { enabled: false },
-              scrollBeyondLastLine: false,
-              wordWrap: 'on'
-            }}
-          />
+      <Card
+        className="border-0 shadow-lg bg-gradient-to-br from-white via-indigo-50/30 to-purple-50/20 backdrop-blur-sm"
+        bodyStyle={{ padding: '24px' }}
+      >
+        <div className="space-y-3">
+          <label
+            htmlFor="content"
+            className="flex items-center gap-2 text-sm font-semibold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent"
+          >
+            <FileText className="w-4 h-4 text-purple-500" />
+            Content (Markdown)
+          </label>
+          <div className="border border-indigo-200/50 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200 bg-white/90 backdrop-blur-sm">
+            <Editor
+              height="300px"
+              language="markdown"
+              value={contentMarkdown}
+              onChange={value => {
+                setContentMarkdown(value || '');
+                setIsDirty(true);
+              }}
+              options={{
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false,
+                wordWrap: 'on',
+                fontSize: 14,
+                fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
+                lineNumbers: 'on',
+                renderLineHighlight: 'all',
+                scrollbar: {
+                  vertical: 'auto',
+                  horizontal: 'auto',
+                },
+              }}
+              theme="vs"
+            />
+          </div>
         </div>
-      </div>
-      
+      </Card>
+
       {/* Code Snippet */}
-      <div>
-        <label htmlFor="code" className="block text-sm font-medium text-gray-700 mb-1">
-          Code Snippet
-        </label>
-        <div className="border border-gray-300 rounded-md overflow-hidden">
-          <Editor
-            height="300px"
-            language="javascript" // Default to JavaScript, could be dynamic based on file extension
-            value={codeSnippet}
-            onChange={(value) => {
-              setCodeSnippet(value || '');
-              setIsDirty(true);
-            }}
-            options={{
-              minimap: { enabled: false },
-              scrollBeyondLastLine: false
-            }}
-          />
+      <Card
+        className="border-0 shadow-lg bg-gradient-to-br from-white via-indigo-50/30 to-purple-50/20 backdrop-blur-sm"
+        bodyStyle={{ padding: '24px' }}
+      >
+        <div className="space-y-3">
+          <label
+            htmlFor="code"
+            className="flex items-center gap-2 text-sm font-semibold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent"
+          >
+            <Code className="w-4 h-4 text-pink-500" />
+            Code Snippet
+          </label>
+          <div className="border border-indigo-200/50 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200 bg-white/90 backdrop-blur-sm">
+            <Editor
+              height="300px"
+              language="javascript"
+              value={codeSnippet}
+              onChange={value => {
+                setCodeSnippet(value || '');
+                setIsDirty(true);
+              }}
+              options={{
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false,
+                fontSize: 14,
+                fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
+                lineNumbers: 'on',
+                renderLineHighlight: 'all',
+                scrollbar: {
+                  vertical: 'auto',
+                  horizontal: 'auto',
+                },
+              }}
+              theme="vs"
+            />
+          </div>
         </div>
-      </div>
-      
+      </Card>
+
       {/* Mermaid Diagram */}
-      <div>
-        <label htmlFor="diagram" className="block text-sm font-medium text-gray-700 mb-1">
-          Mermaid Diagram (Optional)
-        </label>
-        <div className="border border-gray-300 rounded-md overflow-hidden">
-          <Editor
-            height="200px"
-            language="markdown"
-            value={diagramMermaid}
-            onChange={(value) => {
-              setDiagramMermaid(value || '');
-              setIsDirty(true);
-            }}
-            options={{
-              minimap: { enabled: false },
-              scrollBeyondLastLine: false
-            }}
-          />
+      <Card
+        className="border-0 shadow-lg bg-gradient-to-br from-white via-indigo-50/30 to-purple-50/20 backdrop-blur-sm"
+        bodyStyle={{ padding: '24px' }}
+      >
+        <div className="space-y-3">
+          <label
+            htmlFor="diagram"
+            className="flex items-center gap-2 text-sm font-semibold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent"
+          >
+            <GitBranch className="w-4 h-4 text-indigo-500" />
+            Mermaid Diagram{' '}
+            <span className="text-gray-500 font-normal">(Optional)</span>
+          </label>
+          <div className="border border-indigo-200/50 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200 bg-white/90 backdrop-blur-sm">
+            <Editor
+              height="200px"
+              language="markdown"
+              value={diagramMermaid}
+              onChange={value => {
+                setDiagramMermaid(value || '');
+                setIsDirty(true);
+              }}
+              options={{
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false,
+                fontSize: 14,
+                fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
+                lineNumbers: 'on',
+                renderLineHighlight: 'all',
+              }}
+              theme="vs"
+            />
+          </div>
         </div>
-      </div>
-      
+      </Card>
+
       {/* Submit Button */}
-      <div className="flex justify-end">
+      <div className="flex justify-end pt-4">
         <button
           type="submit"
           disabled={isUpdating || !isDirty}
-          className={`px-4 py-2 rounded-md ${
-            isUpdating || !isDirty
-              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              : 'bg-blue-600 text-white hover:bg-blue-700'
-          }`}
+          className={`
+            relative px-8 py-3 rounded-xl font-semibold text-white
+            transition-all duration-300 transform
+            ${
+              isUpdating || !isDirty
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-60'
+                : 'bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:via-purple-500 hover:to-pink-500 shadow-lg hover:shadow-xl hover:scale-105 active:scale-100'
+            }
+            overflow-hidden group
+          `}
         >
-          {isUpdating ? 'Saving...' : 'Save Changes'}
+          <span className="relative z-10 flex items-center gap-2">
+            <Save className={`w-4 h-4 ${isUpdating ? 'animate-spin' : ''}`} />
+            {isUpdating ? 'Saving...' : 'Save Changes'}
+          </span>
+          {!isUpdating && isDirty && (
+            <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></span>
+          )}
         </button>
       </div>
     </form>

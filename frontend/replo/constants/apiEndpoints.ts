@@ -31,8 +31,10 @@ export const API_ENDPOINTS = {
 
   // Authoring
   AUTHOR_DASHBOARD: "/author",
+  AUTHOR_UPDATE_TUTORIAL: (id: string) => `/author/tutorials/${id}`,
   AUTHOR_UPDATE_MODULE: (id: string) => `/author/modules/${id}`,
   AUTHOR_UPDATE_QUIZ: (id: string) => `/author/quizzes/${id}`,
+  AUTHOR_REORDER_MODULES: (id: string) => `/author/tutorials/${id}/modules/reorder`,
 
 
   // Settings
