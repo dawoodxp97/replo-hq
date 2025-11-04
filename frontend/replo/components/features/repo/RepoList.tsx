@@ -29,7 +29,8 @@ interface RepoListProps {
 const getStatusColor = (status: string) => {
   const upperStatus = status.toUpperCase();
   if (upperStatus === 'COMPLETED') return 'success';
-  if (upperStatus === 'ANALYZING' || upperStatus === 'PENDING') return 'processing';
+  if (upperStatus === 'ANALYZING' || upperStatus === 'PENDING')
+    return 'processing';
   if (upperStatus === 'FAILED') return 'error';
   return 'default';
 };
@@ -37,7 +38,8 @@ const getStatusColor = (status: string) => {
 const getStatusIcon = (status: string) => {
   const upperStatus = status.toUpperCase();
   if (upperStatus === 'COMPLETED') return <CheckCircle className="w-4 h-4" />;
-  if (upperStatus === 'ANALYZING') return <Loader2 className="w-4 h-4 animate-spin" />;
+  if (upperStatus === 'ANALYZING')
+    return <Loader2 className="w-4 h-4 animate-spin" />;
   if (upperStatus === 'PENDING') return <Clock className="w-4 h-4" />;
   if (upperStatus === 'FAILED') return <XCircle className="w-4 h-4" />;
   return <FolderOpen className="w-4 h-4" />;
@@ -97,7 +99,7 @@ const RepoList = ({ onRepoClick }: RepoListProps) => {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {repositories.map((repo) => (
+        {repositories.map(repo => (
           <Card
             key={repo.repo_id}
             hoverable
@@ -169,4 +171,3 @@ const RepoList = ({ onRepoClick }: RepoListProps) => {
 };
 
 export default memo(RepoList);
-

@@ -267,7 +267,7 @@ export default function ProgressTracker() {
               image={Empty.PRESENTED_IMAGE_SIMPLE}
             >
               <Link href="/dashboard">
-                <button className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+                <button className="px-6 py-2 bg-indigo-600 cursor-pointer !text-white rounded-lg hover:bg-indigo-700 transition-colors">
                   Browse Tutorials
                 </button>
               </Link>
