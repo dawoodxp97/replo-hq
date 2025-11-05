@@ -1,25 +1,26 @@
-import React, { useMemo, useRef, useState, memo, useCallback } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Select, Spin, Avatar, Tag } from 'antd';
 import type { SelectProps } from 'antd';
-import { debounce } from 'lodash';
-import {
-  searchEntities,
-  type EntityValue as SearchEntityValue,
-} from '@/services/searchService';
+import { Avatar, Select, Spin, Tag } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import { TextSearch } from 'lucide-react';
+import { debounce } from 'lodash';
+
 import {
-  borderGradientDefault,
-  borderGradientHover,
-  borderGradientFocus,
   backgroundGradientDefault,
-  backgroundGradientHover,
   backgroundGradientFocus,
+  backgroundGradientHover,
+  borderGradientDefault,
+  borderGradientFocus,
+  borderGradientHover,
   boxShadows,
   dropdownGradientHover,
   dropdownGradientSelected,
 } from '@/constants/gradientColors';
+import {
+  searchEntities,
+  type EntityValue as SearchEntityValue,
+} from '@/services/searchService';
 
 interface EntityValue {
   id: string;
@@ -110,11 +111,10 @@ function DebounceSelect<
             setOpen(true);
           }
         })
-        .catch(error => {
+        .catch(() => {
           if (fetchId !== fetchRef.current) {
             return;
           }
-          console.error('Search error:', error);
           setOptions([]);
           setFetching(false);
         });
@@ -221,8 +221,7 @@ const Search = () => {
           value: entity.id,
           key: entity.id,
         }));
-      } catch (error) {
-        console.error('Search failed:', error);
+      } catch {
         return [];
       } finally {
         setIsSearching(false);
@@ -248,24 +247,17 @@ const Search = () => {
             router.push(
               `/tutorial/${entity.tutorial_id}?module=${moduleIndex}`
             );
-          } else {
-            console.error('Module missing tutorial_id:', entity);
           }
           break;
         case 'quiz':
-          // Navigate to the parent tutorial and jump to the module containing the quiz
           if (entity.tutorial_id) {
             const moduleIndex =
               entity.module_index !== undefined ? entity.module_index : 0;
             router.push(
               `/tutorial/${entity.tutorial_id}?module=${moduleIndex}`
             );
-          } else {
-            console.error('Quiz missing tutorial_id:', entity);
           }
           break;
-        default:
-          console.log('Unknown entity type:', entity);
       }
 
       // Clear selection after navigation
@@ -355,16 +347,6 @@ const Search = () => {
           }}
         />
       </div>
-      {/* 
-        Custom styles for Ant Design Select component
-        Why needed: Ant Design uses CSS-in-JS with class names that we can't fully override with Tailwind alone.
-        These styles customize:
-        1. Dropdown item padding & hover states (better UX)
-        2. Select input border radius & focus states (matches Tailwind design)
-        3. Selected option background (visual feedback)
-        
-        Alternative: Move to globals.css if preferred, but keeping here for component isolation.
-      */}
       <style jsx global>{`
         /* Dropdown menu item styling */
         .search-dropdown .ant-select-item {

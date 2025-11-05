@@ -1,12 +1,11 @@
 'use client';
 
-import React from 'react';
 import { motion } from 'framer-motion';
 import {
-  Github,
-  Code,
-  GraduationCap,
   BarChart3,
+  Code,
+  Github,
+  GraduationCap,
   Network,
   Sparkles,
 } from 'lucide-react';

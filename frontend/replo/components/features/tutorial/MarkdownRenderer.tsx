@@ -194,7 +194,6 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
           }
         })
         .catch(error => {
-          console.error('Error rendering mermaid diagram:', error);
           const errorElement = document.getElementById(id);
           if (errorElement) {
             // Extract error details

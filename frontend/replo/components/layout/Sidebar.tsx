@@ -1,16 +1,16 @@
 'use client';
 
+import { usePathname, useRouter } from 'next/navigation';
 import {
-  Home,
   BookOpen,
-  TrendingUp,
+  Edit3,
+  Folder,
+  Home,
   Library,
   Settings,
-  Edit3,
   Sparkles,
-  Folder,
+  TrendingUp,
 } from 'lucide-react';
-import { usePathname, useRouter } from 'next/navigation';
 
 type View =
   | 'dashboard'

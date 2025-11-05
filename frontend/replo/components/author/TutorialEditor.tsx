@@ -1,28 +1,28 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, Input, Select, Button, message, Tabs } from 'antd';
+import { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { Editor } from '@monaco-editor/react';
+import { Button, Card, Input, message, Select, Tabs } from 'antd';
 import {
-  ArrowUp,
   ArrowDown,
+  ArrowUp,
+  FileText,
   Save,
   Settings,
-  FileText,
   Sparkles,
 } from 'lucide-react';
-import apiClient from '@/lib/apiClient';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+
 import { API_ENDPOINTS } from '@/constants/apiEndpoints';
-import dynamic from 'next/dynamic';
-import Loader from '../ui/loader/Loader';
+import apiClient from '@/lib/apiClient';
+
 import Error from '../ui/error/Error';
+import Loader from '../ui/loader/Loader';
 
 const ModuleEditor = dynamic(() => import('./ModuleEditor'), { ssr: false });
 const QuizEditor = dynamic(() => import('./QuizEditor'), { ssr: false });
 const { TextArea } = Input;
-
-// Define types
 interface Quiz {
   quiz_id: string;
   question_text: string;

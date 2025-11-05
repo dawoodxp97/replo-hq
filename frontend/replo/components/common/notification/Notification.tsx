@@ -1,28 +1,29 @@
 'use client';
 
+import { memo, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Badge,
+  Divider,
+  Empty,
+  message,
   Popover,
   Skeleton,
   Typography,
-  Empty,
-  Divider,
-  message,
 } from 'antd';
-import { Bell, CheckCircle2, AlertCircle, Info, Sparkles } from 'lucide-react';
-import { memo, useState, useMemo, useEffect } from 'react';
+import { AlertCircle, Bell, CheckCircle2, Info, Sparkles } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
-import apiClient from '@/lib/apiClient';
-import { API_ENDPOINTS } from '@/constants/apiEndpoints';
+
 import {
-  borderGradientDefault,
-  borderGradientHover,
-  borderGradientFocus,
-  backgroundGradientDefault,
-  boxShadows,
   aiGradientBackground,
+  backgroundGradientDefault,
+  borderGradientDefault,
+  borderGradientFocus,
+  borderGradientHover,
+  boxShadows,
 } from '@/constants/gradientColors';
+import { API_ENDPOINTS } from '@/constants/apiEndpoints';
+import apiClient from '@/lib/apiClient';
 
 const { Text } = Typography;
 
@@ -118,32 +119,19 @@ const fetchNotifications = async (): Promise<NotificationListResponse> => {
     }
 
     return { notifications: [], unread_count: 0 };
-  } catch (error) {
-    console.error('Failed to fetch notifications:', error);
+  } catch {
     return { notifications: [], unread_count: 0 };
   }
 };
 
-// Mark notification as read
 const markNotificationAsRead = async (
   notificationId: string
 ): Promise<void> => {
-  try {
-    await apiClient.put(API_ENDPOINTS.NOTIFICATIONS_MARK_READ(notificationId));
-  } catch (error) {
-    console.error('Failed to mark notification as read:', error);
-    throw error;
-  }
+  await apiClient.put(API_ENDPOINTS.NOTIFICATIONS_MARK_READ(notificationId));
 };
 
-// Mark all notifications as read
 const markAllNotificationsAsRead = async (): Promise<void> => {
-  try {
-    await apiClient.put(API_ENDPOINTS.NOTIFICATIONS_MARK_ALL_READ);
-  } catch (error) {
-    console.error('Failed to mark all notifications as read:', error);
-    throw error;
-  }
+  await apiClient.put(API_ENDPOINTS.NOTIFICATIONS_MARK_ALL_READ);
 };
 
 const Notification = () => {

@@ -1,16 +1,3 @@
-/**
- * Pure UI Error Component with AI-inspired animations
- *
- * Supports multiple variants: full, inline, toast, card, minimal
- * Modern AI-native design with moving animations, gradients, and soft glows
- * Pure presentational component - no state or interactive logic
- *
- * @example
- * <Error variant="full" title="Something went wrong" message="Failed to load data" />
- * <Error variant="toast" message="Connection error" />
- * <Error variant="inline" error={apiError} />
- */
-
 import { memo } from 'react';
 
 export type ErrorVariant = 'full' | 'inline' | 'toast' | 'card' | 'minimal';

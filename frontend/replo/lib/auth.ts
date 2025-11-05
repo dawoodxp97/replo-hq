@@ -10,7 +10,5 @@ export function isAuthenticatedFromCookies(cookies: RequestCookies | Record<stri
 }
 
 export async function getUserFromToken(token: string) {
-  // TODO: verify JWT, fetch user profile if needed
-  // Placeholder to align with architecture docs
   return null as unknown as { id: string; email: string } | null;
 }

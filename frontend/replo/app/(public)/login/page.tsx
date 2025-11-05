@@ -73,8 +73,6 @@ export default function LoginPage() {
 
     onSuccess: (data: LoginResponse) => {
       toast.success('Welcome back! Redirecting...');
-      console.log(data.user);
-      // 1. Save user and both tokens
       loginAction(
         snakeToCamel(data.user),
         data.access_token,
@@ -86,7 +84,6 @@ export default function LoginPage() {
     },
 
     onError: (error: AxiosError) => {
-      console.error('Login failed:', error);
       const status = error.response?.status;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const detail = (error.response?.data as any)?.detail;

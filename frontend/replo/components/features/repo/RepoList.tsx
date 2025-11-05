@@ -1,26 +1,28 @@
 'use client';
 
-import React, { memo } from 'react';
-import { Card, Tag, Spin, Empty } from 'antd';
+import { memo } from 'react';
+import { Card, Empty, Spin, Tag } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import {
-  FolderOpen,
-  Clock,
   CheckCircle,
-  XCircle,
-  Loader2,
+  Clock,
   ExternalLink,
+  FolderOpen,
   Github,
+  Loader2,
+  XCircle,
 } from 'lucide-react';
-import { getRepositories, type Repository } from '@/services/repoService';
-import EmptyState from '@/components/ui/empty-state/EmptyState';
+
 import {
-  borderGradientDefault,
-  borderGradientHover,
   backgroundGradientDefault,
   backgroundGradientHover,
+  borderGradientDefault,
+  borderGradientHover,
   boxShadows,
 } from '@/constants/gradientColors';
+import { getRepositories, type Repository } from '@/services/repoService';
+
+import EmptyState from '@/components/ui/empty-state/EmptyState';
 
 interface RepoListProps {
   onRepoClick: (repo: Repository) => void;

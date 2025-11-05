@@ -1,17 +1,19 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Modal, Input, Select, Form } from 'antd';
+import { Form, Input, Modal, Select } from 'antd';
 import { Github, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import TutorialGeneratingUi from '../shared/tutorial-generating-ui/TutorialGeneratingUi';
+
 import {
   generateTutorial,
   getGenerationStatus,
   GenerateTutorialRequest,
   GenerationStatus,
 } from '@/services/tutorialService';
+
+import TutorialGeneratingUi from '../shared/tutorial-generating-ui/TutorialGeneratingUi';
 
 interface GenerateModalProps {
   open: boolean;
@@ -91,13 +93,9 @@ export function GenerateModal({ open, onClose }: GenerateModalProps) {
         localStorage.setItem('pendingGenerationRepoUrl', repoUrl);
       }
 
-      // Manually trigger a refetch after a short delay to ensure the backend has created the record
-      // The delay allows the backend to create the generation record before we query
-      // Note: The query will automatically start when repoUrlToCheck is set, but we add
-      // this refetch to ensure we get the status immediately after the record is created
       setTimeout(() => {
-        refetchStatus().catch(error => {
-          console.error('Error fetching initial status:', error);
+        refetchStatus().catch(() => {
+          // Silent error handling
         });
       }, 1000);
     },
@@ -128,28 +126,14 @@ export function GenerateModal({ open, onClose }: GenerateModalProps) {
         form.setFieldValue('repoUrl', storedRepoUrl);
       }
 
-      // Always trigger the API call when modal opens, even if repoUrlToCheck is already set
-      // This ensures we get the latest status every time the modal opens
-      console.log(
-        '[GenerateModal] Modal opened, fetching generation status for:',
-        storedRepoUrl
-      );
-
-      // Use fetchQuery to bypass the enabled condition and ensure it runs
       queryClient
         .fetchQuery({
           queryKey: ['generationStatus', storedRepoUrl],
           queryFn: () => getGenerationStatus(storedRepoUrl),
-          staleTime: 0, // Always consider stale to force fetch
+          staleTime: 0,
         })
-        .then(data => {
-          console.log('[GenerateModal] Status fetched successfully:', data);
-        })
-        .catch(error => {
-          console.error(
-            '[GenerateModal] Error fetching status on modal open:',
-            error
-          );
+        .catch(() => {
+          // Silent error handling
         });
     } else {
       // If no stored repo URL, clear repoUrlToCheck to stop any previous queries
@@ -217,12 +201,9 @@ export function GenerateModal({ open, onClose }: GenerateModalProps) {
     }
   }, [generationStatus, form, onClose]);
 
-  // Handle query errors
   useEffect(() => {
     if (statusError) {
-      console.error('Status query error:', statusError);
-      // Don't show toast for query errors, just log them
-      // The status will retry automatically
+      // Status will retry automatically
     }
   }, [statusError]);
 

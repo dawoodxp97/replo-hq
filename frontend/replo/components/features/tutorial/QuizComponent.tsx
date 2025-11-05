@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import apiClient from '@/lib/apiClient';
+
 import { API_ENDPOINTS } from '@/constants/apiEndpoints';
+import apiClient from '@/lib/apiClient';
 
 interface QuizOption {
   text: string;
@@ -27,7 +28,6 @@ const QuizComponent = ({ quiz, onComplete }: QuizComponentProps) => {
   const [submitted, setSubmitted] = useState(false);
   const [isCorrect, setIsCorrect] = useState<boolean | undefined>(undefined);
 
-  // Mutation for submitting quiz answer
   const submitQuizMutation = useMutation({
     mutationFn: async ({
       quizId,

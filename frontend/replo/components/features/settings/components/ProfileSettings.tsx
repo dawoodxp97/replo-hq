@@ -1,28 +1,26 @@
-import { useState, useRef, useEffect } from 'react';
-import { Button, Select } from 'antd';
-import { Github, Gitlab, Plug2, User, Key } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
+import { Button, Select } from 'antd';
+import { Github, Gitlab, Key, Plug2, User } from 'lucide-react';
 import { toast } from 'sonner';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { snakeToCamel } from '@/utils/common';
 import { getAccountIcon } from '@/utils/customIcons';
 
-import SaveSettingsChanges from './SaveSettingsChanges';
-import ReploInput from '@/components/ui/input/Input';
-import Loader from '@/components/ui/loader/Loader';
-import Error from '@/components/ui/error/Error';
-
 import {
-  getUserProfileSettings,
-  ProfileSettingsResponse,
-  ProfileSettingsUpdate,
-  updateUserProfileSettings,
   getUserLLMSettings,
-  LLMSettingsResponse,
+  getUserProfileSettings,
   LLMSettingsUpdate,
+  ProfileSettingsUpdate,
   updateUserLLMSettings,
+  updateUserProfileSettings,
 } from '@/services/settingsService';
+
+import Error from '@/components/ui/error/Error';
+import Loader from '@/components/ui/loader/Loader';
+import ReploInput from '@/components/ui/input/Input';
+import SaveSettingsChanges from './SaveSettingsChanges';
 import { SettingsCard, SettingsContentWrapper } from '../layout/SettingsLayout';
 
 type PIIDetailsState = {
@@ -199,11 +197,11 @@ const ProfileSettings = () => {
   }
 
   const handleDisconnect = (name: string) => {
-    console.log(`Disconnecting ${name}`);
+    // TODO: Implement disconnect functionality
   };
 
   const handleConnect = (name: string) => {
-    console.log(`Connecting ${name}`);
+    // TODO: Implement connect functionality
   };
 
   const handleSave = () => {

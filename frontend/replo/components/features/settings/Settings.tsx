@@ -1,14 +1,16 @@
 'use client';
 
+import { useMemo, useState } from 'react';
+import { Typography } from 'antd';
+
 import { Constants } from '@/utils/common';
-import { useState, useMemo } from 'react';
-import ProfileSettings from './components/ProfileSettings';
-import NotificationSettings from './components/NotificationSettings';
+
+import ReploTabs from '@/components/ui/tabs/Tabs';
 import AppearanceSettings from './components/AppearanceSettings';
 import LearningSettings from './components/LearningSettings';
+import NotificationSettings from './components/NotificationSettings';
+import ProfileSettings from './components/ProfileSettings';
 import SecuritySettings from './components/SecuritySettings';
-import ReploTabs from '@/components/ui/tabs/Tabs';
-import { Typography } from 'antd';
 
 type TabComponent = React.ComponentType;
 

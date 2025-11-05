@@ -1,24 +1,23 @@
-// ./frontend/src/components/layout/Navbar.jsx
 'use client';
 
-import { useGlobalStore } from '@/store/useGlobalStore';
-import { Bell, Sparkles, User } from 'lucide-react';
-import Link from 'next/link';
-
-import Search from '../features/search/Search';
-import { Avatar, Badge, Dropdown } from 'antd';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { Avatar, Badge, Dropdown } from 'antd';
+import { Bell, Sparkles, User } from 'lucide-react';
+
 import {
+  aiGradientBackground,
   borderGradientDefault,
   borderGradientFocus,
-  aiGradientBackground,
   boxShadows,
 } from '@/constants/gradientColors';
+import { useGlobalStore } from '@/store/useGlobalStore';
+
 import Notification from '../common/notification/Notification';
+import Search from '../features/search/Search';
 
 export default function Navbar() {
-  // 1. Get the state and actions you need from the store
-  const { user, logout, toggleSidebar } = useGlobalStore();
+  const { user, logout } = useGlobalStore();
   const router = useRouter();
   const handleLogout = () => {
     logout();

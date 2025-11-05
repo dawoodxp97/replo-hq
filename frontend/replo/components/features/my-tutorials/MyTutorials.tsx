@@ -1,24 +1,26 @@
 'use client';
 
 import { memo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import {
   Card,
-  Row,
   Col,
-  Tag,
-  Input,
-  Select,
-  Progress,
   Empty,
+  Input,
+  Progress,
+  Row,
+  Select,
   Spin,
+  Tag,
 } from 'antd';
-import { Search, SlidersHorizontal, BookOpen, Clock, Play } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { BookOpen, Clock, Play, Search, SlidersHorizontal } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+
 import { getAllTutorials, TutorialListItem } from '@/services/tutorialService';
-import { ImageWithFallback } from '../figma/ImageWithFallback';
-import Loader from '@/components/ui/loader/Loader';
+
 import Error from '@/components/ui/error/Error';
+import Loader from '@/components/ui/loader/Loader';
+import { ImageWithFallback } from '../figma/ImageWithFallback';
 
 type Tutorial = TutorialListItem;
 

@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Card } from 'antd';
-import { Save, Plus, Trash2, CheckCircle2, Circle } from 'lucide-react';
+import { CheckCircle2, Circle, Plus, Save, Trash2 } from 'lucide-react';
 
 interface QuizOption {
   text: string;

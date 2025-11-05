@@ -1,16 +1,17 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
-import { Layout, Menu, Avatar, Dropdown, Badge } from 'antd';
-import { Header } from '@/components/core/Header';
-import { Sidebar } from '@/components/core/Sidebar';
+import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Cookies from 'js-cookie';
+
 import { useTokenRefresh } from '@/hooks/useTokenRefresh';
-import GenerateTutorialButton from '@/components/tutorial/GenerateTutorialButton';
-import InitialLoader from '@/components/ui/loader/InitialLoader';
 import { useGlobalStore } from '@/store/useGlobalStore';
 import { getCurrentUser } from '@/services/authService';
-import Cookies from 'js-cookie';
-import { useRouter } from 'next/navigation';
+
+import GenerateTutorialButton from '@/components/tutorial/GenerateTutorialButton';
+import { Header } from '@/components/core/Header';
+import { Sidebar } from '@/components/core/Sidebar';
+import InitialLoader from '@/components/ui/loader/InitialLoader';
 
 function isTokenExpired(token: string | undefined): boolean {
   if (!token) return true;
@@ -100,15 +101,11 @@ export default function PrivateLayout({
             return;
           }
         } catch (error) {
-          // If fetching user fails, check if it's a 401 or network error
-          console.error('Failed to fetch user data:', error);
-          // If it's an auth error, redirect to login
           logout();
           router.push('/login?error=expired');
           return;
         }
       } catch (error) {
-        console.error('Error initializing user:', error);
         logout();
         router.push('/login?error=expired');
       } finally {

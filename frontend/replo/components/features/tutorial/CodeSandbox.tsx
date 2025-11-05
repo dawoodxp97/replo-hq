@@ -1,11 +1,11 @@
 'use client';
 
-import { useMemo, useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import {
-  SandpackProvider,
-  SandpackLayout,
   SandpackCodeEditor,
+  SandpackLayout,
   SandpackPreview,
+  SandpackProvider,
   useSandpack,
 } from '@codesandbox/sandpack-react';
 
@@ -14,7 +14,6 @@ interface CodeSandboxProps {
   filePath: string;
 }
 
-// Inner component that syncs external code changes with Sandpack
 const SandpackContent = ({
   code,
   filePath,
@@ -31,9 +30,7 @@ const SandpackContent = ({
   const lastFilePathRef = useRef<string>(filePath);
   const isInitialMount = useRef<boolean>(true);
 
-  // Update files when external code or filePath changes
   useEffect(() => {
-    // Skip the first render since files are already set via props
     if (isInitialMount.current) {
       isInitialMount.current = false;
       lastCodeRef.current = code;
@@ -41,12 +38,10 @@ const SandpackContent = ({
       return;
     }
 
-    // Only update if code or filePath changed from outside (not from internal edits)
     if (code !== lastCodeRef.current || filePath !== lastFilePathRef.current) {
       lastCodeRef.current = code;
       lastFilePathRef.current = filePath;
 
-      // Determine which file to update based on template and filePath
       const fileName = filePath.split('/').pop() || 'example.js';
       const isIndexFile = fileName.toLowerCase().includes('index');
       const importsApp =

@@ -1,46 +1,47 @@
 'use client';
 
-import React, { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import Link from 'next/link';
 import {
-  Card,
-  Statistic,
-  Progress,
-  Tag,
-  Empty,
-  Spin,
   Alert,
-  Typography,
-  Space,
+  Card,
   Divider,
+  Empty,
+  Progress,
+  Space,
+  Spin,
+  Statistic,
+  Tag,
+  Typography,
 } from 'antd';
 import {
-  CheckCircleOutlined,
-  TrophyOutlined,
-  BookOutlined,
-  StarOutlined,
   CalendarOutlined,
+  CheckCircleOutlined,
+  BookOutlined,
   RocketOutlined,
+  StarOutlined,
   ThunderboltOutlined,
+  TrophyOutlined,
 } from '@ant-design/icons';
 import {
-  LineChart,
-  Line,
-  BarChart,
   Bar,
-  PieChart,
-  Pie,
+  BarChart,
+  CartesianGrid,
   Cell,
+  Legend,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
 } from 'recharts';
-import apiClient from '@/lib/apiClient';
+import { useQuery } from '@tanstack/react-query';
+
 import { API_ENDPOINTS } from '@/constants/apiEndpoints';
-import Link from 'next/link';
+import apiClient from '@/lib/apiClient';
 
 const { Title, Text } = Typography;
 

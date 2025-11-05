@@ -1,31 +1,32 @@
 'use client';
 
-import React, { useState, useMemo, memo } from 'react';
-import { Card, Tree, Spin, Empty, Button, Tag } from 'antd';
+import { memo, useMemo, useState } from 'react';
 import type { DataNode } from 'antd/es/tree';
-import { useQuery } from '@tanstack/react-query';
+import { Button, Card, Empty, Spin, Tag, Tree } from 'antd';
 import { Editor } from '@monaco-editor/react';
+import { useQuery } from '@tanstack/react-query';
 import {
-  FolderOpen,
-  File,
   ArrowLeft,
-  Github,
+  File,
   FileCode,
+  FolderOpen,
+  Github,
   Loader2,
   Clock,
   XCircle,
 } from 'lucide-react';
+
 import {
-  getRepositoryFileTree,
+  backgroundGradientDefault,
+  borderGradientDefault,
+  boxShadows,
+} from '@/constants/gradientColors';
+import {
   getRepositoryFileContent,
+  getRepositoryFileTree,
   type FileTreeNode,
   type Repository,
 } from '@/services/repoService';
-import {
-  borderGradientDefault,
-  backgroundGradientDefault,
-  boxShadows,
-} from '@/constants/gradientColors';
 
 interface RepoDetailProps {
   repo: Repository;

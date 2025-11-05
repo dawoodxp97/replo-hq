@@ -3,12 +3,12 @@
 import { memo } from 'react';
 import { Progress, Steps } from 'antd';
 import {
-  Github,
-  Sparkles,
-  Code2,
   BookOpen,
-  Zap,
+  Code2,
+  Github,
   LucideIcon,
+  Sparkles,
+  Zap,
 } from 'lucide-react';
 
 interface TutorialGeneratingUiProps {
@@ -37,7 +37,6 @@ const TutorialGeneratingUi = ({
 }: TutorialGeneratingUiProps) => {
   return (
     <div className="py-8">
-      {/* AI-Themed Loading Animation */}
       <div className="flex flex-col items-center justify-center mb-8">
         <div className="relative mb-6">
           <div className="w-24 h-24 rounded-full bg-gradient-to-br from-indigo-400 via-purple-400 to-pink-300 flex items-center justify-center shadow-2xl ai-pulse">

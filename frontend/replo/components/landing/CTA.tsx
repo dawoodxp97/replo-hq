@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Mail, ArrowRight, CheckCircle, Loader2 } from 'lucide-react';
+import { ArrowRight, CheckCircle, Loader2, Mail } from 'lucide-react';
 
 const CTA = () => {
   const [email, setEmail] = useState('');
@@ -32,7 +32,6 @@ const CTA = () => {
       setStatus('success');
       setEmail('');
       
-      // Reset success message after 5 seconds
       setTimeout(() => {
         setStatus('idle');
       }, 5000);
@@ -44,7 +43,6 @@ const CTA = () => {
 
   return (
     <section className="py-20 md:py-32 bg-gradient-to-br from-indigo-600 via-purple-600 to-cyan-600 relative overflow-hidden">
-      {/* Background decoration */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-20 left-20 w-72 h-72 bg-white/10 rounded-full blur-3xl"></div>
         <div className="absolute bottom-20 right-20 w-96 h-96 bg-white/10 rounded-full blur-3xl"></div>

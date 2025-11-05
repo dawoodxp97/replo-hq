@@ -5,7 +5,6 @@ interface ProgressBarProps {
 }
 
 const ProgressBar = ({ progress }: ProgressBarProps) => {
-  // Ensure progress is between 0 and 100
   const clampedProgress = Math.min(Math.max(progress, 0), 100);
   
   return (

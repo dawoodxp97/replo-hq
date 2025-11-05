@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Editor } from '@monaco-editor/react';
-import { Save, FileText, Code, GitBranch } from 'lucide-react';
 import { Card } from 'antd';
+import { Code, FileText, GitBranch, Save } from 'lucide-react';
 
 interface Module {
   module_id: string;

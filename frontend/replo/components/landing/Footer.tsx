@@ -1,8 +1,7 @@
 'use client';
 
-import React from 'react';
 import Link from 'next/link';
-import { Sparkles, Github, Twitter, Linkedin, Mail } from 'lucide-react';
+import { Github, Linkedin, Mail, Sparkles, Twitter } from 'lucide-react';
 
 const footerLinks = {
   product: [

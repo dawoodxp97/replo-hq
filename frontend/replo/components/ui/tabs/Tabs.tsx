@@ -1,9 +1,8 @@
 'use client';
 
 import { memo } from 'react';
-
-import { Tabs } from 'antd';
 import type { TabsProps } from 'antd';
+import { Tabs } from 'antd';
 
 interface ReploTabsProps {
   items: TabsProps['items'];

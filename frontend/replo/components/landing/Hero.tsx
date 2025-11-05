@@ -1,18 +1,16 @@
 'use client';
 
 import React from 'react';
-import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { ArrowRight, Sparkles } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import { motion } from 'framer-motion';
+import { ArrowRight, Sparkles } from 'lucide-react';
 
-// Lazy load Lottie to reduce initial bundle size
 const LottiePlayer = dynamic(() => import('@lottiefiles/dotlottie-react'), {
   ssr: false,
   loading: () => <HeroFallbackSVG />,
 });
 
-// Fallback SVG animation for users with reduced motion or if Lottie fails
 const HeroFallbackSVG = () => (
   <div className="w-full h-full flex items-center justify-center">
     <svg

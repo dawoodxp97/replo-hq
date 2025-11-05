@@ -1,16 +1,15 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Sandpack } from '@codesandbox/sandpack-react';
-import { Play, Code2, Sparkles } from 'lucide-react';
+import { Code2, Play, Sparkles } from 'lucide-react';
 
 const DemoSplit = () => {
   const [activeTab, setActiveTab] = useState<'explanation' | 'code'>(
     'explanation'
   );
 
-  // Simple React example for Sandpack
   const sandpackFiles = {
     '/App.js': `import { useState } from 'react';
 

@@ -1,53 +1,53 @@
 'use client';
 
-import { useGlobalStore } from '@/store/useGlobalStore';
+import { memo } from 'react';
 import {
-  Typography,
   Card,
-  Row,
   Col,
+  Empty,
+  Progress,
+  Row,
+  Spin,
   Statistic,
   Tag,
-  Progress,
-  Spin,
-  Empty,
+  Typography,
 } from 'antd';
-import { memo } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import {
-  BookOpen,
-  Clock,
-  Flame,
-  CheckCircle,
-  Calendar,
   Activity,
-  Loader2,
-  XCircle,
+  BookOpen,
+  Calendar,
+  CheckCircle,
   CheckCircle2,
   Circle,
-  TrendingUp,
+  Clock,
+  Flame,
   GitBranch,
+  Loader2,
+  TrendingUp,
+  XCircle,
 } from 'lucide-react';
 import {
-  BarChart,
   Bar,
-  XAxis,
-  YAxis,
+  BarChart,
   CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
   Cell,
   Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from 'recharts';
-import apiClient from '@/lib/apiClient';
+import { useQuery } from '@tanstack/react-query';
+
 import { API_ENDPOINTS } from '@/constants/apiEndpoints';
+import apiClient from '@/lib/apiClient';
+import { useGlobalStore } from '@/store/useGlobalStore';
+
 import Loader from '@/components/ui/loader/Loader';
 
 const { Title, Text } = Typography;
-
-// Color schemes for modern AI aesthetic
 const GRADIENT_COLORS = {
   blue: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
   purple: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',

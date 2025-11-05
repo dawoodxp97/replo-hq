@@ -107,7 +107,6 @@ export default function DiagramViewer({ diagram }) {
         }
       })
       .catch(error => {
-        console.error('Error rendering mermaid diagram:', error);
         setError(error.message || 'Unknown error');
         setIsRendering(false);
         if (diagramRef.current) {

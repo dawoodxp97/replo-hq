@@ -1,6 +1,7 @@
-import Button from '@/components/ui/button/Button';
-import { Save } from 'lucide-react';
 import { memo } from 'react';
+import { Save } from 'lucide-react';
+
+import Button from '@/components/ui/button/Button';
 
 const SaveSettingsChanges = (props: {
   handleSave: () => void;

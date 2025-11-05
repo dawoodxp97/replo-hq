@@ -1,7 +1,8 @@
 import { memo, useState } from 'react';
-import { GenerateModal } from '../modals/GenerateModal';
-import { Sparkles } from 'lucide-react';
 import { Tooltip } from 'antd';
+import { Sparkles } from 'lucide-react';
+
+import { GenerateModal } from '../modals/GenerateModal';
 
 const GenerateTutorialButton = () => {
   const [showGenerateModal, setShowGenerateModal] = useState(false);

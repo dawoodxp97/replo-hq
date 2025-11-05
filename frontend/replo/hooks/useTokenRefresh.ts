@@ -1,9 +1,10 @@
-"use client";
+'use client';
 
-import { useEffect, useRef } from "react";
-import Cookies from "js-cookie";
-import { refreshToken } from "@/services/authService";
-import { useGlobalStore } from "@/store/useGlobalStore";
+import { useEffect, useRef } from 'react';
+import Cookies from 'js-cookie';
+
+import { useGlobalStore } from '@/store/useGlobalStore';
+import { refreshToken } from '@/services/authService';
 
 /**
  * Hook to automatically refresh tokens before they expire
@@ -69,19 +70,16 @@ export function useTokenRefresh() {
           refreshPayload.exp &&
           refreshPayload.exp - nowInSeconds < twelveHoursInSeconds;
 
-        // Refresh if either token is about to expire
         if (accessExpiresSoon || refreshExpiresSoon) {
           try {
             const response = await refreshToken(refreshTokenValue);
             refreshTokens(response.access_token, response.refresh_token);
-            console.log("Tokens refreshed automatically");
-          } catch (error) {
-            console.error("Failed to refresh tokens:", error);
+          } catch {
             // If refresh fails, the apiClient will handle logout on next request
           }
         }
-      } catch (error) {
-        console.error("Error checking token expiration:", error);
+      } catch {
+        // Silent error handling
       }
     };
 
