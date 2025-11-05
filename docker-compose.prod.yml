@@ -1,6 +1,6 @@
 # Production Docker Compose
 # Uses pre-built images with optimized configurations
-version: '3.8'
+version: "3.8"
 
 services:
   # Frontend Service
@@ -32,10 +32,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
+          cpus: "1.0"
           memory: 512M
         reservations:
-          cpus: '0.5'
+          cpus: "0.5"
           memory: 256M
 
   # Backend Service
@@ -77,17 +77,17 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2.0'
+          cpus: "2.0"
           memory: 1G
         reservations:
-          cpus: '1.0'
+          cpus: "1.0"
           memory: 512M
 
   # Worker Service
   worker:
     image: replo-backend:${BACKEND_VERSION:-latest}
     restart: unless-stopped
-    command: ["python", "-m", "arq", "app.workers.worker.WorkerSettings"]
+    command: ["python", "run_worker.py"]
     environment:
       - ENVIRONMENT=production
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
@@ -99,7 +99,13 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
     healthcheck:
-      test: ["CMD", "python", "-c", "import redis; r = redis.Redis(host='redis', port=6379); r.ping()"]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import redis; r = redis.Redis(host='redis', port=6379); r.ping()",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -114,10 +120,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.5'
+          cpus: "1.5"
           memory: 1G
         reservations:
-          cpus: '0.5'
+          cpus: "0.5"
           memory: 512M
 
   # PostgreSQL Database
@@ -131,7 +137,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
     ports:
-      - "127.0.0.1:5432:5432"  # Only bind to localhost for security
+      - "127.0.0.1:5432:5432" # Only bind to localhost for security
     volumes:
       - postgres_prod_data:/var/lib/postgresql/data
       - ./backend/scripts/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -148,10 +154,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
+          cpus: "1.0"
           memory: 1G
         reservations:
-          cpus: '0.5'
+          cpus: "0.5"
           memory: 512M
       restart_policy:
         condition: on-failure
@@ -164,7 +170,7 @@ services:
     container_name: replo-redis-prod
     restart: unless-stopped
     ports:
-      - "127.0.0.1:6379:6379"  # Only bind to localhost for security
+      - "127.0.0.1:6379:6379" # Only bind to localhost for security
     volumes:
       - redis_prod_data:/data
       - ./redis-prod.conf:/usr/local/etc/redis/redis.conf:ro
@@ -180,10 +186,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
+          cpus: "0.5"
           memory: 512M
         reservations:
-          cpus: '0.25'
+          cpus: "0.25"
           memory: 256M
       restart_policy:
         condition: on-failure
@@ -217,10 +223,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
+          cpus: "0.5"
           memory: 256M
         reservations:
-          cpus: '0.25'
+          cpus: "0.25"
           memory: 128M
     profiles:
       - proxy
@@ -236,12 +242,12 @@ services:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-      - '--storage.tsdb.retention.time=200h'
-      - '--web.enable-lifecycle'
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/etc/prometheus/console_libraries"
+      - "--web.console.templates=/etc/prometheus/consoles"
+      - "--storage.tsdb.retention.time=200h"
+      - "--web.enable-lifecycle"
     networks:
       - replo-monitoring-network
       - replo-backend-network
@@ -290,8 +296,8 @@ networks:
   replo-database-network:
     driver: bridge
     name: replo-database-network
-    internal: true  # Database network is internal for security
+    internal: true # Database network is internal for security
   replo-monitoring-network:
     driver: bridge
     name: replo-monitoring-network
-    internal: true  # Monitoring network is internal for security
+    internal: true # Monitoring network is internal for security

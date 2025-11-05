@@ -70,15 +70,11 @@ RUN apk add --no-cache \
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nextjs -u 1001
 
-# Copy package files and install only production dependencies
-COPY package*.json ./
-RUN npm ci --only=production --ignore-scripts && \
-    npm cache clean --force
-
 # Copy built application from build stage
-COPY --from=build /app/.next/standalone ./
-COPY --from=build /app/.next/static ./.next/static
-COPY --from=build /app/public ./public
+# Next.js standalone output creates a server.js in .next/standalone
+COPY --from=build --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=build --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=build --chown=nextjs:nodejs /app/public ./public
 
 # Set correct permissions
 RUN chown -R nextjs:nodejs /app
@@ -96,6 +92,8 @@ EXPOSE 3000
 # Set environment variables
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
+ENV NODE_ENV=production
 
 # Command to run the application
+# Next.js standalone creates server.js in the root of standalone output
 CMD ["node", "server.js"]
