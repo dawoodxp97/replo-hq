@@ -101,7 +101,6 @@ function DebounceSelect<
             return;
           }
 
-          console.log('Search results received:', newOptions);
           // Options are already in the correct format from handleSearch
           // They should have label, value, and all entity fields
           setOptions(newOptions as ValueType[]);
@@ -129,7 +128,6 @@ function DebounceSelect<
       labelInValue
       filterOption={false}
       open={open}
-      onDropdownVisibleChange={setOpen}
       onSearch={value => {
         if (value.trim().length > 0) {
           setOpen(true);

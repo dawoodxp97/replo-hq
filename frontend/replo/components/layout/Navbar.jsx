@@ -84,7 +84,8 @@ export default function Navbar() {
                     icon={<User className="w-4 h-4 text-white" />}
                   />
                   <span className="max-w-[100px] text-ellipsis overflow-hidden whitespace-nowrap text-sm font-medium text-slate-700 hidden sm:inline">
-                    {user?.firstName || ''} {user?.lastName || ''}
+                    {user?.firstName || user?.email || 'User'}{' '}
+                    {user?.lastName || ''}
                   </span>
                 </button>
               </div>

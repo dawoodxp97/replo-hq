@@ -40,3 +40,20 @@ export const refreshToken = (refreshToken: string): Promise<LoginResponse> => {
     .post<LoginResponse>(API_ENDPOINTS.USER_REFRESH, { refresh_token: refreshToken })
     .then((data) => data as unknown as LoginResponse);
 };
+
+/**
+ * Fetches current user profile data.
+ * Uses settings profile endpoint which returns user data.
+ */
+export const getCurrentUser = async () => {
+  const { getUserProfileSettings } = await import('@/services/settingsService');
+  const profile = await getUserProfileSettings();
+  // Map profile settings to AuthUser format
+  return {
+    id: undefined, // Profile doesn't return id, but we can use email as identifier
+    email: profile.email,
+    firstName: profile.first_name || undefined,
+    lastName: profile.last_name || undefined,
+    imageUrl: profile.profile_picture_url || undefined,
+  };
+};

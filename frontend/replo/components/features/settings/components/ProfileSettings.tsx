@@ -123,11 +123,9 @@ const ProfileSettings = () => {
 
   useEffect(() => {
     if (llmSettingsData) {
-      console.log('llmSettingsData', llmSettingsData);
       setLlmProvider(llmSettingsData.llmProvider || 'openai');
       setLlmModel(llmSettingsData.llmModel || '');
       setLlmBaseUrl(llmSettingsData.llmBaseUrl || '');
-      // Show masked key if configured, otherwise empty string
       setLlmApiKey(
         llmSettingsData.llmApiKeyConfigured && llmSettingsData.llmApiKeyMasked
           ? llmSettingsData.llmApiKeyMasked

@@ -22,6 +22,7 @@ export interface GlobalState {
   login: (userData: AuthUser, accessToken: string, refreshToken: string) => void;
   logout: () => void;
   refreshTokens: (accessToken: string, refreshToken: string) => void;
+  setUser: (userData: AuthUser) => void;
   toggleSidebar: () => void;
 }
 
@@ -75,6 +76,13 @@ export const useGlobalStore = create<GlobalState>()(
           expires: 1,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'strict'
+        });
+      },
+
+      setUser: (userData: AuthUser) => {
+        set({
+          user: userData,
+          isAuthenticated: true,
         });
       },
 
