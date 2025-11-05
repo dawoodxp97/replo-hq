@@ -6,11 +6,6 @@ import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
 import { ArrowRight, Sparkles } from 'lucide-react';
 
-const LottiePlayer = dynamic(() => import('@lottiefiles/dotlottie-react'), {
-  ssr: false,
-  loading: () => <HeroFallbackSVG />,
-});
-
 const HeroFallbackSVG = () => (
   <div className="w-full h-full flex items-center justify-center">
     <svg
@@ -40,13 +35,7 @@ const HeroFallbackSVG = () => (
           repeatCount="indefinite"
         />
       </circle>
-      <circle
-        cx="200"
-        cy="200"
-        r="60"
-        fill="url(#grad1)"
-        opacity="0.5"
-      >
+      <circle cx="200" cy="200" r="60" fill="url(#grad1)" opacity="0.5">
         <animate
           attributeName="r"
           values="60;70;60"
@@ -84,7 +73,7 @@ const Hero = () => {
       y: 0,
       transition: {
         duration: 0.6,
-        ease: 'easeOut',
+        ease: [0.42, 0, 0.58, 1] as const,
       },
     },
   };
