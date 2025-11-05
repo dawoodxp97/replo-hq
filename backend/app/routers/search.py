@@ -1,51 +1,40 @@
-# ./backend/app/routers/search.py
 import uuid
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import or_, and_
 from pydantic import BaseModel
+from sqlalchemy import and_, or_
+from sqlalchemy.orm import Session
 
-from ..db.session import get_db
-from ..core.dependencies import get_current_user
 from .. import models
-from ..models.repositories import Repository
-from ..models.tutorials import Tutorial
+from ..core.dependencies import get_current_user
+from ..db.session import get_db
 from ..models.modules import Module
 from ..models.quizzes import Quiz
+from ..models.repositories import Repository
+from ..models.tutorials import Tutorial
 
 router = APIRouter()
 
-# --- Pydantic Models ---
 class SearchEntityResponse(BaseModel):
     id: str
     label: str
-    type: str  # 'repository' | 'tutorial' | 'module' | 'quiz'
+    type: str
     avatar: Optional[str] = None
-    # For modules and quizzes, include parent tutorial_id for navigation
     tutorial_id: Optional[str] = None
-    # For modules, include order_index to jump to specific module
     module_index: Optional[int] = None
 
-# --- API Endpoints ---
 @router.get("/entities", response_model=List[SearchEntityResponse])
 async def search_entities(
     query: str = Query(..., min_length=1, description="Search query string"),
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Search across all entities (repositories, tutorials, modules, quizzes).
-    Returns a unified list of search results with metadata.
-    Only searches entities accessible to the current user.
-    """
     if not query or len(query.strip()) == 0:
         return []
     
     search_term = f"%{query.strip().lower()}%"
     results: List[SearchEntityResponse] = []
     
-    # 1. Search Repositories (owned by user)
     repositories = db.query(Repository).filter(
         and_(
             Repository.user_id == current_user.user_id,
@@ -67,7 +56,6 @@ async def search_entities(
             module_index=None
         ))
     
-    # 2. Search Tutorials (from user's repositories)
     tutorials = db.query(Tutorial).join(
         Repository, Tutorial.repo_id == Repository.repo_id
     ).filter(
@@ -98,7 +86,6 @@ async def search_entities(
             module_index=None
         ))
     
-    # 3. Search Modules (from user's tutorials)
     modules = db.query(Module).join(
         Tutorial, Module.tutorial_id == Tutorial.tutorial_id
     ).join(
@@ -114,7 +101,6 @@ async def search_entities(
         )
     ).order_by(Module.tutorial_id, Module.order_index).limit(20).all()
     
-    # Get tutorials for modules to build labels
     tutorial_ids = list(set([m.tutorial_id for m in modules]))
     tutorials_map = {t.tutorial_id: t for t in db.query(Tutorial).filter(Tutorial.tutorial_id.in_(tutorial_ids)).all()}
     repos_map = {}
@@ -142,10 +128,9 @@ async def search_entities(
             type="module",
             avatar=None,
             tutorial_id=str(module.tutorial_id),
-            module_index=module.order_index - 1  # Convert to 0-based index for frontend
+            module_index=module.order_index - 1
         ))
     
-    # 4. Search Quizzes (from user's modules)
     quizzes = db.query(Quiz).join(
         Module, Quiz.module_id == Module.module_id
     ).join(
@@ -159,7 +144,6 @@ async def search_entities(
         )
     ).limit(20).all()
     
-    # Get modules and tutorials for quizzes to build labels
     module_ids = list(set([q.module_id for q in quizzes]))
     modules_map = {m.module_id: m for m in db.query(Module).filter(Module.module_id.in_(module_ids)).all()}
     quiz_tutorial_ids = list(set([m.tutorial_id for m in modules_map.values()]))
@@ -199,12 +183,10 @@ async def search_entities(
             type="quiz",
             avatar=None,
             tutorial_id=str(module.tutorial_id) if module else None,
-            module_index=module.order_index - 1 if module else None  # Convert to 0-based index for frontend
+            module_index=module.order_index - 1 if module else None
         ))
     
-    # Sort results by type priority: repository > tutorial > module > quiz
     type_priority = {"repository": 0, "tutorial": 1, "module": 2, "quiz": 3}
     results.sort(key=lambda x: (type_priority.get(x.type, 99), x.label.lower()))
     
-    # Limit total results to 30
     return results[:30]

@@ -1,27 +1,23 @@
-# ./backend/app/routers/user.py
 import uuid
-from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..core import security
 from ..db.session import get_db
-from ..models.user_progress import UserProgress
 from ..models.quizzes import Quiz
-
-from fastapi.security import OAuth2PasswordRequestForm
+from ..models.user_progress import UserProgress
 
 router = APIRouter()
 
 @router.post("/signup", response_model=schemas.UserPublic)
 def create_user(
-    user_in: schemas.UserCreate, # 'user_in' is the Pydantic model from the request
-    db: Session = Depends(get_db)  # This is the database session
+    user_in: schemas.UserCreate,
+    db: Session = Depends(get_db)
 ):
-    # Basic password length validation (characters and bytes)
     if len(user_in.password) < 8:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -32,7 +28,7 @@ def create_user(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Password must be at most 72 bytes (UTF-8)",
         )
-    # 1. Check if user already exists (This is a SELECT query)
+    
     db_user = db.query(models.User).filter(models.User.email == user_in.email).first()
     if db_user:
         raise HTTPException(
@@ -40,10 +36,8 @@ def create_user(
             detail="Email already registered",
         )
     
-    # 2. Hash the plain-text password
     hashed_password = security.get_password_hash(user_in.password)
     
-    # 3. Create the SQLAlchemy User model instance
     db_user = models.User(
         email=user_in.email,
         first_name=user_in.first_name,
@@ -51,29 +45,18 @@ def create_user(
         hashed_password=hashed_password
     )
     
-    # 4. --- THIS IS THE INSERT QUERY ---
-    # Add the new user object to the session
     db.add(db_user)
-    
-    # Commit the transaction to the database
     db.commit()
-    
-    # Refresh the object to get the new ID from the DB
     db.refresh(db_user)
-    # ------------------------------------
     
     return db_user
 
 
 @router.post("/login")
 def login_for_access_token(
-    # Note: We use OAuth2PasswordRequestForm.
-    # This automatically expects 'username' and 'password' from a form.
-    # In our case, 'username' will be the user's email.
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
-    # Basic password length validation (characters and bytes)
     if not form_data.password or len(form_data.password) < 8:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -84,15 +67,9 @@ def login_for_access_token(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Password must be at most 72 bytes (UTF-8)",
         )
-    print(f"Login attempt - Username: {form_data.username}, Password provided: {'Yes' if form_data.password else 'No'}")
-    # 1. --- THIS IS THE SELECT QUERY ---
-    # Get the user by their email.
-    # .first() returns the first result or None
-    user = db.query(models.User).filter(models.User.email == form_data.username).first()
-    print(f"User found: {user.email if user else 'None'}, User ID: {user.user_id if user else 'N/A'}")
-    # ---------------------------------
     
-    # 2. Check if user exists and verify password
+    user = db.query(models.User).filter(models.User.email == form_data.username).first()
+    
     if not user or not security.verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -100,31 +77,22 @@ def login_for_access_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # 2b. Upgrade legacy bcrypt hashes to bcrypt_sha256 on successful login
     try:
         if security.pwd_context.needs_update(user.hashed_password):
             user.hashed_password = security.get_password_hash(form_data.password)
             db.commit()
             db.refresh(user)
     except Exception:
-        # If upgrade fails, continue without blocking login
         pass
     
-    # 3. Create the JWT tokens
-    # The 'sub' (subject) of the token is the user's email
-    access_token = security.create_access_token(
-        data={"sub": user.email}
-    )
-    refresh_token = security.create_refresh_token(
-        data={"sub": user.email}
-    )
+    access_token = security.create_access_token(data={"sub": user.email})
+    refresh_token = security.create_refresh_token(data={"sub": user.email})
     
-    # 4. Return the tokens AND the user info
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer",
-        "user": schemas.UserPublic.from_orm(user) # Convert model to Pydantic schema
+        "user": schemas.UserPublic.from_orm(user)
     }
 
 @router.post("/refresh")
@@ -132,11 +100,6 @@ def refresh_access_token(
     token_request: schemas.RefreshTokenRequest,
     db: Session = Depends(get_db)
 ):
-    """
-    Refresh access token using refresh token.
-    Expects refresh_token in request body.
-    """
-    # 1. Decode and verify refresh token
     token_data = security.decode_refresh_token(token_request.refresh_token)
     if token_data is None:
         raise HTTPException(
@@ -145,7 +108,6 @@ def refresh_access_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # 2. Verify user exists
     user = db.query(models.User).filter(models.User.email == token_data.email).first()
     if user is None:
         raise HTTPException(
@@ -154,23 +116,12 @@ def refresh_access_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # 3. Generate new access token and refresh token
-    new_access_token = security.create_access_token(
-        data={"sub": user.email}
-    )
-    new_refresh_token = security.create_refresh_token(
-        data={"sub": user.email}
-    )
+    new_access_token = security.create_access_token(data={"sub": user.email})
+    new_refresh_token = security.create_refresh_token(data={"sub": user.email})
     
-    # 4. Return new tokens
     return {
         "access_token": new_access_token,
         "refresh_token": new_refresh_token,
         "token_type": "bearer",
         "user": schemas.UserPublic.from_orm(user)
     }
-
-# Don't forget to include this router in your main.py!
-# ./backend/app/main.py
-# from .routers import user
-# app.include_router(user.router, prefix="/api/v1/user", tags=["User"])

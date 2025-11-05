@@ -1,15 +1,14 @@
-# ./backend/app/routers/repo.py
-import uuid
 import os
+import uuid
+from typing import Any, Dict, List, Optional
 import git
-from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, Request, Query
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, HttpUrl
+from sqlalchemy.orm import Session
 
-from ..db.session import get_db
-from ..core.dependencies import get_current_user
 from .. import models
+from ..core.dependencies import get_current_user
+from ..db.session import get_db
 from ..models.repositories import Repository
 from ..models.tutorials import Tutorial
 
@@ -65,11 +64,6 @@ async def submit_repository(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Submit a new GitHub URL for analysis.
-    Returns 202 Accepted immediately.
-    """
-    # 1. Check if URL already exists
     existing_repo = db.query(Repository).filter(Repository.github_url == str(repo_data.github_url)).first()
     if existing_repo:
         return {
@@ -82,7 +76,6 @@ async def submit_repository(
             "updated_at": existing_repo.updated_at.isoformat()
         }
 
-    # 2. Create 'PENDING' entry in DB
     repo_name = str(repo_data.github_url).split('/')[-1].replace('.git', '')
     new_repo = Repository(
         github_url=str(repo_data.github_url),
@@ -94,12 +87,8 @@ async def submit_repository(
     db.commit()
     db.refresh(new_repo)
     
-    # 3. Add job to Redis queue
     try:
-        # Get the Redis pool from the app state
         redis_pool = request.app.state.redis_pool
-        
-        # Enqueue the job
         await redis_pool.enqueue_job(
             'analyze_repository',
             {
@@ -107,16 +96,11 @@ async def submit_repository(
                 "github_url": new_repo.github_url
             }
         )
-        
-        print(f"Job enqueued for repository: {new_repo.repo_id}")
     except Exception as e:
-        print(f"Error enqueueing job: {str(e)}")
-        # Update repo status to FAILED
         new_repo.status = 'FAILED'
         db.commit()
         raise HTTPException(status_code=500, detail="Failed to enqueue analysis job")
 
-    # 4. Return the new repo entry
     return {
         "repo_id": new_repo.repo_id,
         "github_url": new_repo.github_url,
@@ -132,9 +116,6 @@ async def get_user_repositories(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Get all repositories submitted by the user and their status.
-    """
     repos = db.query(Repository).filter(Repository.user_id == current_user.user_id).all()
     
     return {
@@ -157,10 +138,6 @@ def get_repo_path(repo_id: uuid.UUID) -> str:
     return f"/tmp/reploai/{repo_id}"
 
 def build_file_tree(repo_path: str, current_path: str = "", max_depth: int = 10, current_depth: int = 0) -> List[FileTreeNode]:
-    """
-    Build a file tree structure from the repository directory.
-    Skips hidden files and common ignored directories.
-    """
     if current_depth >= max_depth:
         return []
     
@@ -176,7 +153,6 @@ def build_file_tree(repo_path: str, current_path: str = "", max_depth: int = 10,
     try:
         items = sorted(os.listdir(repo_path))
         for item in items:
-            # Skip hidden files/directories
             if item.startswith('.'):
                 continue
             
@@ -195,7 +171,6 @@ def build_file_tree(repo_path: str, current_path: str = "", max_depth: int = 10,
                     children=children if children else None
                 ))
             elif os.path.isfile(item_path):
-                # Only include code/text files
                 _, ext = os.path.splitext(item)
                 if ext.lower() in code_extensions or not ext:
                     tree.append(FileTreeNode(
@@ -206,8 +181,8 @@ def build_file_tree(repo_path: str, current_path: str = "", max_depth: int = 10,
                     ))
     except PermissionError:
         pass
-    except Exception as e:
-        print(f"Error building file tree: {e}")
+    except Exception:
+        pass
     
     return tree
 
@@ -217,25 +192,18 @@ async def get_repository_file_tree(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Get the file tree structure of a repository.
-    If files don't exist but repo is COMPLETED, re-clone the repository.
-    """
     repo = db.query(Repository).filter(Repository.repo_id == repo_id).first()
     if not repo:
         raise HTTPException(status_code=404, detail=f"Repository with ID {repo_id} not found")
     
-    # Verify user owns this repository
     if repo.user_id != current_user.user_id:
         raise HTTPException(status_code=403, detail="Not authorized to access this repository")
     
     repo_path = get_repo_path(repo_id)
     
-    # If files don't exist but repo is COMPLETED, re-clone the repository
     if not os.path.exists(repo_path):
         if repo.status == 'COMPLETED':
             try:
-                # Re-clone the repository for viewing
                 os.makedirs("/tmp/reploai", exist_ok=True)
                 git.Repo.clone_from(repo.github_url, repo_path)
             except Exception as e:
@@ -259,25 +227,18 @@ async def get_repository_file_content(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Get the content of a specific file from the repository.
-    If files don't exist but repo is COMPLETED, re-clone the repository.
-    """
     repo = db.query(Repository).filter(Repository.repo_id == repo_id).first()
     if not repo:
         raise HTTPException(status_code=404, detail="Repository not found")
     
-    # Verify user owns this repository
     if repo.user_id != current_user.user_id:
         raise HTTPException(status_code=403, detail="Not authorized to access this repository")
     
     repo_path = get_repo_path(repo_id)
     
-    # If files don't exist but repo is COMPLETED, re-clone the repository
     if not os.path.exists(repo_path):
         if repo.status == 'COMPLETED':
             try:
-                # Re-clone the repository for viewing
                 os.makedirs("/tmp/reploai", exist_ok=True)
                 git.Repo.clone_from(repo.github_url, repo_path)
             except Exception as e:
@@ -291,7 +252,6 @@ async def get_repository_file_content(
                 detail=f"Repository files not found. Repository status: {repo.status}. The repository may not have been cloned yet or analysis is still in progress."
             )
     
-    # Security: Prevent path traversal attacks
     full_path = os.path.join(repo_path, file_path)
     full_path = os.path.normpath(full_path)
     if not full_path.startswith(os.path.normpath(repo_path)):
@@ -303,9 +263,8 @@ async def get_repository_file_content(
     if not os.path.isfile(full_path):
         raise HTTPException(status_code=400, detail="Path is not a file")
     
-    # Limit file size to 1MB
     file_size = os.path.getsize(full_path)
-    if file_size > 1024 * 1024:  # 1MB
+    if file_size > 1024 * 1024:
         raise HTTPException(status_code=413, detail="File too large (max 1MB)")
     
     try:
@@ -325,15 +284,10 @@ async def get_repository_details(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Get details for one repo, including its generated tutorials.
-    This route must come AFTER /{repo_id}/tree and /{repo_id}/file to avoid route conflicts.
-    """
     repo = db.query(Repository).filter(Repository.repo_id == repo_id).first()
     if not repo:
         raise HTTPException(status_code=404, detail="Repository not found")
     
-    # Verify user owns this repository
     if repo.user_id != current_user.user_id:
         raise HTTPException(status_code=403, detail="Not authorized to access this repository")
     

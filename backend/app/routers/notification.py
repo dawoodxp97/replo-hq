@@ -1,15 +1,13 @@
-# ./backend/app/routers/notification.py
-from typing import List
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from sqlalchemy import desc
 from datetime import datetime
+from typing import List
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import desc
+from sqlalchemy.orm import Session
 
-from ..db.session import get_db
+from .. import models, schemas
 from ..core.dependencies import get_current_user
-from .. import models
-from .. import schemas
+from ..db.session import get_db
 
 router = APIRouter()
 
@@ -21,11 +19,6 @@ def get_notifications(
     limit: int = 50,
     offset: int = 0,
 ):
-    """
-    Get all notifications for the current user.
-    Returns notifications ordered by created_at descending.
-    """
-    # Get notifications for current user
     notifications = (
         db.query(models.Notification)
         .filter(models.Notification.user_id == current_user.user_id)
@@ -35,7 +28,6 @@ def get_notifications(
         .all()
     )
     
-    # Count unread notifications
     unread_count = (
         db.query(models.Notification)
         .filter(
@@ -45,7 +37,6 @@ def get_notifications(
         .count()
     )
     
-    # Convert to response format
     notification_responses = []
     for notification in notifications:
         notification_responses.append(

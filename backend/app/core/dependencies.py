@@ -1,4 +1,3 @@
-# ./backend/app/core/dependencies.py
 from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -14,10 +13,6 @@ def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ) -> models.User:
-    """
-    Dependency to get the current authenticated user from JWT token.
-    Raises HTTPException if token is invalid or user not found.
-    """
     token_data = security.decode_access_token(token)
     if token_data is None:
         raise HTTPException(

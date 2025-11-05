@@ -1,13 +1,7 @@
-# ./backend/app/core/llm_fallback.py
-"""
-LLM Fallback System
-
-This module provides fallback logic to automatically try alternative LLM providers
-when the primary provider fails (e.g., quota exceeded, API errors).
-"""
 import logging
-from typing import List, Optional, Any, Tuple
-from ..core.llm_providers import create_llm_provider, LLMProvider
+from typing import Any, List, Optional, Tuple
+
+from ..core.llm_providers import LLMProvider, create_llm_provider
 
 logger = logging.getLogger(__name__)
 

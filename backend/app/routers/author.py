@@ -1,22 +1,19 @@
-# ./backend/app/routers/author.py
 import uuid
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from sqlalchemy import func
 from pydantic import BaseModel
+from sqlalchemy import func
+from sqlalchemy.orm import Session
 
-from ..db.session import get_db
-from ..core.dependencies import get_current_user
 from .. import models
-from ..models.tutorials import Tutorial
+from ..core.dependencies import get_current_user
+from ..db.session import get_db
 from ..models.modules import Module
 from ..models.quizzes import Quiz
 from ..models.repositories import Repository
+from ..models.tutorials import Tutorial
 
 router = APIRouter()
-
-# --- Pydantic Models ---
 class ModuleUpdate(BaseModel):
     title: str
     content_markdown: str

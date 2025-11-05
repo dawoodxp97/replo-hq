@@ -1,17 +1,10 @@
-# ./backend/app/core/generation_service.py
 import json
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
 def create_gpt_outline_prompt(level: str, code_structure_json: Dict[str, Any], code_summaries: Dict[str, str]) -> str:
-    """
-    Create a concise prompt for LLM to generate tutorial outline.
-    Optimized for speed and token efficiency.
-    """
-    # Extract only essential info: file paths and key function names
-    files = code_structure_json.get('files', [])[:30]  # Limit to 30 files
+    files = code_structure_json.get('files', [])[:30]
     file_paths = [f.get('path', '') for f in files if f.get('path')]
     
-    # Get top 10 key functions only
     top_summaries = dict(list(code_summaries.items())[:10])
     
     system_prompt = f"""You MUST respond with ONLY valid JSON. No markdown, no explanations, no code blocks. Just raw JSON.
@@ -28,13 +21,7 @@ Generate 5-8 modules. Respond with ONLY the JSON array, nothing else."""
 
 
 def create_gpt_module_prompt(level: str, module_outline: Dict[str, str], file_content: str, full_outline: List[Dict[str, str]] = None) -> str:
-    """
-    Create a concise prompt for LLM to generate module content.
-    Removed full_outline dependency to reduce prompt size.
-    """
-    # Limit file content to 3000 chars (focus on relevant parts)
     if len(file_content) > 3000:
-        # Try to get the middle section (often contains the main logic)
         start = len(file_content) // 2 - 1500
         file_content = file_content[max(0, start):start+3000] + "\n[... truncated ...]"
     

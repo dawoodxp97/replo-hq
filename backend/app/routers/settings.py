@@ -10,17 +10,10 @@ router = APIRouter()
 
 
 def mask_api_key(api_key: Optional[str]) -> Optional[str]:
-    """
-    Mask an API key for display purposes.
-    Shows first 4 characters and last 4 characters with dots in between.
-    Example: sk-proj-abcdef123456 -> sk-...3456
-    """
     if not api_key or len(api_key) <= 8:
         return None
     
-    # Show first 4 chars and last 4 chars
     if len(api_key) <= 12:
-        # For short keys, show first 3 and last 3
         return f"{api_key[:3]}...{api_key[-3:]}"
     else:
         return f"{api_key[:4]}...{api_key[-4:]}"
@@ -30,13 +23,9 @@ def get_or_create_user_settings(
     user: models.User,
     db: Session
 ) -> models.UserSettings:
-    """
-    Get user settings or create default settings if they don't exist.
-    """
     if user.settings:
         return user.settings
     
-    # Create default settings
     default_settings = models.UserSettings(
         user_id=user.user_id,
         email_notifications_enabled=True,
@@ -51,7 +40,7 @@ def get_or_create_user_settings(
         auto_play_next_module=True,
         show_code_hints=True,
         quiz_mode=True,
-        llm_provider="openai",  # Default to OpenAI
+        llm_provider="openai",
     )
     db.add(default_settings)
     db.commit()
@@ -59,17 +48,12 @@ def get_or_create_user_settings(
     return default_settings
 
 
-# --- Profile Settings Endpoints ---
 @router.get("/profile", response_model=schemas.ProfileSettingsResponse)
 def get_profile_settings(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Get user's profile settings.
-    """
     settings = get_or_create_user_settings(current_user, db)
-    print(current_user, "current_user")
     
     return {
         "first_name": current_user.first_name,
@@ -90,12 +74,8 @@ def update_profile_settings(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Update user's profile settings.
-    """
     settings = get_or_create_user_settings(current_user, db)
     
-    # Update fields if provided
     if profile_update.first_name is not None:
         current_user.first_name = profile_update.first_name
     if profile_update.last_name is not None:
@@ -109,18 +89,13 @@ def update_profile_settings(
     if profile_update.profile_picture_url is not None:
         settings.profile_picture_url = profile_update.profile_picture_url
     if profile_update.connected_accounts is not None:
-        # Convert Pydantic models to dicts for JSON storage
         settings.connected_accounts = [
             account.model_dump() for account in profile_update.connected_accounts
         ]
     if profile_update.openai_api_key is not None:
-        # Store OpenAI API key
-        # Note: In production, you should encrypt this before storing
-        # Allow empty string to clear/remove the key
         if profile_update.openai_api_key.strip() == "":
             settings.openai_api_key = None
         else:
-            # Basic validation: OpenAI API keys typically start with "sk-"
             if not profile_update.openai_api_key.startswith("sk-"):
                 from fastapi import HTTPException, status
                 raise HTTPException(
@@ -146,7 +121,6 @@ def update_profile_settings(
     }
 
 
-# --- Notification Settings Endpoints ---
 @router.get("/notifications", response_model=schemas.NotificationSettingsResponse)
 def get_notification_settings(
     current_user: models.User = Depends(get_current_user),

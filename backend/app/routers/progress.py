@@ -1,23 +1,20 @@
-# ./backend/app/routers/progress.py
 import uuid
 from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from sqlalchemy import func
 from pydantic import BaseModel
+from sqlalchemy import func
+from sqlalchemy.orm import Session
 
-from ..db.session import get_db
-from ..core.dependencies import get_current_user
 from .. import models
-from ..models.user_progress import UserProgress
-from ..models.quizzes import Quiz
+from ..core.dependencies import get_current_user
+from ..db.session import get_db
 from ..models.modules import Module
+from ..models.quizzes import Quiz
 from ..models.tutorials import Tutorial
+from ..models.user_progress import UserProgress
 
 router = APIRouter()
-
-# --- Pydantic Models ---
 class ProgressUpdate(BaseModel):
     module_id: uuid.UUID
 

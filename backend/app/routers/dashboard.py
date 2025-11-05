@@ -1,25 +1,22 @@
-# ./backend/app/routers/dashboard.py
 import uuid
 from datetime import datetime, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from sqlalchemy import func, case, and_, or_
-from sqlalchemy.sql import extract
 from pydantic import BaseModel
+from sqlalchemy import and_, case, func, or_
+from sqlalchemy.orm import Session
+from sqlalchemy.sql import extract
 
-from ..db.session import get_db
-from ..core.dependencies import get_current_user
 from .. import models
-from ..models.repositories import Repository
-from ..models.tutorials import Tutorial
+from ..core.dependencies import get_current_user
+from ..db.session import get_db
 from ..models.modules import Module
-from ..models.user_progress import UserProgress
+from ..models.repositories import Repository
 from ..models.tutorial_generation import TutorialGeneration
+from ..models.tutorials import Tutorial
+from ..models.user_progress import UserProgress
 
 router = APIRouter()
-
-# --- Pydantic Models ---
 class DashboardStatsResponse(BaseModel):
     tutorials_generated: int
     learning_hours: float

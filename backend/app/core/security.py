@@ -1,17 +1,15 @@
 import os
 from datetime import datetime, timedelta
 from typing import Optional
-from passlib.context import CryptContext
 from jose import JWTError, jwt
+from passlib.context import CryptContext
 from pydantic import BaseModel
 
-# TODO: Move these to a .env file
 SECRET_KEY = os.environ.get("SECRET_KEY", "a_very_secret_key_fallback")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 7 * 24 * 60  # 7 days (1 week)
-REFRESH_TOKEN_EXPIRE_DAYS = 1  # 1 day (refresh daily)
+ACCESS_TOKEN_EXPIRE_MINUTES = 7 * 24 * 60
+REFRESH_TOKEN_EXPIRE_DAYS = 1
 
-# Password Hashing
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 def verify_password(plain_password, hashed_password):
@@ -44,10 +42,6 @@ def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None):
     return encoded_jwt
 
 def decode_access_token(token: str) -> Optional[TokenData]:
-    """
-    Decode and verify JWT token.
-    Returns TokenData if valid, None otherwise.
-    """
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         # Verify token type

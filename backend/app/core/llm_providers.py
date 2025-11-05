@@ -1,20 +1,8 @@
-# ./backend/app/core/llm_providers.py
-"""
-LLM Provider Abstraction Layer
-
-This module provides a unified interface for multiple LLM providers:
-- OpenAI (GPT-4, GPT-3.5)
-- Ollama (Local open-source models: Llama, Mistral, etc.)
-- HuggingFace (Inference API or Transformers)
-- Together AI (Hosted open-source models)
-- Groq (Fast inference for open-source models)
-- Gemini (Google AI Studio)
-"""
-import os
 import json
 import logging
-from typing import Dict, List, Any, Optional
+import os
 from abc import ABC, abstractmethod
+from typing import Any, Dict, List, Optional
 
 from openai import OpenAI
 
@@ -22,26 +10,11 @@ logger = logging.getLogger(__name__)
 
 
 def extract_json_from_response(content: str, content_type: str = "ollama") -> Any:
-    """
-    Robust JSON extraction from LLM responses.
-    Handles markdown-wrapped JSON, partial responses, and malformed JSON.
-    
-    Args:
-        content: The raw response content from LLM
-        content_type: Provider name for logging
-        
-    Returns:
-        Parsed JSON object or array
-        
-    Raises:
-        Exception if no valid JSON can be extracted
-    """
     import re
     
     content_original = content
     content = content.strip()
     
-    # Strategy 1: Remove markdown code blocks
     if content.startswith("```json"):
         content = content[7:]
     elif content.startswith("```"):
@@ -50,13 +23,11 @@ def extract_json_from_response(content: str, content_type: str = "ollama") -> An
         content = content[:-3]
     content = content.strip()
     
-    # Strategy 2: Try direct parsing first
     try:
         return json.loads(content)
     except:
         pass
     
-    # Strategy 3: Extract JSON from markdown code blocks
     json_pattern = r'```(?:json)?\s*(\{[\s\S]*?\}|\[[\s\S]*?\])\s*```'
     match = re.search(json_pattern, content_original, re.MULTILINE | re.DOTALL)
     if match:
@@ -65,11 +36,9 @@ def extract_json_from_response(content: str, content_type: str = "ollama") -> An
         except:
             pass
     
-    # Strategy 4: Find JSON object/array using regex (non-greedy with better matching)
-    # Try to find JSON more precisely
     json_patterns = [
-        r'(\{[\s\S]*?\}(?=\s*(?:\n\n|\n#|$|\{|\[)))',  # JSON object followed by line break or end
-        r'(\[[\s\S]*?\](?=\s*(?:\n\n|\n#|$|\{|\[)))',  # JSON array followed by line break or end
+        r'(\{[\s\S]*?\}(?=\s*(?:\n\n|\n#|$|\{|\[)))',
+        r'(\[[\s\S]*?\](?=\s*(?:\n\n|\n#|$|\{|\[)))',
     ]
     
     for pattern in json_patterns:
@@ -80,12 +49,11 @@ def extract_json_from_response(content: str, content_type: str = "ollama") -> An
             except:
                 continue
     
-    # Strategy 5: Find first valid JSON by bracket matching
     for start_char in ['{', '[']:
         start_idx = content_original.find(start_char)
         if start_idx != -1:
             bracket_stack = 0
-            for i in range(start_idx, min(start_idx + 50000, len(content_original))):  # Limit search
+            for i in range(start_idx, min(start_idx + 50000, len(content_original))):
                 char = content_original[i]
                 if char == '{' or char == '[':
                     bracket_stack += 1

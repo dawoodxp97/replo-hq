@@ -1,26 +1,23 @@
-# ./backend/app/routers/tutorial.py
 import uuid
-from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, Request, Query
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func
+from typing import Any, Dict, List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from github import Github
 from github.GithubException import BadCredentialsException, UnknownObjectException
+from pydantic import BaseModel, HttpUrl
+from sqlalchemy import func
+from sqlalchemy.orm import Session, joinedload
 
-from ..db.session import get_db
-from ..core.dependencies import get_current_user
 from .. import models
-from ..models.tutorials import Tutorial
+from ..core.dependencies import get_current_user
+from ..db.session import get_db
 from ..models.modules import Module
 from ..models.quizzes import Quiz
-from ..models.tutorial_generation import TutorialGeneration
 from ..models.repositories import Repository
+from ..models.tutorial_generation import TutorialGeneration
+from ..models.tutorials import Tutorial
 from ..models.user_progress import UserProgress
-from pydantic import BaseModel, HttpUrl
 
 router = APIRouter()
-
-# --- Pydantic Models ---
 class QuizResponse(BaseModel):
     quiz_id: uuid.UUID
     question_text: str
@@ -78,17 +75,11 @@ class TutorialListItemResponse(BaseModel):
     repo_name: Optional[str] = None
     repo_url: Optional[str] = None
 
-# --- API Endpoints ---
 @router.get("", response_model=List[TutorialListItemResponse])
 async def list_tutorials(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Get all tutorials for the current user.
-    Returns a list of tutorials with basic information.
-    """
-    # Get all tutorials for repositories owned by the current user
     tutorials = db.query(Tutorial).join(
         Repository, Tutorial.repo_id == Repository.repo_id
     ).filter(
