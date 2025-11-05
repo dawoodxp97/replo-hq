@@ -21,6 +21,10 @@ html.dark {
   --background-soft: #0a0a0acc;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 html, body, #__next {
   height: 100%;
 }
