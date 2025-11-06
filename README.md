@@ -637,8 +637,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📞 Contact & Support
 
 - **GitHub Issues**: [Report bugs or request features](https://github.com/yourusername/replo-hq/issues)
-- **Documentation**: Check the `/docs` folder for detailed guides
-- **PRD**: See `I need full fledged PRD and implementations steps.md` for the complete product requirements
 
 ---
 
