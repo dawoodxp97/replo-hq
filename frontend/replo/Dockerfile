@@ -1,99 +1,56 @@
-# Multi-stage Dockerfile for Frontend
-# Stage 1: Base dependencies
-FROM node:20-alpine AS base
+# Build stage
+FROM node:20-alpine AS builder
 
 WORKDIR /app
-
-# Install system dependencies
-RUN apk add --no-cache \
-    git \
-    curl \
-    && rm -rf /var/cache/apk/*
 
 # Copy package files
 COPY package*.json ./
 
-# Install all dependencies (including dev dependencies)
-RUN npm ci --include=dev
-
-# Stage 2: Development with linting and formatting tools
-FROM base AS development
-
-# Install additional development tools
-RUN npm install -g \
-    prettier@3.1.1 \
-    @typescript-eslint/parser@6.21.0 \
-    @typescript-eslint/eslint-plugin@6.21.0
+# Install dependencies
+RUN npm ci --only=production
 
 # Copy source code
 COPY . .
 
-# Stage 3: Linting and code quality checks
-FROM development AS lint
-
-# Run Prettier format check
-RUN npx prettier --check "**/*.{js,jsx,ts,tsx,json,css,md}" || true
-
-# Run ESLint
-RUN npm run lint || true
-
-# Run TypeScript type checking
-RUN npx tsc --noEmit || true
-
-# Stage 4: Testing (optional - can be extended)
-FROM development AS test
-
-# Run tests if test scripts exist
-RUN if npm run | grep -q "test"; then npm run test; fi
-
-# Stage 5: Build for production
-FROM development AS build
-
-# Set production environment
+# Build application
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-
-# Build the application
 RUN npm run build
 
-# Stage 6: Production runtime
+# Production stage
 FROM node:20-alpine AS production
 
 WORKDIR /app
 
-# Install only production system dependencies
-RUN apk add --no-cache \
-    curl \
-    && rm -rf /var/cache/apk/*
+# Install curl for health checks
+RUN apk add --no-cache curl
 
-# Create non-root user for security
+# Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nextjs -u 1001
 
-# Copy built application from build stage
-# Next.js standalone output creates a server.js in .next/standalone
-COPY --from=build --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=build --chown=nextjs:nodejs /app/.next/static ./.next/static
-COPY --from=build --chown=nextjs:nodejs /app/public ./public
+# Copy built application
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
-# Set correct permissions
+# Set permissions
 RUN chown -R nextjs:nodejs /app
 
 # Switch to non-root user
 USER nextjs
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:3000/api/health || curl -f http://localhost:3000/ || exit 1
-
-# Expose the port
+# Expose port
 EXPOSE 3000
 
-# Set environment variables
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:3000 || exit 1
+
+# Environment variables
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 ENV NODE_ENV=production
 
-# Command to run the application
-# Next.js standalone creates server.js in the root of standalone output
+# Run application
 CMD ["node", "server.js"]

@@ -12,7 +12,7 @@ from ..core.dependencies import get_current_user
 from ..db.session import get_db
 from ..models.modules import Module
 from ..models.repositories import Repository
-from ..models.tutorial_generation import TutorialGeneration
+from ..models.orchestration import TutorialInstance, TutorialExecution
 from ..models.tutorials import Tutorial
 from ..models.user_progress import UserProgress
 
@@ -41,7 +41,7 @@ class TutorialStatusResponse(BaseModel):
     status: TutorialStatusData
 
 class RecentActivityItem(BaseModel):
-    repo_id: uuid.UUID
+    repo_id: Optional[uuid.UUID] = None
     repo_name: str
     repo_url: str
     status: str
@@ -315,33 +315,53 @@ def get_recent_activity(
     """Get recent repository activity (generations) with their status."""
     user_id = current_user.user_id
     
-    # Get recent tutorial generations ordered by creation date
-    recent_generations = db.query(TutorialGeneration).filter(
-        TutorialGeneration.user_id == user_id
+    # Get recent tutorial instances ordered by creation date
+    recent_instances = db.query(TutorialInstance).filter(
+        TutorialInstance.user_id == user_id
     ).order_by(
-        TutorialGeneration.created_at.desc()
+        TutorialInstance.created_at.desc()
     ).limit(limit).all()
     
     activities = []
-    for gen in recent_generations:
-        # Get repository info
+    for instance in recent_instances:
+        # Try to find the repo to get ID and proper name if available
         repo = db.query(Repository).filter(
-            Repository.repo_id == gen.repo_id
+            Repository.github_url == instance.repo_url,
+            Repository.user_id == user_id
         ).first()
         
-        if not repo:
-            continue
+        # Find if a tutorial was created (if completed)
+        tutorial_id = None
+        if repo and instance.status == 'completed':
+             tutorial = db.query(Tutorial).filter(Tutorial.repo_id == repo.repo_id).first()
+             if tutorial:
+                 tutorial_id = tutorial.tutorial_id
+        
+        # Estimate progress
+        progress = 0
+        if instance.status == 'completed':
+            progress = 100
+        elif instance.status == 'failed':
+            progress = 0 # or keep 0
+        elif instance.status == 'running':
+            # Check executions to estimate
+            execution = db.query(TutorialExecution).filter(
+                TutorialExecution.tutorial_instance_id == instance.id
+            ).order_by(TutorialExecution.started_at.desc()).first()
+            if execution:
+                # Assuming 4 steps total for now: analyze, outline, content, refine
+                progress = min(execution.current_step_order * 25, 90)
         
         activities.append({
-            "repo_id": gen.repo_id,
-            "repo_name": repo.name or gen.repo_url.split('/')[-1],
-            "repo_url": gen.repo_url,
-            "status": gen.status,
-            "generation_progress": gen.generation_progress,
-            "error_message": gen.error_message,
-            "created_at": gen.created_at.isoformat(),
-            "updated_at": gen.updated_at.isoformat() if gen.updated_at else gen.created_at.isoformat(),
-            "tutorial_id": gen.tutorial_id
+            "repo_id": repo.repo_id if repo else None,
+            "repo_name": repo.name if repo else instance.repo_url.split('/')[-1],
+            "repo_url": instance.repo_url,
+            "status": instance.status.upper(), # Frontend expects uppercase?
+            "generation_progress": progress,
+            "error_message": None, # Simplify for now or fetch from execution
+            "created_at": instance.created_at.isoformat(),
+            "updated_at": instance.updated_at.isoformat() if instance.updated_at else instance.created_at.isoformat(),
+            "tutorial_id": tutorial_id
         })
     
     return {"activities": activities}

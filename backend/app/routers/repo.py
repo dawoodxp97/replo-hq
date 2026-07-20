@@ -11,6 +11,7 @@ from ..core.dependencies import get_current_user
 from ..db.session import get_db
 from ..models.repositories import Repository
 from ..models.tutorials import Tutorial
+from ..utils.repo_utils import get_repo_path, build_file_tree
 
 router = APIRouter()
 
@@ -39,17 +40,17 @@ class RepoDetailResponse(BaseModel):
     repository: RepoResponse
     tutorials: List[TutorialBrief]
 
-class FileTreeNode(BaseModel):
+class FileTreeNodeResponse(BaseModel):
     name: str
     path: str
-    type: str  # 'file' or 'directory'
-    children: Optional[List['FileTreeNode']] = None
+    type: str
+    children: Optional[List['FileTreeNodeResponse']] = None
     
     class Config:
         from_attributes = True
 
 class RepoFileTreeResponse(BaseModel):
-    tree: List[FileTreeNode]
+    tree: List[FileTreeNodeResponse]
 
 class RepoFileContentResponse(BaseModel):
     content: str
@@ -87,19 +88,8 @@ async def submit_repository(
     db.commit()
     db.refresh(new_repo)
     
-    try:
-        redis_pool = request.app.state.redis_pool
-        await redis_pool.enqueue_job(
-            'analyze_repository',
-            {
-                "repo_id": str(new_repo.repo_id),
-                "github_url": new_repo.github_url
-            }
-        )
-    except Exception as e:
-        new_repo.status = 'FAILED'
-        db.commit()
-        raise HTTPException(status_code=500, detail="Failed to enqueue analysis job")
+    # Analysis is now triggered by Tutorial Generation, so we don't auto-enqueue here.
+    # We could enqueue a simple "clone" job if we wanted, but TutorialOrchestrator handles cloning.
 
     return {
         "repo_id": new_repo.repo_id,
@@ -133,59 +123,6 @@ async def get_user_repositories(
         ]
     }
 
-def get_repo_path(repo_id: uuid.UUID) -> str:
-    """Get the local path where the repository is cloned."""
-    return f"/tmp/reploai/{repo_id}"
-
-def build_file_tree(repo_path: str, current_path: str = "", max_depth: int = 10, current_depth: int = 0) -> List[FileTreeNode]:
-    if current_depth >= max_depth:
-        return []
-    
-    if not os.path.exists(repo_path):
-        return []
-    
-    tree = []
-    ignored_dirs = {'.git', 'node_modules', '__pycache__', '.venv', 'venv', 'dist', 'build', '.next', '.cache'}
-    code_extensions = {'.js', '.jsx', '.ts', '.tsx', '.py', '.java', '.cpp', '.c', '.go', '.rs', '.rb', '.php', 
-                      '.json', '.md', '.yml', '.yaml', '.html', '.css', '.scss', '.less', '.sh', '.bash', '.zsh',
-                      '.sql', '.xml', '.txt', '.ini', '.conf', '.config', '.env', '.gitignore', '.dockerfile'}
-    
-    try:
-        items = sorted(os.listdir(repo_path))
-        for item in items:
-            if item.startswith('.'):
-                continue
-            
-            item_path = os.path.join(repo_path, item)
-            rel_path = os.path.join(current_path, item) if current_path else item
-            
-            if os.path.isdir(item_path):
-                if item in ignored_dirs:
-                    continue
-                
-                children = build_file_tree(item_path, rel_path, max_depth, current_depth + 1)
-                tree.append(FileTreeNode(
-                    name=item,
-                    path=rel_path,
-                    type='directory',
-                    children=children if children else None
-                ))
-            elif os.path.isfile(item_path):
-                _, ext = os.path.splitext(item)
-                if ext.lower() in code_extensions or not ext:
-                    tree.append(FileTreeNode(
-                        name=item,
-                        path=rel_path,
-                        type='file',
-                        children=None
-                    ))
-    except PermissionError:
-        pass
-    except Exception:
-        pass
-    
-    return tree
-
 @router.get("/{repo_id}/tree", response_model=RepoFileTreeResponse)
 async def get_repository_file_tree(
     repo_id: uuid.UUID,
@@ -199,22 +136,19 @@ async def get_repository_file_tree(
     if repo.user_id != current_user.user_id:
         raise HTTPException(status_code=403, detail="Not authorized to access this repository")
     
+    # Use utils
     repo_path = get_repo_path(repo_id)
     
+    # If not exists, try to clone? Or fail?
     if not os.path.exists(repo_path):
-        if repo.status == 'COMPLETED':
-            try:
-                os.makedirs("/tmp/reploai", exist_ok=True)
-                git.Repo.clone_from(repo.github_url, repo_path)
-            except Exception as e:
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Failed to re-clone repository: {str(e)}"
-                )
-        else:
+         try:
+            os.makedirs("/tmp/reploai", exist_ok=True)
+            git.Repo.clone_from(repo.github_url, repo_path)
+         except Exception as e:
+            # If cloning fails here, it might mean repo is private or invalid
             raise HTTPException(
                 status_code=404,
-                detail=f"Repository files not found. Repository status: {repo.status}. The repository may not have been cloned yet or analysis is still in progress."
+                detail=f"Repository files not found and cloning failed: {str(e)}"
             )
     
     tree = build_file_tree(repo_path)
@@ -235,34 +169,24 @@ async def get_repository_file_content(
         raise HTTPException(status_code=403, detail="Not authorized to access this repository")
     
     repo_path = get_repo_path(repo_id)
-    
-    if not os.path.exists(repo_path):
-        if repo.status == 'COMPLETED':
-            try:
-                os.makedirs("/tmp/reploai", exist_ok=True)
-                git.Repo.clone_from(repo.github_url, repo_path)
-            except Exception as e:
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Failed to re-clone repository: {str(e)}"
-                )
-        else:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Repository files not found. Repository status: {repo.status}. The repository may not have been cloned yet or analysis is still in progress."
-            )
-    
     full_path = os.path.join(repo_path, file_path)
     full_path = os.path.normpath(full_path)
+    
     if not full_path.startswith(os.path.normpath(repo_path)):
-        raise HTTPException(status_code=400, detail="Invalid file path")
-    
+         raise HTTPException(status_code=400, detail="Invalid file path")
+         
     if not os.path.exists(full_path):
-        raise HTTPException(status_code=404, detail="File not found")
-    
-    if not os.path.isfile(full_path):
-        raise HTTPException(status_code=400, detail="Path is not a file")
-    
+         if not os.path.exists(repo_path):
+             try:
+                os.makedirs("/tmp/reploai", exist_ok=True)
+                git.Repo.clone_from(repo.github_url, repo_path)
+                if not os.path.exists(full_path):
+                    raise HTTPException(status_code=404, detail="File not found after cloning")
+             except Exception:
+                 raise HTTPException(status_code=404, detail="Repository or file not found")
+         else:
+             raise HTTPException(status_code=404, detail="File not found")
+
     file_size = os.path.getsize(full_path)
     if file_size > 1024 * 1024:
         raise HTTPException(status_code=413, detail="File too large (max 1MB)")

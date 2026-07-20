@@ -2,12 +2,15 @@
 # ./backend/run_worker.py
 import os
 import sys
+from pathlib import Path
 import asyncio
 from arq.worker import Worker
 from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+# Load .env from project root (one level up from backend/)
+env_path = Path(__file__).parent.parent / '.env'
+load_dotenv(env_path)
+load_dotenv()  # Also load from current directory for backward compatibility
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))

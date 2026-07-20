@@ -12,8 +12,6 @@ from .settings import (
     PasswordChangeRequest,
     PasswordChangeResponse,
     UserSettingsResponse,
-    LLMSettingsUpdate,
-    LLMSettingsResponse,
 )
 from .notifications import (
     NotificationResponse,

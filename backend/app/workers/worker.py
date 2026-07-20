@@ -1,25 +1,29 @@
-# ./backend/app/workers/worker.py
 import os
 import logging
-from arq import create_pool
-from arq.connections import RedisSettings
-from arq.worker import Worker, Function
+import sys
 
-from .analysis_worker import process_repository_analysis, generate_tutorial
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Configure logging with a format that includes timestamp and level
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
 logger = logging.getLogger(__name__)
 
-# Redis connection settings
+from arq.connections import RedisSettings
+from .tutorial_worker import generate_tutorial_task
+from arq import create_pool
+
 REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
 REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
-REDIS_PASSWORD = os.getenv('REDIS_PASSWORD', None)
+REDIS_PASSWORD_RAW = os.getenv('REDIS_PASSWORD', '')
+REDIS_PASSWORD = REDIS_PASSWORD_RAW.strip() if REDIS_PASSWORD_RAW else None
 REDIS_DB = int(os.getenv('REDIS_DB', 0))
 
-# ARQ worker settings
 class WorkerSettings:
-    """Settings for the ARQ worker."""
+    functions = [generate_tutorial_task]
     redis_settings = RedisSettings(
         host=REDIS_HOST,
         port=REDIS_PORT,
@@ -27,42 +31,15 @@ class WorkerSettings:
         database=REDIS_DB
     )
     
-    # Register functions to be available to the queue
-    # Use direct callable registration to avoid ARQ Function signature conflicts
-    functions = [
-        process_repository_analysis,
-        generate_tutorial,
-    ]
-    
-    # Job execution settings
     max_jobs = 10
-    job_timeout = 3600  # 1 hour timeout for long-running jobs
+    job_timeout = 3600
     
-    # Startup and shutdown handlers
     async def startup(self, ctx):
-        """Called when the worker starts up."""
-        logger.info('=' * 80)
-        logger.info('🔧 ARQ WORKER STARTING UP...')
-        logger.info(f'Redis Settings: host={REDIS_HOST}, port={REDIS_PORT}, db={REDIS_DB}')
-        logger.info(f'Registered Functions: {[f.__name__ for f in self.functions]}')
-        logger.info(f'Max Jobs: {self.max_jobs}')
-        logger.info(f'Job Timeout: {self.job_timeout}s')
-        logger.info('=' * 80)
-    
-    async def shutdown(self, ctx):
-        """Called when the worker shuts down."""
-        logger.info('=' * 80)
-        logger.info('🔧 ARQ WORKER SHUTTING DOWN...')
-        logger.info('=' * 80)
+        logger.info("ARQ Worker Starting Up...")
+        logger.info(f"Redis Config: host={REDIS_HOST}, port={REDIS_PORT}, db={REDIS_DB}")
 
-# Function to create a Redis pool for enqueueing jobs
+    async def shutdown(self, ctx):
+        logger.info("ARQ Worker Shutting Down...")
+
 async def get_redis_pool():
-    """Create and return a Redis connection pool."""
-    return await create_pool(
-        RedisSettings(
-            host=REDIS_HOST,
-            port=REDIS_PORT,
-            password=REDIS_PASSWORD,
-            database=REDIS_DB
-        )
-    )
+    return await create_pool(WorkerSettings.redis_settings)

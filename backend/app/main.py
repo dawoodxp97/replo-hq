@@ -1,7 +1,14 @@
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+# Load .env from project root (two levels up from app/)
+env_path = Path(__file__).parent.parent.parent / '.env'
+if env_path.exists():
+    load_dotenv(env_path, override=True)
+load_dotenv()  # Also load from current directory for backward compatibility
 
 from .routers import (
     author,
@@ -16,17 +23,17 @@ from .routers import (
 )
 from .workers.worker import get_redis_pool
 
-load_dotenv()
-
 app = FastAPI(
     title="AI Code Tutorial Generator API",
     description="API for analyzing GitHub repos and generating tutorials.",
     version="0.1.0"
 )
 
+cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -1,23 +1,23 @@
 import uuid
-from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from github import Github
-from github.GithubException import BadCredentialsException, UnknownObjectException
-from pydantic import BaseModel, HttpUrl
+from typing import List, Optional, Dict, Any
+from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from sqlalchemy import func
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
+from pydantic import BaseModel
 
-from .. import models
-from ..core.dependencies import get_current_user
 from ..db.session import get_db
-from ..models.modules import Module
-from ..models.quizzes import Quiz
-from ..models.repositories import Repository
-from ..models.tutorial_generation import TutorialGeneration
+from ..models.orchestration import TutorialInstance, TutorialExecution, TutorialStepExecution
+from ..models.user import User
 from ..models.tutorials import Tutorial
+from ..models.modules import Module
+from ..models.repositories import Repository
+from ..models.quizzes import Quiz
 from ..models.user_progress import UserProgress
+from ..core.dependencies import get_current_user
 
 router = APIRouter()
+
+# --- Old Response Models (Restored) ---
 class QuizResponse(BaseModel):
     quiz_id: uuid.UUID
     question_text: str
@@ -46,22 +46,6 @@ class TutorialResponse(BaseModel):
     repo_name: Optional[str] = None
     repo_url: Optional[str] = None
 
-# Generation request/response models
-class GenerateTutorialRequest(BaseModel):
-    repoUrl: str
-    difficulty: str  # beginner, intermediate, advanced
-    focus: Optional[List[str]] = None
-    description: Optional[str] = None
-
-class GenerationStatusResponse(BaseModel):
-    isGenerating: bool
-    generationStep: int
-    generationProgress: int
-    generationId: Optional[str] = None
-    repoId: Optional[str] = None
-    status: str
-    errorMessage: Optional[str] = None
-
 class TutorialListItemResponse(BaseModel):
     tutorial_id: uuid.UUID
     repo_id: uuid.UUID
@@ -75,9 +59,40 @@ class TutorialListItemResponse(BaseModel):
     repo_name: Optional[str] = None
     repo_url: Optional[str] = None
 
+# --- New Generation Models ---
+class GenerateRequest(BaseModel):
+    repoUrl: str
+    difficulty: str
+    focus: Optional[List[str]] = None
+    description: Optional[str] = None
+
+class GenerateResponse(BaseModel):
+    instance_id: uuid.UUID
+    status: str
+
+class StatusResponse(BaseModel):
+    status: str
+    current_step: Optional[str] = None
+    step_status: Optional[str] = None
+    created_at: Any
+    updated_at: Any
+    
+# For frontend compatibility
+class GenerationStatusResponse(BaseModel):
+    isGenerating: bool
+    generationStep: int
+    generationProgress: int
+    generationId: Optional[str] = None
+    repoId: Optional[str] = None
+    status: str
+    errorMessage: Optional[str] = None
+
+
+# --- Existing Endpoints (Restored) ---
+
 @router.get("", response_model=List[TutorialListItemResponse])
 async def list_tutorials(
-    current_user: models.User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     tutorials = db.query(Tutorial).join(
@@ -86,6 +101,9 @@ async def list_tutorials(
         Repository.user_id == current_user.user_id
     ).order_by(Tutorial.generated_at.desc()).all()
     
+    if not tutorials:
+        return []
+
     # Get module counts for each tutorial
     module_counts = db.query(
         Module.tutorial_id,
@@ -150,270 +168,24 @@ async def list_tutorials(
         })
     
     return tutorials_response
-@router.get("/{tutorial_id}", response_model=TutorialResponse)
-async def get_tutorial_content(
-    tutorial_id: uuid.UUID,
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    THE MAIN ENDPOINT for the tutorial player.
-    Returns the full tutorial, all modules, and all quizzes.
-    """
-    # Get the tutorial
-    tutorial = db.query(Tutorial).filter(Tutorial.tutorial_id == tutorial_id).first()
-    if not tutorial:
-        raise HTTPException(status_code=404, detail="Tutorial not found")
-    
-    # Get repository information
-    repo = db.query(Repository).filter(Repository.repo_id == tutorial.repo_id).first()
-    
-    # Get all modules for this tutorial, ordered by order_index
-    modules = db.query(Module).filter(Module.tutorial_id == tutorial_id).order_by(Module.order_index).all()
-    
-    # Get all quizzes for these modules
-    module_ids = [module.module_id for module in modules]
-    quizzes = db.query(Quiz).filter(Quiz.module_id.in_(module_ids)).all()
-    
-    # Create a dictionary mapping module_id to quiz
-    quiz_map = {quiz.module_id: quiz for quiz in quizzes}
-    
-    # Build the response
-    modules_response = []
-    for module in modules:
-        quiz = quiz_map.get(module.module_id)
-        quiz_response = None
-        if quiz:
-            quiz_response = {
-                "quiz_id": quiz.quiz_id,
-                "question_text": quiz.question_text,
-                "question_type": quiz.question_type,
-                "options": quiz.options
-            }
-        
-        modules_response.append({
-            "module_id": module.module_id,
-            "title": module.title,
-            "order_index": module.order_index,
-            "content_markdown": module.content_markdown,
-            "file_path": module.file_path,
-            "code_snippet": module.code_snippet,
-            "diagram_mermaid": module.diagram_mermaid,
-            "quiz": quiz_response
-        })
-    
-    return {
-        "tutorial_id": tutorial.tutorial_id,
-        "repo_id": tutorial.repo_id,
-        "level": tutorial.level,
-        "title": tutorial.title,
-        "overview": tutorial.overview,
-        "overview_diagram_mermaid": tutorial.overview_diagram_mermaid,
-        "generated_at": tutorial.generated_at.isoformat(),
-        "modules": modules_response,
-        "repo_name": repo.name if repo else None,
-        "repo_url": repo.github_url if repo else None
-    }
-
-# --- Generation Endpoints ---
-@router.post("/generate")
-async def generate_tutorial(
-    request_data: GenerateTutorialRequest,
-    request: Request,
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Initiate tutorial generation for a repository.
-    Creates a generation record and enqueues the job.
-    """
-    # Check if user has LLM API key configured (primary provider)
-    settings = db.query(models.UserSettings).filter(
-        models.UserSettings.user_id == current_user.user_id
-    ).first()
-    
-    if not settings:
-        raise HTTPException(
-            status_code=400,
-            detail="LLM provider not configured. Please configure your LLM provider in settings."
-        )
-    
-    # Check for primary LLM API key or backward compatibility with openai_api_key
-    llm_provider = settings.llm_provider or "openai"
-    has_api_key = bool(settings.llm_api_key)
-    
-    # Backward compatibility: check openai_api_key if no llm_api_key and provider is openai
-    if not has_api_key and llm_provider == "openai" and settings.openai_api_key:
-        has_api_key = True
-    
-    # Ollama doesn't require an API key
-    if llm_provider != "ollama" and not has_api_key:
-        raise HTTPException(
-            status_code=400,
-            detail=f"{llm_provider.upper()} API key is required. Please add it in your LLM settings."
-        )
-    
-    # Check if user has an active generation (only one at a time)
-    active_generation = db.query(TutorialGeneration).filter(
-        TutorialGeneration.user_id == current_user.user_id,
-        TutorialGeneration.status.in_(['PENDING', 'CLONING', 'ANALYZING', 'PROCESSING', 'GENERATING'])
-    ).first()
-    
-    if active_generation:
-        raise HTTPException(
-            status_code=400,
-            detail="You already have a tutorial generation in progress. Please wait for it to complete."
-        )
-    
-    # Validate GitHub repository URL and check if it's public
-    try:
-        # Extract owner and repo from URL
-        url_parts = request_data.repoUrl.replace('https://github.com/', '').replace('http://github.com/', '').strip('/')
-        if url_parts.endswith('.git'):
-            url_parts = url_parts[:-4]
-        
-        parts = url_parts.split('/')
-        if len(parts) < 2:
-            raise HTTPException(status_code=400, detail="Invalid GitHub repository URL")
-        
-        owner = parts[0]
-        repo_name = '/'.join(parts[1:])
-        
-        # Check if repository is public (no auth needed for public repos)
-        # Using GitHub API without token to check if repo is public
-        g = Github()  # No token - only works for public repos
-        repo = g.get_repo(f"{owner}/{repo_name}")
-        
-        if repo.private:
-            raise HTTPException(
-                status_code=400,
-                detail="Private repositories are not supported. Please use a public repository."
-            )
-    except UnknownObjectException:
-        raise HTTPException(
-            status_code=404,
-            detail="Repository not found or is not accessible. Please ensure the repository is public."
-        )
-    except BadCredentialsException:
-        # This shouldn't happen with no token, but handle it
-        raise HTTPException(
-            status_code=500,
-            detail="Error validating repository"
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Error validating repository: {str(e)}"
-        )
-    
-    # Normalize difficulty level
-    difficulty_upper = request_data.difficulty.upper()
-    if difficulty_upper not in ['BEGINNER', 'INTERMEDIATE', 'ADVANCED']:
-        difficulty_upper = 'INTERMEDIATE'
-    
-    # Check if repository already exists in our DB
-    repo = db.query(Repository).filter(
-        Repository.github_url == request_data.repoUrl
-    ).first()
-    
-    if not repo:
-        # Create new repository
-        repo_name = request_data.repoUrl.split('/')[-1].replace('.git', '')
-        repo = Repository(
-            github_url=request_data.repoUrl,
-            name=repo_name,
-            status='PENDING',
-            user_id=current_user.user_id,
-        )
-        db.add(repo)
-        db.commit()
-        db.refresh(repo)
-    
-    # Create generation record
-    generation = TutorialGeneration(
-        user_id=current_user.user_id,
-        repo_id=repo.repo_id,
-        repo_url=request_data.repoUrl,
-        difficulty=difficulty_upper,
-        focus_areas=request_data.focus if request_data.focus else None,
-        description=request_data.description,
-        status='PENDING',
-        generation_step=0,
-        generation_progress=0,
-    )
-    db.add(generation)
-    db.commit()
-    db.refresh(generation)
-    
-    # Enqueue the job
-    try:
-        import logging
-        logging.basicConfig(level=logging.INFO)
-        log = logging.getLogger(__name__)
-        
-        log.info(f"[GENERATION INIT] Starting job enqueue for generation_id: {generation.generation_id}")
-        log.info(f"[GENERATION INIT] Repo URL: {request_data.repoUrl}")
-        log.info(f"[GENERATION INIT] Difficulty: {difficulty_upper}")
-        log.info(f"[GENERATION INIT] User ID: {current_user.user_id}")
-        
-        redis_pool = request.app.state.redis_pool
-        if not redis_pool:
-            log.error("[GENERATION INIT] ERROR: Redis pool not initialized!")
-            raise Exception("Redis pool not initialized")
-        
-        log.info("[GENERATION INIT] Redis pool found, enqueueing job...")
-        job = await redis_pool.enqueue_job(
-            'generate_tutorial',
-            {
-                "generation_id": str(generation.generation_id),
-                "repo_id": str(repo.repo_id),
-                "github_url": request_data.repoUrl,
-                "user_id": str(current_user.user_id),
-                "difficulty": difficulty_upper,
-                "focus_areas": request_data.focus,
-                "description": request_data.description,
-            }
-        )
-        log.info(f"[GENERATION INIT] ✅ Job enqueued successfully! Job ID: {job.job_id if hasattr(job, 'job_id') else 'unknown'}")
-        log.info(f"[GENERATION INIT] Job data: generation_id={generation.generation_id}, repo_id={repo.repo_id}")
-        
-    except Exception as e:
-        import logging
-        logging.basicConfig(level=logging.ERROR)
-        log = logging.getLogger(__name__)
-        log.error(f"[GENERATION INIT] ❌ ERROR enqueueing job: {str(e)}")
-        log.error(f"[GENERATION INIT] Exception type: {type(e).__name__}")
-        import traceback
-        log.error(f"[GENERATION INIT] Traceback: {traceback.format_exc()}")
-        
-        # Update generation status to FAILED
-        generation.status = 'FAILED'
-        generation.error_message = f"Failed to enqueue job: {str(e)}"
-        db.commit()
-        raise HTTPException(status_code=500, detail=f"Failed to enqueue generation job: {str(e)}")
-    
-    return {
-        "generationId": str(generation.generation_id),
-        "message": "Tutorial generation started"
-    }
 
 @router.get("/generation/status", response_model=GenerationStatusResponse)
 async def get_generation_status(
     repo_url: str = Query(..., description="Repository URL to check status for"),
-    current_user: models.User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Get the status of an ongoing tutorial generation.
+    Frontend compatibility endpoint.
+    Maps new TutorialInstance status to old GenerationStatus format.
     """
-    # Find the most recent generation for this repo and user
-    generation = db.query(TutorialGeneration).filter(
-        TutorialGeneration.repo_url == repo_url,
-        TutorialGeneration.user_id == current_user.user_id
-    ).order_by(TutorialGeneration.created_at.desc()).first()
+    # Find the most recent instance for this repo and user
+    instance = db.query(TutorialInstance).filter(
+        TutorialInstance.repo_url == repo_url,
+        TutorialInstance.user_id == current_user.user_id
+    ).order_by(TutorialInstance.created_at.desc()).first()
     
-    if not generation:
-        # No generation found
+    if not instance:
         return {
             "isGenerating": False,
             "generationStep": 0,
@@ -423,16 +195,249 @@ async def get_generation_status(
             "status": "NOT_FOUND",
             "errorMessage": None
         }
+
+    is_generating = instance.status in ['pending', 'running']
     
-    # Determine if generation is active
-    is_generating = generation.status in ['PENDING', 'CLONING', 'ANALYZING', 'PROCESSING', 'GENERATING']
+    # Calculate progress based on steps
+    progress = 0
+    step = 0
     
+    if instance.status == 'completed':
+        progress = 100
+        step = 5
+    elif instance.status == 'failed':
+        progress = 0
+        step = 0
+    elif instance.status == 'running':
+        execution = db.query(TutorialExecution).filter(
+            TutorialExecution.tutorial_instance_id == instance.id
+        ).order_by(TutorialExecution.started_at.desc()).first()
+        if execution:
+            step = execution.current_step_order
+            progress = min(step * 20, 90) # 5 steps approx
+            
+    # Find repo id if available
+    repo = db.query(Repository).filter(
+        Repository.github_url == repo_url,
+        Repository.user_id == current_user.user_id
+    ).first()
+
     return {
         "isGenerating": is_generating,
-        "generationStep": generation.generation_step,
-        "generationProgress": generation.generation_progress,
-        "generationId": str(generation.generation_id),
-        "repoId": str(generation.repo_id),
-        "status": generation.status,
-        "errorMessage": generation.error_message
+        "generationStep": step,
+        "generationProgress": int(progress),
+        "generationId": str(instance.id),
+        "repoId": str(repo.repo_id) if repo else None,
+        "status": instance.status.upper(),
+        "errorMessage": None # Simplify
     }
+
+
+@router.get("/{tutorial_id_or_instance_id}", response_model=Any)
+async def get_tutorial_or_result(
+    tutorial_id_or_instance_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Unified endpoint to get either a completed Tutorial or the result of a TutorialInstance.
+    This handles the confusion between tutorial_id and instance_id.
+    """
+    # First try to find a Tutorial
+    tutorial = db.query(Tutorial).filter(Tutorial.tutorial_id == tutorial_id_or_instance_id).first()
+    if tutorial:
+        # It's a Tutorial ID, return the full tutorial content
+        repo = db.query(Repository).filter(Repository.repo_id == tutorial.repo_id).first()
+        modules = db.query(Module).filter(Module.tutorial_id == tutorial.tutorial_id).order_by(Module.order_index).all()
+        module_ids = [module.module_id for module in modules]
+        quizzes = db.query(Quiz).filter(Quiz.module_id.in_(module_ids)).all()
+        quiz_map = {quiz.module_id: quiz for quiz in quizzes}
+        
+        modules_response = []
+        for module in modules:
+            quiz = quiz_map.get(module.module_id)
+            quiz_response = None
+            if quiz:
+                quiz_response = {
+                    "quiz_id": quiz.quiz_id,
+                    "question_text": quiz.question_text,
+                    "question_type": quiz.question_type,
+                    "options": quiz.options
+                }
+            
+            modules_response.append({
+                "module_id": module.module_id,
+                "title": module.title,
+                "order_index": module.order_index,
+                "content_markdown": module.content_markdown,
+                "file_path": module.file_path,
+                "code_snippet": module.code_snippet,
+                "diagram_mermaid": module.diagram_mermaid,
+                "quiz": quiz_response
+            })
+        
+        return {
+            "tutorial_id": tutorial.tutorial_id,
+            "repo_id": tutorial.repo_id,
+            "level": tutorial.level,
+            "title": tutorial.title,
+            "overview": tutorial.overview,
+            "overview_diagram_mermaid": tutorial.overview_diagram_mermaid,
+            "generated_at": tutorial.generated_at.isoformat(),
+            "modules": modules_response,
+            "repo_name": repo.name if repo else None,
+            "repo_url": repo.github_url if repo else None
+        }
+
+    # If not a tutorial, maybe it's a TutorialInstance ID (for status/result)
+    # But status/result have their own sub-paths. 
+    # However, if the frontend calls /api/tutorial/{id}, it expects a tutorial.
+    # If we are here, it means no tutorial found.
+    
+    raise HTTPException(status_code=404, detail="Tutorial not found")
+
+
+# --- New Generation Endpoints ---
+
+@router.post("/generate", response_model=GenerateResponse)
+async def generate_tutorial(
+    request_data: GenerateRequest,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    # Create instance
+    instance = TutorialInstance(
+        user_id=current_user.user_id,
+        repo_url=request_data.repoUrl, # Use repoUrl from frontend
+        status="pending"
+    )
+    db.add(instance)
+    db.commit()
+    db.refresh(instance)
+    
+    # Enqueue job
+    redis_pool = getattr(request.app.state, "redis_pool", None)
+    if redis_pool:
+        await redis_pool.enqueue_job(
+            'generate_tutorial_task',
+            tutorial_instance_id=str(instance.id)
+        )
+    
+    return {
+        "instance_id": instance.id,
+        "status": instance.status
+    }
+
+@router.post("/{instance_id}/retry", response_model=GenerateResponse)
+async def retry_tutorial(
+    instance_id: uuid.UUID,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    instance = db.query(TutorialInstance).filter(TutorialInstance.id == instance_id).first()
+    if not instance:
+        raise HTTPException(status_code=404, detail="Tutorial instance not found")
+        
+    if instance.user_id != current_user.user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+        
+    if instance.status not in ["failed", "completed"]:
+        raise HTTPException(status_code=400, detail="Can only retry failed or completed tutorials")
+        
+    # Reset status
+    instance.status = "pending"
+    db.commit()
+    
+    # Enqueue job
+    redis_pool = getattr(request.app.state, "redis_pool", None)
+    if redis_pool:
+        await redis_pool.enqueue_job(
+            'generate_tutorial_task',
+            tutorial_instance_id=str(instance.id)
+        )
+        
+    return {
+        "instance_id": instance.id,
+        "status": instance.status
+    }
+
+@router.get("/{instance_id}/status", response_model=StatusResponse)
+async def get_status(
+    instance_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    instance = db.query(TutorialInstance).filter(TutorialInstance.id == instance_id).first()
+    if not instance:
+        raise HTTPException(status_code=404, detail="Tutorial instance not found")
+        
+    if instance.user_id != current_user.user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+        
+    # Get current execution info
+    execution = db.query(TutorialExecution).filter(
+        TutorialExecution.tutorial_instance_id == instance.id
+    ).order_by(TutorialExecution.started_at.desc()).first()
+    
+    current_step = None
+    step_status = None
+    
+    if execution:
+        latest_step = db.query(TutorialStepExecution).filter(
+            TutorialStepExecution.tutorial_execution_id == execution.id
+        ).order_by(TutorialStepExecution.started_at.desc()).first()
+        
+        if latest_step:
+            current_step = latest_step.step_type
+            step_status = latest_step.status
+            
+    return {
+        "status": instance.status,
+        "current_step": current_step,
+        "step_status": step_status,
+        "created_at": instance.created_at,
+        "updated_at": instance.updated_at
+    }
+
+@router.get("/{instance_id}/result")
+async def get_result(
+    instance_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Returns the raw result of the generation process.
+    Does NOT return the formatted Tutorial object from the database.
+    Use GET /api/tutorial/{tutorial_id} for that.
+    """
+    instance = db.query(TutorialInstance).filter(TutorialInstance.id == instance_id).first()
+    if not instance:
+        raise HTTPException(status_code=404, detail="Tutorial instance not found")
+        
+    if instance.user_id != current_user.user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+        
+    if instance.status != "completed":
+        raise HTTPException(status_code=400, detail="Tutorial generation not completed")
+
+    # Get the final output from the last step of the last execution
+    execution = db.query(TutorialExecution).filter(
+        TutorialExecution.tutorial_instance_id == instance.id
+    ).order_by(TutorialExecution.started_at.desc()).first()
+    
+    if not execution:
+         return {"error": "No execution found"}
+    
+    steps = db.query(TutorialStepExecution).filter(
+        TutorialStepExecution.tutorial_execution_id == execution.id
+    ).order_by(TutorialStepExecution.step_order).all()
+    
+    # Construct result by merging outputs
+    result = {}
+    for step in steps:
+        if step.output_data:
+            result.update(step.output_data)
+            
+    return result
