@@ -5,7 +5,7 @@ paginated + ownership-checked in a single pass.
 
 | Converted | Remaining |
 |---|---|
-| `user.py`, `repo.py`, `tutorial.py`, `progress.py` | `author` → `settings` → `dashboard` → `notification` → `search` |
+| `user.py`, `repo.py`, `tutorial.py`, `progress.py`, `author.py` | `settings` → `dashboard` → `notification` → `search` |
 
 `grep -l get_db app/routers/` lists what's left.
 
@@ -34,7 +34,7 @@ Rules:
 | `tutorial.py` | `/api/tutorial` | 162 | **Converted.** Read/list/delete/publish + generation. Route order matters — see the module docstring. |
 | `dashboard.py` | `/api/dashboard` | 367 | Aggregate stats. Many separate queries per request. |
 | `settings.py` | `/api/settings` | 358 | Profile/notification/learning/appearance/security sub-resources. |
-| `author.py` | `/api/author` | 274 | Manual tutorial/module/quiz editing. |
+| `author.py` | `/api/author` | 143 | **Converted.** Tutorial/module/quiz CRUD. Quiz addressed by module id. |
 | `progress.py` | `/api/progress` | 94 | **Converted.** Completion, quiz grading, overview + paginated history. |
 | `repo.py` | `/api/repo` | 93 | **Converted.** CRUD + tree + file. See git safety notes in `utils/repo_utils.py`. |
 | `search.py` | `/api/search` | 192 | Likely `ILIKE` scans — no full-text index. |
@@ -82,7 +82,26 @@ shipped every answer to the browser.
 
 `schemas/tutorial.py::QuizOption` is an **allowlist** (`extra="ignore"`, fields `id`/`text`),
 so a new answer-revealing key added to that JSON later cannot leak by default. The answer is
-disclosed in exactly one place: the `POST /progress/submit_quiz` response, after an attempt.
+disclosed in two places, both deliberate: the `POST /progress/submit_quiz` response (after an
+attempt) and `GET /author/modules/{id}/quiz` (the owner wrote it). That is why
+`schemas/author.py` declares its **own** `QuizResponse` rather than reusing the learner one —
+one model serving both audiences is how the key ends up back in the learner payload.
+
+Writes go through `QuizWrite`, which enforces exactly one correct option, unique option text
+(grading matches on text, so duplicates make the answer ambiguous) and two options for
+true/false. `correct_answer` is derived unconditionally from the options, so it can never
+disagree with them.
+
+## Breaking changes in this router
+
+The legacy client calls the old shapes; `apps/web-legacy` is reference-only and Phase 4 owns
+the replacement.
+
+| Was | Now |
+|---|---|
+| `GET /api/author/` | `GET /api/author/tutorials`, paginated |
+| `PUT /api/author/tutorials/{id}` | `PATCH` — partial, `level` is the lowercase enum |
+| `PUT /api/author/quizzes/{quiz_id}` | `PUT /api/author/modules/{module_id}/quiz` (upsert) |
 
 ## When adding an endpoint
 

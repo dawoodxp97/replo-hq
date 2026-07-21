@@ -10,7 +10,7 @@ All models inherit `Base` from `app/db/session.py`. UUID PKs via
 | `User` | `users` | `user_id` | email unique+indexed. `hashed_password` **nullable** — OAuth users never set one, and a dummy hash is indistinguishable from a real one. `is_active` for disable-without-cascade-delete. |
 | `Repository` | `repositories` | `repo_id` | Unique on **(user_id, github_url)**. Was globally unique on `github_url`, so once one user added `facebook/react` nobody else ever could. |
 | `Tutorial` | `tutorials` | `tutorial_id` | FK repo_id CASCADE. `generated_at` kept (domain meaning) plus `updated_at` for authoring edits. |
-| `Module` | `modules` | `module_id` | ordered by `order_index`. |
+| `Module` | `modules` | `module_id` | ordered by `order_index`, which is **not** uniquely constrained per tutorial — nothing at the DB level stops two modules sharing a position, so writers must keep it a contiguous 0..n-1 sequence themselves (`services/author.py` resequences on delete and requires a full permutation on reorder). |
 | `Quiz` | `quizzes` | | **`options` JSONB holds the answer key** — its dicts carry `is_correct`, and `correct_answer` is derived from it. Never serialise `options` raw; see `schemas/tutorial.py::QuizOption`. Nothing in the pipeline creates quizzes yet — only `routers/author.py` does. |
 | `UserProgress` | `user_progress` | | Completion rows. `uq_user_module` makes check-then-insert a race — verified: 7 of 8 concurrent completions raised `IntegrityError`. Write with `ON CONFLICT`. |
 | `UserSettings` | `user_settings` | | 1:1 with User. |
