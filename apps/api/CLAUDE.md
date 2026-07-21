@@ -44,7 +44,29 @@ Frontend polls `GET /api/tutorial/generation-status?repo_url=...`.
 | `app/db/session.py` | Engine + `get_db()` | Sync engine, default pool, no `pool_pre_ping`. |
 | `app/workers/` | ARQ settings + task | `max_jobs=10`, `job_timeout=3600`. |
 | `app/utils/repo_utils.py` | git clone, file tree walk | Clones to `/tmp/reploai/{id}`, never cleans up. |
-| `app/scripts/devsetup/setup.py` | **Destructive** schema reset | `drop_all` + `create_all`. This is the migration story. |
+| `alembic/` | Migrations | Baseline `7b1291fb0c9b` captures all 12 tables. |
+
+## Migrations
+
+```bash
+make migrate                      # alembic upgrade head
+make migration m='add foo'        # autogenerate a revision
+```
+
+The URL is **not** in `alembic.ini` — `env.py` injects it from the same
+`Settings` object the app uses, so migrations can never target a different
+database than the app, and no credentials sit in a tracked file.
+
+Two details in `env.py` that look cosmetic and are not:
+
+- `import app.models` — registers every model on `Base.metadata`. Without it,
+  autogenerate sees an empty schema and offers to drop all your tables.
+- `.replace("%", "%%")` on the URL — alembic stores it in a configparser, which
+  treats `%` as interpolation. A password containing `@` URL-encodes to `%40`
+  and otherwise crashes every migration run.
+
+The destructive `drop_all`/`create_all` setup script is gone. Alembic owns the
+schema now.
 
 ## Async/sync mismatch (important)
 

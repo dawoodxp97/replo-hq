@@ -12,6 +12,7 @@ from .routers import (
     tutorial,
     user,
 )
+
 # Aliased: the module name collides with the `settings` config object above,
 # and a bare `from .routers import settings` silently shadowed it.
 from .routers import settings as settings_router
@@ -20,7 +21,7 @@ from .workers.worker import get_redis_pool
 app = FastAPI(
     title="AI Code Tutorial Generator API",
     description="API for analyzing GitHub repos and generating tutorials.",
-    version="0.1.0"
+    version="0.1.0",
 )
 
 app.add_middleware(
@@ -41,13 +42,16 @@ app.include_router(dashboard.router, prefix="/api/dashboard", tags=["Dashboard"]
 app.include_router(notification.router, prefix="/api/notifications", tags=["Notifications"])
 app.include_router(search.router, prefix="/api/search", tags=["Search"])
 
+
 @app.get("/api/health", tags=["Health"])
 def get_health():
     return {"status": "ok", "message": "Backend is running!"}
 
+
 @app.on_event("startup")
 async def startup_event():
     app.state.redis_pool = await get_redis_pool()
+
 
 @app.on_event("shutdown")
 async def shutdown_event():

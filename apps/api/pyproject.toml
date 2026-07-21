@@ -75,10 +75,37 @@ select = [
 ignore = [
     "E501",  # line length is the formatter's job
     "B008",  # FastAPI's Depends() in defaults is the documented idiom
+
+    # `Column == False` is the correct SQLAlchemy filter idiom. Ruff's suggested
+    # `not Column` evaluates in Python instead of emitting SQL, silently changing
+    # the query. Applying this "fix" would be a bug, not a cleanup.
+    "E712",
+
+    # --- Known debt, scheduled. Remove each line as its phase lands. ---
+    # Phase 2.1 (async SQLAlchemy): blocking file I/O inside `async def`.
+    # Ruff independently found the same problem documented in CLAUDE.md.
+    "ASYNC230",
+    "ASYNC240",
+    # Phase 3.11 (harden clone): hardcoded /tmp/reploai paths.
+    "S108",
+    # Phase 3: silent `except: pass` swallowing errors in repo_utils / ai client.
+    "S110",
+    # Phase 2: `raise X` inside `except` without `from`, losing the cause.
+    "B904",
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101"]  # assert is the point of a test
+# Re-export modules: the imports are the public surface, not dead code.
+"app/schemas/__init__.py" = ["F401"]
+"app/models/__init__.py" = ["F401"]
+# Logging is configured before importing modules that log at import time.
+"app/workers/worker.py" = ["E402"]
+"run_worker.py" = ["E402"]
+# Binding 0.0.0.0 is correct inside a container.
+"run.py" = ["S104"]
+# `token_type` holds "access"/"refresh" — not a credential.
+"app/core/security.py" = ["S105"]
 
 [tool.mypy]
 python_version = "3.12"

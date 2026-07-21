@@ -1,8 +1,4 @@
-
-
-
-
-from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Index
+from sqlalchemy import Column, DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func, text
 
@@ -12,9 +8,7 @@ from ..db.session import Base
 class Tutorial(Base):
     __tablename__ = "tutorials"
 
-    __table_args__ = (
-        Index("idx_tutorial_repo", "repo_id"),
-    )
+    __table_args__ = (Index("idx_tutorial_repo", "repo_id"),)
 
     tutorial_id = Column(
         UUID(as_uuid=True),
@@ -33,10 +27,4 @@ class Tutorial(Base):
     overview = Column(Text)
     overview_diagram_mermaid = Column(Text)  # For the main dependency graph
 
-    generated_at = Column(
-        DateTime(timezone=True), 
-        server_default=func.now(), 
-        nullable=False
-    )
-
-
+    generated_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

@@ -1,14 +1,15 @@
 #!/usr/bin/env python
 # ./backend/run_worker.py
+import asyncio
 import os
 import sys
 from pathlib import Path
-import asyncio
+
 from arq.worker import Worker
 from dotenv import load_dotenv
 
 # Load .env from project root (one level up from backend/)
-env_path = Path(__file__).parent.parent / '.env'
+env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(env_path)
 load_dotenv()  # Also load from current directory for backward compatibility
 
@@ -17,6 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Import the worker settings
 from app.workers.worker import WorkerSettings
+
 
 async def main():
     """
@@ -35,6 +37,7 @@ async def main():
         on_shutdown=settings.shutdown,
     )
     await worker.async_run()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

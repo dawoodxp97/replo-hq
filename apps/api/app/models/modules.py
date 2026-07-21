@@ -1,8 +1,9 @@
-from sqlalchemy import Column, String, Text, Integer, DateTime, ForeignKey, Index
+from sqlalchemy import Column, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.sql import func, text
+from sqlalchemy.sql import text
 
 from ..db.session import Base
+
 
 class Module(Base):
     __tablename__ = "modules"
@@ -28,6 +29,4 @@ class Module(Base):
     diagram_mermaid = Column(Text)
 
     # Performance index on tutorial_id
-    __table_args__ = (
-        Index("idx_module_tutorial", "tutorial_id"),
-    )
+    __table_args__ = (Index("idx_module_tutorial", "tutorial_id"),)

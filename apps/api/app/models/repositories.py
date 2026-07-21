@@ -1,15 +1,14 @@
-from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Index
+from sqlalchemy import Column, DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func, text
 
 from ..db.session import Base
 
+
 class Repository(Base):
     __tablename__ = "repositories"
 
-    __table_args__ = (
-        Index("idx_repo_user", "user_id"),
-    )
+    __table_args__ = (Index("idx_repo_user", "user_id"),)
 
     repo_id = Column(
         UUID(as_uuid=True),

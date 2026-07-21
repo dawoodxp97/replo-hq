@@ -1,7 +1,7 @@
 # ./backend/app/schemas/settings.py
 from uuid import UUID
-from typing import List, Optional, Dict
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+
+from pydantic import BaseModel, Field
 
 
 # Connected Account Schema
@@ -9,38 +9,38 @@ class ConnectedAccount(BaseModel):
     id: int
     name: str
     connected: bool
-    username: Optional[str] = None
+    username: str | None = None
 
 
 # Profile Settings Schemas
 class ProfileSettingsUpdate(BaseModel):
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    bio: Optional[str] = None
-    location: Optional[str] = None
-    website: Optional[str] = None
-    profile_picture_url: Optional[str] = None
-    connected_accounts: Optional[List[ConnectedAccount]] = None
+    first_name: str | None = None
+    last_name: str | None = None
+    bio: str | None = None
+    location: str | None = None
+    website: str | None = None
+    profile_picture_url: str | None = None
+    connected_accounts: list[ConnectedAccount] | None = None
 
 
 class ProfileSettingsResponse(BaseModel):
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    email: Optional[str] = None
-    bio: Optional[str] = None
-    location: Optional[str] = None
-    website: Optional[str] = None
-    profile_picture_url: Optional[str] = None
-    connected_accounts: Optional[List[ConnectedAccount]] = None
+    first_name: str | None = None
+    last_name: str | None = None
+    email: str | None = None
+    bio: str | None = None
+    location: str | None = None
+    website: str | None = None
+    profile_picture_url: str | None = None
+    connected_accounts: list[ConnectedAccount] | None = None
 
 
 # Notification Settings Schemas
 class NotificationSettingsUpdate(BaseModel):
-    email_notifications_enabled: Optional[bool] = None
-    tutorial_completions: Optional[bool] = None
-    new_features: Optional[bool] = None
-    weekly_digest: Optional[bool] = None
-    browser_notifications: Optional[bool] = None
+    email_notifications_enabled: bool | None = None
+    tutorial_completions: bool | None = None
+    new_features: bool | None = None
+    weekly_digest: bool | None = None
+    browser_notifications: bool | None = None
 
 
 class NotificationSettingsResponse(BaseModel):
@@ -53,8 +53,8 @@ class NotificationSettingsResponse(BaseModel):
 
 # Appearance Settings Schemas
 class AppearanceSettingsUpdate(BaseModel):
-    language: Optional[str] = Field(None, min_length=2, max_length=10)
-    code_editor_theme: Optional[str] = Field(None, min_length=1, max_length=50)
+    language: str | None = Field(None, min_length=2, max_length=10)
+    code_editor_theme: str | None = Field(None, min_length=1, max_length=50)
 
 
 class AppearanceSettingsResponse(BaseModel):
@@ -64,11 +64,11 @@ class AppearanceSettingsResponse(BaseModel):
 
 # Learning Settings Schemas
 class LearningSettingsUpdate(BaseModel):
-    default_difficulty_level: Optional[str] = Field(None, min_length=1, max_length=20)
-    daily_learning_goal: Optional[int] = Field(None, ge=1, le=1440)  # 1 minute to 24 hours
-    auto_play_next_module: Optional[bool] = None
-    show_code_hints: Optional[bool] = None
-    quiz_mode: Optional[bool] = None
+    default_difficulty_level: str | None = Field(None, min_length=1, max_length=20)
+    daily_learning_goal: int | None = Field(None, ge=1, le=1440)  # 1 minute to 24 hours
+    auto_play_next_module: bool | None = None
+    show_code_hints: bool | None = None
+    quiz_mode: bool | None = None
 
 
 class LearningSettingsResponse(BaseModel):
@@ -93,7 +93,7 @@ class PasswordChangeResponse(BaseModel):
 # Combined Settings Response (for getting all settings at once)
 class UserSettingsResponse(BaseModel):
     user_id: UUID
-    profile: Optional[ProfileSettingsResponse] = None
-    notifications: Optional[NotificationSettingsResponse] = None
-    appearance: Optional[AppearanceSettingsResponse] = None
-    learning: Optional[LearningSettingsResponse] = None
+    profile: ProfileSettingsResponse | None = None
+    notifications: NotificationSettingsResponse | None = None
+    appearance: AppearanceSettingsResponse | None = None
+    learning: LearningSettingsResponse | None = None

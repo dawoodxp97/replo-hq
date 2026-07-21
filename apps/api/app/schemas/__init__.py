@@ -1,24 +1,24 @@
-from .user import UserPublic, UserCreate, UserLogin, Token, RefreshTokenRequest
-from .settings import (
-    ConnectedAccount,
-    ProfileSettingsUpdate,
-    ProfileSettingsResponse,
-    NotificationSettingsUpdate,
-    NotificationSettingsResponse,
-    AppearanceSettingsUpdate,
-    AppearanceSettingsResponse,
-    LearningSettingsUpdate,
-    LearningSettingsResponse,
-    PasswordChangeRequest,
-    PasswordChangeResponse,
-    UserSettingsResponse,
-)
 from .notifications import (
-    NotificationResponse,
-    NotificationListResponse,
     MarkAsReadRequest,
     MarkAsReadResponse,
+    NotificationListResponse,
+    NotificationResponse,
 )
+from .settings import (
+    AppearanceSettingsResponse,
+    AppearanceSettingsUpdate,
+    ConnectedAccount,
+    LearningSettingsResponse,
+    LearningSettingsUpdate,
+    NotificationSettingsResponse,
+    NotificationSettingsUpdate,
+    PasswordChangeRequest,
+    PasswordChangeResponse,
+    ProfileSettingsResponse,
+    ProfileSettingsUpdate,
+    UserSettingsResponse,
+)
+from .user import RefreshTokenRequest, Token, UserCreate, UserLogin, UserPublic
 
 # You can add imports from other schema files here as you create them
 # e.g.: from .tutorial import Tutorial, TutorialCreate

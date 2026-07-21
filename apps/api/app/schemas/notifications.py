@@ -1,8 +1,6 @@
 # ./backend/app/schemas/notifications.py
-from typing import Optional
+
 from pydantic import BaseModel
-from datetime import datetime
-import uuid
 
 
 class NotificationResponse(BaseModel):
@@ -12,7 +10,7 @@ class NotificationResponse(BaseModel):
     type: str  # success, info, warning, default
     created_at: str  # ISO format datetime
     read: bool
-    link: Optional[str] = None
+    link: str | None = None
 
     class Config:
         from_attributes = True
@@ -30,4 +28,3 @@ class MarkAsReadRequest(BaseModel):
 class MarkAsReadResponse(BaseModel):
     success: bool
     message: str
-

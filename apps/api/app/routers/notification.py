@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
@@ -27,7 +27,7 @@ def get_notifications(
         .offset(offset)
         .all()
     )
-    
+
     unread_count = (
         db.query(models.Notification)
         .filter(
@@ -36,7 +36,7 @@ def get_notifications(
         )
         .count()
     )
-    
+
     notification_responses = []
     for notification in notifications:
         notification_responses.append(
@@ -50,7 +50,7 @@ def get_notifications(
                 link=notification.link,
             )
         )
-    
+
     return schemas.NotificationListResponse(
         notifications=notification_responses,
         unread_count=unread_count,
@@ -75,7 +75,7 @@ def mark_notification_as_read(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid notification ID format",
             )
-        
+
         notification = (
             db.query(models.Notification)
             .filter(
@@ -84,18 +84,18 @@ def mark_notification_as_read(
             )
             .first()
         )
-        
+
         if not notification:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Notification not found",
             )
-        
+
         if not notification.read:
             notification.read = True
             notification.read_at = datetime.now()
             db.commit()
-        
+
         return schemas.MarkAsReadResponse(
             success=True,
             message="Notification marked as read",
@@ -133,9 +133,9 @@ def mark_all_notifications_as_read(
                 synchronize_session=False,
             )
         )
-        
+
         db.commit()
-        
+
         return schemas.MarkAsReadResponse(
             success=True,
             message=f"Marked {updated_count} notification(s) as read",
@@ -146,4 +146,3 @@ def mark_all_notifications_as_read(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to mark all notifications as read: {str(e)}",
         )
-

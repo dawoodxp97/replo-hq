@@ -1,8 +1,8 @@
 # ./backend/app/models/notifications.py
-from sqlalchemy import Column, String, Text, Boolean, DateTime, ForeignKey, Index
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.sql import func, text
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func, text
 
 from ..db.session import Base
 
@@ -52,4 +52,3 @@ class Notification(Base):
 
     # Relationship
     user = relationship("User", back_populates="notifications")
-

@@ -1,4 +1,3 @@
-from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -9,23 +8,20 @@ from ..db.session import get_db
 router = APIRouter()
 
 
-def mask_api_key(api_key: Optional[str]) -> Optional[str]:
+def mask_api_key(api_key: str | None) -> str | None:
     if not api_key or len(api_key) <= 8:
         return None
-    
+
     if len(api_key) <= 12:
         return f"{api_key[:3]}...{api_key[-3:]}"
     else:
         return f"{api_key[:4]}...{api_key[-4:]}"
 
 
-def get_or_create_user_settings(
-    user: models.User,
-    db: Session
-) -> models.UserSettings:
+def get_or_create_user_settings(user: models.User, db: Session) -> models.UserSettings:
     if user.settings:
         return user.settings
-    
+
     default_settings = models.UserSettings(
         user_id=user.user_id,
         email_notifications_enabled=True,
@@ -49,11 +45,10 @@ def get_or_create_user_settings(
 
 @router.get("/profile", response_model=schemas.ProfileSettingsResponse)
 def get_profile_settings(
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     settings = get_or_create_user_settings(current_user, db)
-    
+
     return {
         "first_name": current_user.first_name,
         "last_name": current_user.last_name,
@@ -70,10 +65,10 @@ def get_profile_settings(
 def update_profile_settings(
     profile_update: schemas.ProfileSettingsUpdate,
     current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     settings = get_or_create_user_settings(current_user, db)
-    
+
     if profile_update.first_name is not None:
         current_user.first_name = profile_update.first_name
     if profile_update.last_name is not None:
@@ -90,11 +85,11 @@ def update_profile_settings(
         settings.connected_accounts = [
             account.model_dump() for account in profile_update.connected_accounts
         ]
-    
+
     db.commit()
     db.refresh(settings)
     db.refresh(current_user)
-    
+
     return {
         "first_name": current_user.first_name,
         "last_name": current_user.last_name,
@@ -109,14 +104,13 @@ def update_profile_settings(
 
 @router.get("/notifications", response_model=schemas.NotificationSettingsResponse)
 def get_notification_settings(
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     """
     Get user's notification settings.
     """
     settings = get_or_create_user_settings(current_user, db)
-    
+
     return {
         "email_notifications_enabled": settings.email_notifications_enabled,
         "tutorial_completions": settings.tutorial_completions,
@@ -130,13 +124,13 @@ def get_notification_settings(
 def update_notification_settings(
     notification_update: schemas.NotificationSettingsUpdate,
     current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Update user's notification settings.
     """
     settings = get_or_create_user_settings(current_user, db)
-    
+
     if notification_update.email_notifications_enabled is not None:
         settings.email_notifications_enabled = notification_update.email_notifications_enabled
     if notification_update.tutorial_completions is not None:
@@ -147,10 +141,10 @@ def update_notification_settings(
         settings.weekly_digest = notification_update.weekly_digest
     if notification_update.browser_notifications is not None:
         settings.browser_notifications = notification_update.browser_notifications
-    
+
     db.commit()
     db.refresh(settings)
-    
+
     return {
         "email_notifications_enabled": settings.email_notifications_enabled,
         "tutorial_completions": settings.tutorial_completions,
@@ -163,14 +157,13 @@ def update_notification_settings(
 # --- Appearance Settings Endpoints ---
 @router.get("/appearance", response_model=schemas.AppearanceSettingsResponse)
 def get_appearance_settings(
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     """
     Get user's appearance settings.
     """
     settings = get_or_create_user_settings(current_user, db)
-    
+
     return {
         "language": settings.language,
         "code_editor_theme": settings.code_editor_theme,
@@ -181,21 +174,21 @@ def get_appearance_settings(
 def update_appearance_settings(
     appearance_update: schemas.AppearanceSettingsUpdate,
     current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Update user's appearance settings.
     """
     settings = get_or_create_user_settings(current_user, db)
-    
+
     if appearance_update.language is not None:
         settings.language = appearance_update.language
     if appearance_update.code_editor_theme is not None:
         settings.code_editor_theme = appearance_update.code_editor_theme
-    
+
     db.commit()
     db.refresh(settings)
-    
+
     return {
         "language": settings.language,
         "code_editor_theme": settings.code_editor_theme,
@@ -205,14 +198,13 @@ def update_appearance_settings(
 # --- Learning Settings Endpoints ---
 @router.get("/learning", response_model=schemas.LearningSettingsResponse)
 def get_learning_settings(
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     """
     Get user's learning settings.
     """
     settings = get_or_create_user_settings(current_user, db)
-    
+
     return {
         "default_difficulty_level": settings.default_difficulty_level,
         "daily_learning_goal": settings.daily_learning_goal,
@@ -226,13 +218,13 @@ def get_learning_settings(
 def update_learning_settings(
     learning_update: schemas.LearningSettingsUpdate,
     current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Update user's learning settings.
     """
     settings = get_or_create_user_settings(current_user, db)
-    
+
     if learning_update.default_difficulty_level is not None:
         settings.default_difficulty_level = learning_update.default_difficulty_level
     if learning_update.daily_learning_goal is not None:
@@ -243,10 +235,10 @@ def update_learning_settings(
         settings.show_code_hints = learning_update.show_code_hints
     if learning_update.quiz_mode is not None:
         settings.quiz_mode = learning_update.quiz_mode
-    
+
     db.commit()
     db.refresh(settings)
-    
+
     return {
         "default_difficulty_level": settings.default_difficulty_level,
         "daily_learning_goal": settings.daily_learning_goal,
@@ -261,47 +253,46 @@ def update_learning_settings(
 def change_password(
     password_change: schemas.PasswordChangeRequest,
     current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Change user's password.
     Validates current password and updates to new password.
     """
     from ..core import security
-    
+
     # Validate current password
     if not security.verify_password(password_change.current_password, current_user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Current password is incorrect",
         )
-    
+
     # Validate new password matches confirmation
     if password_change.new_password != password_change.confirm_new_password:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="New password and confirmation do not match",
         )
-    
+
     # Validate new password is different from current
     if password_change.current_password == password_change.new_password:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="New password must be different from current password",
         )
-    
+
     # Update password
     current_user.hashed_password = security.get_password_hash(password_change.new_password)
     db.commit()
     db.refresh(current_user)
-    
+
     return {"message": "Password updated successfully"}
 
 
 @router.delete("/security/account")
 def delete_account(
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     """
     Delete user account and all associated data.
@@ -310,21 +301,20 @@ def delete_account(
     # Delete user (this will cascade delete settings due to CASCADE on foreign key)
     db.delete(current_user)
     db.commit()
-    
+
     return {"message": "Account deleted successfully"}
 
 
 # --- Get All Settings (Optional convenience endpoint) ---
 @router.get("/all", response_model=schemas.UserSettingsResponse)
 def get_all_settings(
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     """
     Get all user settings at once.
     """
     settings = get_or_create_user_settings(current_user, db)
-    
+
     return {
         "user_id": current_user.user_id,
         "profile": {
