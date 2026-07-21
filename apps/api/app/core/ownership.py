@@ -126,6 +126,59 @@ async def get_owned_module(db: AsyncSession, module_id: UUID, user_id: UUID) -> 
     return module
 
 
+_READABLE = (TutorialVisibility.PUBLIC, TutorialVisibility.UNLISTED)
+
+
+async def get_readable_module(db: AsyncSession, module_id: UUID, user_id: UUID) -> Module:
+    """A module the caller may *read* — theirs, or one in a published tutorial.
+
+    Progress needs this rather than `get_owned_module`. Reading a public tutorial
+    and recording completion against it is the normal case once /explore exists,
+    and ownership would reject every one of those writes.
+
+    It is still a check: `POST /progress/complete_module` previously took a bare
+    `module_id` and inserted a row with **no validation at all**, so any user
+    could record progress against modules of other users' private tutorials — and
+    `GET /progress` joins Module and Tutorial, so those titles came straight back
+    in the response. A write endpoint turned into a read of private data.
+    """
+    module = (
+        await db.execute(
+            select(Module)
+            .join(Tutorial, Module.tutorial_id == Tutorial.tutorial_id)
+            .join(Repository, Tutorial.repo_id == Repository.repo_id)
+            .where(
+                Module.module_id == module_id,
+                (Repository.user_id == user_id) | Tutorial.visibility.in_(_READABLE),
+            )
+        )
+    ).scalar_one_or_none()
+
+    if module is None:
+        raise NotFoundError("Module not found.")
+    return module
+
+
+async def get_readable_quiz(db: AsyncSession, quiz_id: UUID, user_id: UUID) -> Quiz:
+    """As `get_readable_module`, one level down. Backs quiz submission."""
+    quiz = (
+        await db.execute(
+            select(Quiz)
+            .join(Module, Quiz.module_id == Module.module_id)
+            .join(Tutorial, Module.tutorial_id == Tutorial.tutorial_id)
+            .join(Repository, Tutorial.repo_id == Repository.repo_id)
+            .where(
+                Quiz.quiz_id == quiz_id,
+                (Repository.user_id == user_id) | Tutorial.visibility.in_(_READABLE),
+            )
+        )
+    ).scalar_one_or_none()
+
+    if quiz is None:
+        raise NotFoundError("Quiz not found.")
+    return quiz
+
+
 async def get_owned_quiz(db: AsyncSession, quiz_id: UUID, user_id: UUID) -> Quiz:
     quiz = (
         await db.execute(

@@ -11,7 +11,6 @@ row converts directly with no intermediate dict.
 """
 
 from datetime import datetime
-from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -19,15 +18,35 @@ from pydantic import BaseModel, ConfigDict, Field
 from ..models.enums import QuestionType, RunStatus, TutorialLevel, TutorialVisibility
 
 
+class QuizOption(BaseModel):
+    """One selectable answer, **stripped of the answer key**.
+
+    `quizzes.options` is freeform JSONB and the option dicts written by
+    `routers/author.py` carry `is_correct` — that flag *is* the answer key
+    (`correct_answer` is derived from it, `quiz.correct_answer = the option whose
+    is_correct is true`).
+
+    Omitting the `correct_answer` column is therefore not enough on its own: the
+    old inline schema declared `options: list[dict]` and passed the raw JSONB
+    straight through, so every quiz shipped its own answer to the browser before
+    the question was attempted.
+
+    This model is an allowlist — `extra="ignore"` means any key not named below is
+    dropped on the way out, so a new answer-revealing field added to the JSON
+    later cannot leak by default. It fails closed.
+    """
+
+    id: str | None = None
+    text: str
+
+    model_config = ConfigDict(extra="ignore")
+
+
 class QuizResponse(BaseModel):
     quiz_id: UUID
     question_text: str
     question_type: QuestionType
-    options: list[dict[str, Any]] = Field(default_factory=list)
-
-    # `correct_answer` is deliberately absent. The column exists on the model and
-    # the old inline schema also omitted it — keep it that way: including it ships
-    # every answer to the client before the question is attempted.
+    options: list[QuizOption] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 

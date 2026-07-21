@@ -5,7 +5,7 @@ paginated + ownership-checked in a single pass.
 
 | Converted | Remaining |
 |---|---|
-| `user.py`, `repo.py`, `tutorial.py` | `progress` → `author` → `settings` → `dashboard` → `notification` → `search` |
+| `user.py`, `repo.py`, `tutorial.py`, `progress.py` | `author` → `settings` → `dashboard` → `notification` → `search` |
 
 `grep -l get_db app/routers/` lists what's left.
 
@@ -35,7 +35,7 @@ Rules:
 | `dashboard.py` | `/api/dashboard` | 367 | Aggregate stats. Many separate queries per request. |
 | `settings.py` | `/api/settings` | 358 | Profile/notification/learning/appearance/security sub-resources. |
 | `author.py` | `/api/author` | 274 | Manual tutorial/module/quiz editing. |
-| `progress.py` | `/api/progress` | 269 | Module completion tracking. |
+| `progress.py` | `/api/progress` | 94 | **Converted.** Completion, quiz grading, overview + paginated history. |
 | `repo.py` | `/api/repo` | 93 | **Converted.** CRUD + tree + file. See git safety notes in `utils/repo_utils.py`. |
 | `search.py` | `/api/search` | 192 | Likely `ILIKE` scans — no full-text index. |
 | `notification.py` | `/api/notifications` | 149 | |
@@ -63,6 +63,26 @@ resource (`DELETE`, `PATCH /visibility`) stay owner-only.
 `PATCH /{id}/visibility` is the **only** writer of `visibility`, `slug` and `published_at`.
 Slugs are assigned on first publish and never change afterwards — a public URL that stops
 resolving is worse than one that no longer matches an edited title.
+
+**Writes need a check too, and it is a different one.** Progress endpoints use
+`get_readable_module` / `get_readable_quiz`, not the `get_owned_*` pair: a learner reading a
+public tutorial must be able to record completion against it, and ownership rejects every
+one of those. Before the conversion these endpoints had *no* check at all — `complete_module`
+inserted a row for any `module_id` supplied, and `GET /progress` joined Module and Tutorial
+to enrich the response, so an attacker could write a row against a private module and read
+its title and its tutorial's title straight back. Validate the target of a write, not just
+the caller.
+
+## Never return the answer key
+
+`quizzes.options` is freeform JSONB whose option dicts carry `is_correct` — that flag *is*
+the answer (`author.py` derives `correct_answer` from it). Omitting the `correct_answer`
+column is not sufficient; the old `options: list[dict]` passed the raw JSON through and
+shipped every answer to the browser.
+
+`schemas/tutorial.py::QuizOption` is an **allowlist** (`extra="ignore"`, fields `id`/`text`),
+so a new answer-revealing key added to that JSON later cannot leak by default. The answer is
+disclosed in exactly one place: the `POST /progress/submit_quiz` response, after an attempt.
 
 ## When adding an endpoint
 

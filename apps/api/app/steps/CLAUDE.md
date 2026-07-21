@@ -32,6 +32,10 @@ equals the literal `"Default prompt"`, replace with a hardcoded template in the 
   touching anything that handles a URL or a file path.
 - **`save_tutorial` is not atomic.** Commit per module; a mid-loop failure leaves a
   half-written tutorial marked as produced by a failed execution.
+- **The pipeline never creates quizzes.** `save_tutorial.py` has a `# Future: Generate
+  quizzes in a separate step` comment and writes none, so every generated tutorial has
+  quiz-shaped UI with nothing behind it. Only manual authoring (`routers/author.py`)
+  produces a `Quiz` row.
 - `save_tutorial` hardcodes `level="INTERMEDIATE"` — the user's chosen difficulty from
   `GenerateRequest` never reaches the tutorial row.
 - Output of step 3 and input of step 5 agree only by convention (`modules` key). Nothing

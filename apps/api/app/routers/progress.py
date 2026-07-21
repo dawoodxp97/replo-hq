@@ -1,286 +1,94 @@
-import uuid
-from datetime import datetime
+"""Progress endpoints."""
 
-from fastapi import APIRouter, Depends, HTTPException
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from .. import models
-from ..core.dependencies import get_current_user
-from ..db.session import get_db
-from ..models.modules import Module
-from ..models.quizzes import Quiz
-from ..models.tutorials import Tutorial
-from ..models.user_progress import UserProgress
+from ..core.dependencies import get_current_user_async
+from ..core.pagination import Page, PageParams, page_params
+from ..db.session import get_async_db
+from ..models.user import User
+from ..schemas.progress import (
+    ModuleProgressDetail,
+    ProgressResponse,
+    ProgressUpdate,
+    QuizResult,
+    QuizSubmit,
+    TutorialProgressSummary,
+    UserProgressStats,
+)
+from ..services import progress as progress_service
 
 router = APIRouter()
 
 
-class ProgressUpdate(BaseModel):
-    module_id: uuid.UUID
+class ProgressOverview(BaseModel):
+    """Fixed-size dashboard payload.
 
+    The completion history used to be inlined here and was unbounded — it now
+    lives at `GET /api/progress/modules`, paginated.
+    """
 
-class QuizSubmit(BaseModel):
-    quiz_id: uuid.UUID
-    submitted_answer: str
-
-
-class ProgressResponse(BaseModel):
-    progress_id: uuid.UUID
-    module_id: uuid.UUID
-    completed_at: str
-    quiz_score: int | None = None
-
-
-class ModuleProgressDetail(BaseModel):
-    progress_id: uuid.UUID
-    module_id: uuid.UUID
-    module_title: str
-    module_order_index: int
-    tutorial_id: uuid.UUID
-    tutorial_title: str
-    tutorial_level: str
-    completed_at: str
-    quiz_score: int | None = None
-
-
-class TutorialProgressSummary(BaseModel):
-    tutorial_id: uuid.UUID
-    tutorial_title: str
-    tutorial_level: str
-    total_modules: int
-    completed_modules: int
-    progress_percentage: float
-    average_quiz_score: float | None = None
-    last_completed_at: str | None = None
-
-
-class UserProgressStats(BaseModel):
-    total_modules_completed: int
-    total_quizzes_attempted: int
-    total_quizzes_correct: int
-    average_quiz_score: float
-    total_tutorials_with_progress: int
-    last_activity_at: str | None = None
-
-
-class UserProgressResponse(BaseModel):
-    user_id: uuid.UUID
+    user_id: UUID
     stats: UserProgressStats
-    progress: list[ModuleProgressDetail]
     tutorials: list[TutorialProgressSummary]
 
 
-# --- API Endpoints ---
 @router.post("/complete_module", response_model=ProgressResponse)
 async def mark_module_complete(
-    progress: ProgressUpdate,
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    body: ProgressUpdate,
+    current_user: User = Depends(get_current_user_async),
+    db: AsyncSession = Depends(get_async_db),
 ):
-    """
-    Called when a user clicks "Next" on a module.
-    """
-    user_id = current_user.user_id
-
-    # Check if progress already exists
-    existing_progress = (
-        db.query(UserProgress)
-        .filter(UserProgress.user_id == user_id, UserProgress.module_id == progress.module_id)
-        .first()
-    )
-
-    if existing_progress:
-        # Update existing progress
-        existing_progress.completed_at = datetime.now()
-        db.commit()
-        db.refresh(existing_progress)
-        return {
-            "progress_id": existing_progress.progress_id,
-            "module_id": existing_progress.module_id,
-            "completed_at": existing_progress.completed_at.isoformat(),
-            "quiz_score": existing_progress.quiz_score,
-        }
-    else:
-        # Create new progress
-        new_progress = UserProgress(
-            user_id=user_id, module_id=progress.module_id, completed_at=datetime.now()
-        )
-        db.add(new_progress)
-        db.commit()
-        db.refresh(new_progress)
-        return {
-            "progress_id": new_progress.progress_id,
-            "module_id": new_progress.module_id,
-            "completed_at": new_progress.completed_at.isoformat(),
-            "quiz_score": new_progress.quiz_score,
-        }
+    """Mark a module finished. Idempotent — repeat calls keep the first timestamp."""
+    return await progress_service.complete_module(db, current_user.user_id, body.module_id)
 
 
-@router.post("/submit_quiz", response_model=dict)
+@router.delete("/modules/{module_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def unmark_module_complete(
+    module_id: UUID,
+    current_user: User = Depends(get_current_user_async),
+    db: AsyncSession = Depends(get_async_db),
+) -> None:
+    """Undo a completion. Progress was previously write-once."""
+    await progress_service.uncomplete_module(db, current_user.user_id, module_id)
+
+
+@router.post("/submit_quiz", response_model=QuizResult)
 async def submit_quiz_answer(
-    submission: QuizSubmit,
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    body: QuizSubmit,
+    current_user: User = Depends(get_current_user_async),
+    db: AsyncSession = Depends(get_async_db),
 ):
+    """Grade an attempt, record the score, and mark the module complete.
+
+    The response carries `correct_answer` — after an attempt, which is the only
+    place it is disclosed. The quiz body itself never includes it; see
+    `schemas/tutorial.py::QuizOption`.
     """
-    Check a user's quiz answer.
-    """
-    user_id = current_user.user_id
-
-    # Get the quiz
-    quiz = db.query(Quiz).filter(Quiz.quiz_id == submission.quiz_id).first()
-    if not quiz:
-        raise HTTPException(status_code=404, detail="Quiz not found")
-
-    # Check the answer
-    is_correct = False
-    for option in quiz.options:
-        if option.get("text") == submission.submitted_answer and option.get("is_correct"):
-            is_correct = True
-            break
-
-    # Update the user progress
-    progress = (
-        db.query(UserProgress)
-        .filter(UserProgress.user_id == user_id, UserProgress.module_id == quiz.module_id)
-        .first()
+    return await progress_service.submit_quiz(
+        db, current_user.user_id, body.quiz_id, body.submitted_answer
     )
 
-    if progress:
-        progress.quiz_score = 1 if is_correct else 0
-        db.commit()
-    else:
-        # Create new progress with quiz score
-        new_progress = UserProgress(
-            user_id=user_id,
-            module_id=quiz.module_id,
-            completed_at=datetime.now(),
-            quiz_score=1 if is_correct else 0,
-        )
-        db.add(new_progress)
-        db.commit()
 
-    return {"is_correct": is_correct}
-
-
-@router.get("/", response_model=UserProgressResponse)
-async def get_user_progress(
-    current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
+@router.get("", response_model=ProgressOverview)
+async def get_progress_overview(
+    current_user: User = Depends(get_current_user_async),
+    db: AsyncSession = Depends(get_async_db),
 ):
-    """
-    Get all progress for the current user with comprehensive details.
-    Returns enriched progress data including module titles, tutorial info, and statistics.
-    """
-    user_id = current_user.user_id
+    stats = await progress_service.get_stats(db, current_user.user_id)
+    tutorials = await progress_service.list_tutorial_summaries(db, current_user.user_id)
+    return ProgressOverview(user_id=current_user.user_id, stats=stats, tutorials=tutorials)
 
-    # Get all progress entries with joined module and tutorial data
-    progress_entries = (
-        db.query(UserProgress, Module, Tutorial)
-        .join(Module, UserProgress.module_id == Module.module_id)
-        .join(Tutorial, Module.tutorial_id == Tutorial.tutorial_id)
-        .filter(UserProgress.user_id == user_id)
-        .order_by(UserProgress.completed_at.desc())
-        .all()
-    )
 
-    # Build detailed progress list
-    progress_details = []
-    tutorial_ids_set = set()
-
-    for progress, module, tutorial in progress_entries:
-        tutorial_ids_set.add(tutorial.tutorial_id)
-        progress_details.append(
-            {
-                "progress_id": progress.progress_id,
-                "module_id": progress.module_id,
-                "module_title": module.title,
-                "module_order_index": module.order_index,
-                "tutorial_id": tutorial.tutorial_id,
-                "tutorial_title": tutorial.title,
-                "tutorial_level": tutorial.level,
-                "completed_at": progress.completed_at.isoformat(),
-                "quiz_score": progress.quiz_score,
-            }
-        )
-
-    # Calculate statistics
-    total_modules_completed = len(progress_details)
-    quizzes_attempted = sum(1 for p in progress_details if p["quiz_score"] is not None)
-    quizzes_correct = sum(1 for p in progress_details if p["quiz_score"] == 1)
-    quiz_scores = [p["quiz_score"] for p in progress_details if p["quiz_score"] is not None]
-    average_quiz_score = sum(quiz_scores) / len(quiz_scores) * 100 if quiz_scores else 0.0
-    total_tutorials_with_progress = len(tutorial_ids_set)
-
-    last_activity = progress_details[0]["completed_at"] if progress_details else None
-
-    stats = {
-        "total_modules_completed": total_modules_completed,
-        "total_quizzes_attempted": quizzes_attempted,
-        "total_quizzes_correct": quizzes_correct,
-        "average_quiz_score": round(average_quiz_score, 2),
-        "total_tutorials_with_progress": total_tutorials_with_progress,
-        "last_activity_at": last_activity,
-    }
-
-    # Build tutorial summaries
-    tutorial_summaries = []
-    if tutorial_ids_set:
-        for tutorial_id in tutorial_ids_set:
-            # Get all modules for this tutorial
-            tutorial_modules = db.query(Module).filter(Module.tutorial_id == tutorial_id).all()
-            total_modules = len(tutorial_modules)
-
-            # Get completed modules for this tutorial
-            tutorial_module_ids = [m.module_id for m in tutorial_modules]
-            completed_module_ids = {
-                p["module_id"] for p in progress_details if p["tutorial_id"] == tutorial_id
-            }
-            completed_count = sum(1 for mid in tutorial_module_ids if mid in completed_module_ids)
-
-            # Get tutorial info
-            tutorial = db.query(Tutorial).filter(Tutorial.tutorial_id == tutorial_id).first()
-            if not tutorial:
-                continue
-
-            # Calculate average quiz score for this tutorial
-            tutorial_progress = [p for p in progress_details if p["tutorial_id"] == tutorial_id]
-            tutorial_quiz_scores = [
-                p["quiz_score"] for p in tutorial_progress if p["quiz_score"] is not None
-            ]
-            avg_tutorial_score = (
-                sum(tutorial_quiz_scores) / len(tutorial_quiz_scores) * 100
-                if tutorial_quiz_scores
-                else None
-            )
-
-            # Get last completed date for this tutorial
-            tutorial_dates = [p["completed_at"] for p in tutorial_progress]
-            last_tutorial_activity = max(tutorial_dates) if tutorial_dates else None
-
-            progress_pct = (completed_count / total_modules * 100) if total_modules > 0 else 0.0
-
-            tutorial_summaries.append(
-                {
-                    "tutorial_id": tutorial_id,
-                    "tutorial_title": tutorial.title,
-                    "tutorial_level": tutorial.level,
-                    "total_modules": total_modules,
-                    "completed_modules": completed_count,
-                    "progress_percentage": round(progress_pct, 2),
-                    "average_quiz_score": round(avg_tutorial_score, 2)
-                    if avg_tutorial_score is not None
-                    else None,
-                    "last_completed_at": last_tutorial_activity,
-                }
-            )
-
-        # Sort by last completed date (most recent first)
-        tutorial_summaries.sort(key=lambda x: x["last_completed_at"] or "", reverse=True)
-
-    return {
-        "user_id": user_id,
-        "stats": stats,
-        "progress": progress_details,
-        "tutorials": tutorial_summaries,
-    }
+@router.get("/modules", response_model=Page[ModuleProgressDetail])
+async def list_module_progress(
+    params: PageParams = Depends(page_params),
+    current_user: User = Depends(get_current_user_async),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Completion history, newest first."""
+    items, total = await progress_service.list_module_progress(db, current_user.user_id, params)
+    return Page[ModuleProgressDetail].build(items, total, params)

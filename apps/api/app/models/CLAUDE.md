@@ -11,8 +11,8 @@ All models inherit `Base` from `app/db/session.py`. UUID PKs via
 | `Repository` | `repositories` | `repo_id` | Unique on **(user_id, github_url)**. Was globally unique on `github_url`, so once one user added `facebook/react` nobody else ever could. |
 | `Tutorial` | `tutorials` | `tutorial_id` | FK repo_id CASCADE. `generated_at` kept (domain meaning) plus `updated_at` for authoring edits. |
 | `Module` | `modules` | `module_id` | ordered by `order_index`. |
-| `Quiz` | `quizzes` | | |
-| `UserProgress` | `user_progress` | | Completion rows. |
+| `Quiz` | `quizzes` | | **`options` JSONB holds the answer key** — its dicts carry `is_correct`, and `correct_answer` is derived from it. Never serialise `options` raw; see `schemas/tutorial.py::QuizOption`. Nothing in the pipeline creates quizzes yet — only `routers/author.py` does. |
+| `UserProgress` | `user_progress` | | Completion rows. `uq_user_module` makes check-then-insert a race — verified: 7 of 8 concurrent completions raised `IntegrityError`. Write with `ON CONFLICT`. |
 | `UserSettings` | `user_settings` | | 1:1 with User. |
 | `Notification` | `notifications` | | |
 
