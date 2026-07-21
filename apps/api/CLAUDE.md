@@ -27,7 +27,17 @@ worker: generate_tutorial_task
      → for each step: validate → record → execute → record
 ```
 
-Frontend polls `GET /api/tutorial/generation-status?repo_url=...`.
+Frontend polls `GET /api/tutorial/generation/status?repo_url=...` (legacy, URL-keyed) or
+`GET /api/tutorial/{instance_id}/status` (preferred).
+
+`POST /generate` returns **202**, normalises the URL through `repo_utils.normalise_repo_url`
+before it ever reaches the worker, and **fails with 502 if Redis is unreachable**. It
+previously stored the raw URL and skipped the enqueue silently when the pool was missing —
+returning a pending instance id for a job that would never run.
+
+`GenerateRequest.difficulty`, `.focus` and `.description` are accepted and validated but
+still discarded: `steps/save_tutorial.py` hardcodes `level="intermediate"`. Wiring them
+through is Phase 3.
 
 ## Directories
 
@@ -36,15 +46,15 @@ Frontend polls `GET /api/tutorial/generation-status?repo_url=...`.
 | `app/main.py` | App factory | Uses deprecated `@app.on_event`. No lifespan, no request-id middleware, no exception handlers. |
 | `app/routers/` | HTTP layer | See `app/routers/CLAUDE.md`. Business logic lives here, not in services. |
 | `app/models/` | SQLAlchemy ORM | See `app/models/CLAUDE.md`. |
-| `app/schemas/` | Pydantic | Only covers user/settings/notifications. Most routers define response models inline. |
+| `app/schemas/` | Pydantic | Converted slices only (user, settings, notifications, repo, tutorial). Unconverted routers still define response models inline. |
 | `app/orchestrator/` | Pipeline engine | See `app/orchestrator/CLAUDE.md`. |
 | `app/steps/` | The 5 LLM steps | See `app/steps/CLAUDE.md`. |
 | `app/ai/client.py` | OpenRouter HTTP client | Retry + JSON-from-markdown salvage. |
 | `app/core/` | config, security, crypto, logging, dependencies | See BYOK section below. |
 | `app/services/` | Business logic | New in Phase 2. Routers call services; services own the domain rules. |
-| `app/db/session.py` | Engine + `get_db()` | Sync engine, default pool, no `pool_pre_ping`. |
+| `app/db/session.py` | Both engines + `get_async_db()` / `get_db()` | Async asyncpg engine with `pool_pre_ping`; the sync half exists only for unconverted routers. |
 | `app/workers/` | ARQ settings + task | `max_jobs=10`, `job_timeout=3600`. |
-| `app/utils/repo_utils.py` | git clone, file tree walk | Clones to `/tmp/reploai/{id}`, never cleans up. |
+| `app/utils/repo_utils.py` | git clone, file tree walk | https+github.com allowlist, `--depth 1`, timeout, size cap, `remove_clone()`. Read its docstring before touching anything handling a URL or path. |
 | `alembic/` | Migrations | Baseline `7b1291fb0c9b` captures all 12 tables. |
 
 ## Migrations
@@ -187,15 +197,25 @@ Back it up somewhere other than `.env`.
 
 ## Auth
 
-`app/core/security.py` — python-jose HS256, pbkdf2_sha256 hashing.
-Access token 7 days, refresh token 1 day (refresh is *shorter* than access — inverted).
-Reads `SECRET_KEY` from env; `.env` sets `JWT_SECRET_KEY`, so the fallback constant is used.
+`app/core/security.py` — python-jose HS256, pbkdf2_sha256 hashing. Access token 30 min,
+refresh token 30 days. The key comes from `settings.jwt_secret_key`, which has **no default**
+— boot fails without it.
 
-`get_current_user` in `app/core/dependencies.py` does a DB lookup per request; no caching,
-no roles, no scopes, no org/tenant concept.
+Previously `security.py` read `SECRET_KEY` while `.env` defined `JWT_SECRET_KEY`, so every
+token in every deployment was signed with the hardcoded fallback string in the source.
+
+`get_current_user_async` does a DB lookup per request; no caching, no roles, no scopes, no
+org/tenant concept. Login burns the KDF even for unknown emails, so response time does not
+reveal which addresses are registered.
+
+**Still missing:** refresh token rotation and reuse detection. A leaked refresh token is
+valid for its full 30 days and can be replayed indefinitely — it needs a token store.
 
 ## Missing for SaaS
 
-No rate limiting, no structured logging, no request IDs, no metrics/tracing, no
-`/api/health` readiness distinction, no idempotency on generate, no billing/quota,
-no soft deletes, no audit trail, no pagination on any list endpoint.
+Done: request IDs, liveness/readiness split, log redaction, pagination and a uniform error
+envelope on converted slices.
+
+Still missing: rate limiting, metrics/tracing, **idempotency on `POST /generate`** (a
+double-click queues two runs), quota enforcement against the dormant credit tables, soft
+deletes, and an audit trail. No tests beyond the k6 script — Phase 6.

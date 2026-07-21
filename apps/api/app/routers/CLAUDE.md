@@ -5,7 +5,7 @@ paginated + ownership-checked in a single pass.
 
 | Converted | Remaining |
 |---|---|
-| `user.py`, `repo.py` | `tutorial` → `progress` → `author` → `settings` → `dashboard` → `notification` → `search` |
+| `user.py`, `repo.py`, `tutorial.py` | `progress` → `author` → `settings` → `dashboard` → `notification` → `search` |
 
 `grep -l get_db app/routers/` lists what's left.
 
@@ -31,7 +31,7 @@ Rules:
 
 | Router | Prefix | LOC | Notes |
 |--------|--------|-----|-------|
-| `tutorial.py` | `/api/tutorial` | 443 | List, get-by-id, generate, generation-status. Largest file. |
+| `tutorial.py` | `/api/tutorial` | 162 | **Converted.** Read/list/delete/publish + generation. Route order matters — see the module docstring. |
 | `dashboard.py` | `/api/dashboard` | 367 | Aggregate stats. Many separate queries per request. |
 | `settings.py` | `/api/settings` | 358 | Profile/notification/learning/appearance/security sub-resources. |
 | `author.py` | `/api/author` | 274 | Manual tutorial/module/quiz editing. |
@@ -41,15 +41,28 @@ Rules:
 | `notification.py` | `/api/notifications` | 149 | |
 | `user.py` | `/api/user` | 78 | **Converted.** signup / login / refresh / **me**. |
 
-## Patterns in use
+## Patterns in the unconverted routers
 
 - Response models are Pydantic classes defined **at the top of each router file**, not in
-  `app/schemas/`. `tutorial.py` alone declares 8 of them.
-- N+1 avoidance is done by hand: `list_tutorials` fires ~5 separate queries and stitches
-  dicts in Python instead of using joins/`selectinload`.
-- Ownership checks are ad hoc — each endpoint re-derives "is this row mine?" by joining
-  through `Repository.user_id`. Easy to forget one; nothing enforces it centrally.
-- No pagination anywhere. `list_tutorials` returns every tutorial a user owns.
+  `app/schemas/`.
+- N+1 avoidance is done by hand — several separate queries stitched into dicts in Python
+  instead of joins or correlated subqueries.
+- Ownership checks are ad hoc: each endpoint re-derives "is this row mine?" by joining
+  through `Repository.user_id`. Easy to forget one, and a missing filter looks like correct
+  code in review — `tutorial.py`'s `GET /{id}` had **no check at all** and returned any
+  user's tutorial to any caller.
+- No pagination.
+
+## Public reads
+
+`GET /api/tutorial/{id}` uses `get_optional_user`, not `get_current_user_async`: the owner
+sees private tutorials, and anyone — signed in or not — reads public and unlisted ones. It
+is the only converted endpoint where an absent token is not an error. Writes on the same
+resource (`DELETE`, `PATCH /visibility`) stay owner-only.
+
+`PATCH /{id}/visibility` is the **only** writer of `visibility`, `slug` and `published_at`.
+Slugs are assigned on first publish and never change afterwards — a public URL that stops
+resolving is worse than one that no longer matches an edited title.
 
 ## When adding an endpoint
 
