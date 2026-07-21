@@ -1,14 +1,23 @@
-from sqlalchemy import Column, DateTime, ForeignKey, Index, String, Text
+from sqlalchemy import Column, ForeignKey, Index, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.sql import func, text
+from sqlalchemy.sql import text
 
 from ..db.session import Base
+from .enums import RepositoryStatus, enum_column
+from .mixins import TimestampMixin
 
 
-class Repository(Base):
+class Repository(Base, TimestampMixin):
     __tablename__ = "repositories"
 
-    __table_args__ = (Index("idx_repo_user", "user_id"),)
+    __table_args__ = (
+        Index("idx_repo_user", "user_id"),
+        # The tenancy fix. `github_url` used to carry a bare `unique=True`,
+        # meaning the URL was unique across the *entire product*: once one user
+        # added github.com/facebook/react, no other user ever could. Uniqueness
+        # belongs per-owner.
+        UniqueConstraint("user_id", "github_url", name="uq_repo_user_url"),
+    )
 
     repo_id = Column(
         UUID(as_uuid=True),
@@ -22,14 +31,12 @@ class Repository(Base):
         nullable=False,
     )
 
-    github_url = Column(String(255), unique=True, nullable=False)
+    github_url = Column(String(255), nullable=False)
     name = Column(String(255))
     description = Column(Text)
 
-    # PENDING, ANALYZING, COMPLETED, FAILED
-    status = Column(String(50), nullable=False, server_default=text("'PENDING'"))
-
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at = Column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    status = Column(
+        enum_column(RepositoryStatus, "repository_status"),
+        nullable=False,
+        server_default=RepositoryStatus.PENDING.value,
     )

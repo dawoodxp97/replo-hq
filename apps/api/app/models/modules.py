@@ -3,9 +3,10 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import text
 
 from ..db.session import Base
+from .mixins import TimestampMixin
 
 
-class Module(Base):
+class Module(Base, TimestampMixin):
     __tablename__ = "modules"
 
     module_id = Column(

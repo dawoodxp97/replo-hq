@@ -5,6 +5,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func, text
 
 from ..db.session import Base
+from .enums import NotificationType, enum_column
 
 
 class Notification(Base):
@@ -30,8 +31,11 @@ class Notification(Base):
 
     title = Column(String(255), nullable=False)
     message = Column(Text, nullable=False)
-    type = Column(String(50), nullable=False, server_default=text("'default'"))
-    # Types: success, info, warning, default
+    type = Column(
+        enum_column(NotificationType, "notification_type"),
+        nullable=False,
+        server_default=NotificationType.DEFAULT.value,
+    )
 
     read = Column(Boolean, nullable=False, server_default=text("false"))
     read_at = Column(DateTime(timezone=True), nullable=True)

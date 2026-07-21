@@ -1,14 +1,13 @@
-# ./backend/app/models/user.py
-from sqlalchemy import Column, String
+from sqlalchemy import Boolean, Column, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import text
 
-# Import the 'Base' from your session file
 from ..db.session import Base
+from .mixins import TimestampMixin
 
 
-class User(Base):
+class User(Base, TimestampMixin):
     __tablename__ = "users"
 
     user_id = Column(
@@ -22,7 +21,14 @@ class User(Base):
 
     email = Column(String, unique=True, index=True, nullable=False)
 
-    hashed_password = Column(String, nullable=False)
+    # Nullable: GitHub OAuth users (Phase 2.8) never set a password. A NOT NULL
+    # column would force storing a dummy hash, which is indistinguishable from a
+    # real one and therefore a login bypass waiting to happen.
+    hashed_password = Column(String, nullable=True)
+
+    # Lets an account be disabled without deleting it and cascading away every
+    # tutorial they own.
+    is_active = Column(Boolean, nullable=False, server_default=text("true"))
 
     # Add relationships later if needed, e.g.:
     # tutorials = relationship("Tutorial", back_populates="owner")

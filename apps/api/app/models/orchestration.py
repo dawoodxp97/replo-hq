@@ -4,17 +4,23 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func, text
 
 from ..db.session import Base
+from .enums import RunStatus, enum_column
+from .mixins import TimestampMixin
 
 
-class TutorialInstance(Base):
+class TutorialInstance(Base, TimestampMixin):
     __tablename__ = "tutorial_instances"
 
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False)
+    user_id = Column(
+        UUID(as_uuid=True), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False
+    )
     repo_url = Column(String, nullable=False)
-    status = Column(String, default="pending")  # pending, running, completed, failed
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
+    status = Column(
+        enum_column(RunStatus, "run_status"),
+        nullable=False,
+        server_default=RunStatus.PENDING.value,
+    )
 
     executions = relationship(
         "TutorialExecution", back_populates="instance", cascade="all, delete-orphan"
@@ -28,10 +34,17 @@ class TutorialExecution(Base):
     tutorial_instance_id = Column(
         UUID(as_uuid=True), ForeignKey("tutorial_instances.id"), nullable=False
     )
-    status = Column(String, default="running")  # running, completed, failed
-    current_step_order = Column(Integer, default=0)
+    status = Column(
+        enum_column(RunStatus, "run_status"),
+        nullable=False,
+        server_default=RunStatus.PENDING.value,
+    )
+    current_step_order = Column(Integer, nullable=False, server_default=text("0"))
     started_at = Column(DateTime(timezone=True), server_default=func.now())
     completed_at = Column(DateTime(timezone=True), nullable=True)
+    # Phase 3.6: the failure reason was only ever recorded on the step row, so a
+    # failed run gave no top-level explanation.
+    error_message = Column(Text, nullable=True)
 
     instance = relationship("TutorialInstance", back_populates="executions")
     step_executions = relationship(
@@ -48,7 +61,11 @@ class TutorialStepExecution(Base):
     )
     step_type = Column(String, nullable=False)
     step_order = Column(Integer, nullable=False)
-    status = Column(String, default="pending")  # pending, running, completed, failed
+    status = Column(
+        enum_column(RunStatus, "run_status"),
+        nullable=False,
+        server_default=RunStatus.PENDING.value,
+    )
     input_data = Column(JSON, nullable=True)
     output_data = Column(JSON, nullable=True)
     prompt_used = Column(Text, nullable=True)

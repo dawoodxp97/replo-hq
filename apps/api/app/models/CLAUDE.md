@@ -7,9 +7,9 @@ All models inherit `Base` from `app/db/session.py`. UUID PKs via
 
 | Model | Table | PK column | Notes |
 |-------|-------|-----------|-------|
-| `User` | `users` | `user_id` | email unique+indexed, `hashed_password`. No `created_at`, no `is_active`, no email verification. |
-| `Repository` | `repositories` | `repo_id` | `github_url` is **globally unique** — two different users cannot both add the same public repo. Bug for a multi-tenant SaaS. |
-| `Tutorial` | `tutorials` | `tutorial_id` | FK repo_id CASCADE. `level` is a free-form `String(50)`, not an enum. |
+| `User` | `users` | `user_id` | email unique+indexed. `hashed_password` **nullable** — OAuth users never set one, and a dummy hash is indistinguishable from a real one. `is_active` for disable-without-cascade-delete. |
+| `Repository` | `repositories` | `repo_id` | Unique on **(user_id, github_url)**. Was globally unique on `github_url`, so once one user added `facebook/react` nobody else ever could. |
+| `Tutorial` | `tutorials` | `tutorial_id` | FK repo_id CASCADE. `generated_at` kept (domain meaning) plus `updated_at` for authoring edits. |
 | `Module` | `modules` | `module_id` | ordered by `order_index`. |
 | `Quiz` | `quizzes` | | |
 | `UserProgress` | `user_progress` | | Completion rows. |
@@ -28,11 +28,46 @@ All models inherit `Base` from `app/db/session.py`. UUID PKs via
 `TutorialInstance` links to `User` but **not** to `Repository` or `Tutorial` — it stores a
 raw `repo_url` string. The join back to the produced tutorial is by URL matching, not FK.
 
+## Enums (`enums.py`)
+
+`StrEnum` members, **all lowercase**. `RepositoryStatus`, `RunStatus` (shared by all three
+orchestration tables), `TutorialLevel`, `QuestionType`, `NotificationType`,
+`TutorialVisibility`.
+
+Because they're `StrEnum`, `repo.status == "completed"` still works and f-strings render
+the value — so existing comparison code was unaffected by the conversion.
+
+Columns are built with `enum_column()`, which sets `native_enum=False` (VARCHAR + CHECK,
+not a Postgres `ENUM` type). Native enums can't drop a value and `ALTER TYPE ADD VALUE`
+can't run in a transaction, which would make every future status change an out-of-band
+migration.
+
+**⚠️ Alembic does not autogenerate CHECK constraints.** `alter_column` with a non-native
+`Enum` widens the VARCHAR and stops — verified on a scratch DB, which came out with *zero*
+CHECK constraints and accepted `'BANANA'` as a repository status. When you add or change an
+enum column, **write the `op.create_check_constraint` by hand** and confirm with:
+
+```sql
+select conrelid::regclass, conname from pg_constraint
+where contype='c' and connamespace='public'::regnamespace;
+```
+
+Migrations hardcode enum values as literals rather than importing `app.models.enums` — a
+migration describes one historical transition and must not change meaning when a model is
+edited later.
+
+## Timestamps (`mixins.py`)
+
+`TimestampMixin` gives `created_at`/`updated_at`, both server-side defaults so rows written
+by migrations or raw SQL are still correct. Applied to `User`, `Repository`, `Module`,
+`Quiz`, `UserSettings`, `TutorialInstance`.
+
+Not applied where a domain-specific timestamp already means something: `Tutorial`
+(`generated_at`), `UserProgress` (`completed_at`), `TutorialExecution`
+(`started_at`/`completed_at`), `Notification` (`created_at`/`read_at`).
+
 ## Cross-cutting gaps
 
-- Statuses are bare strings everywhere. No Python enums, no PG enums, no CHECK constraints.
-  `Repository.status` uses UPPERCASE (`PENDING`), orchestration uses lowercase (`pending`).
-- No `created_at`/`updated_at` mixin; some tables have them, some don't, `users` has neither.
 - No tenant/organization table. Everything is scoped to a single `user_id`.
 - `TutorialStepExecution.input_data`/`output_data` are unbounded JSON holding full LLM
   context — this table will dominate DB size.

@@ -5,9 +5,11 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import text
 
 from ..db.session import Base
+from .enums import TutorialLevel, enum_column
+from .mixins import TimestampMixin
 
 
-class UserSettings(Base):
+class UserSettings(Base, TimestampMixin):
     __tablename__ = "user_settings"
 
     settings_id = Column(
@@ -45,9 +47,13 @@ class UserSettings(Base):
     code_editor_theme = Column(String, default="github-dark")
 
     # Learning Settings
+    # Same vocabulary as Tutorial.level — a user's default and a tutorial's
+    # actual level are the same concept and must not drift apart.
     default_difficulty_level = Column(
-        String, default="beginner"
-    )  # beginner, intermediate, advanced
+        enum_column(TutorialLevel, "tutorial_level"),
+        nullable=False,
+        server_default=TutorialLevel.BEGINNER.value,
+    )
     daily_learning_goal = Column(Integer, default=10)  # minutes or modules
     auto_play_next_module = Column(Boolean, default=True)
     show_code_hints = Column(Boolean, default=True)
