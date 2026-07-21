@@ -16,6 +16,34 @@ All models inherit `Base` from `app/db/session.py`. UUID PKs via
 | `UserSettings` | `user_settings` | | 1:1 with User. |
 | `Notification` | `notifications` | | |
 
+## Credentials (`credentials.py`)
+
+`UserLLMCredential` — BYOK keys. **Highest-risk table in the product**: these bill the
+*user's* account.
+
+- `ciphertext` / `nonce` are `bytea`, AES-256-GCM. `key_version` from day one so rotating
+  the KEK (or moving to KMS envelope encryption) is a migration, not a rewrite.
+- `provider` / `label` / `last_four` are plaintext **so the settings UI never decrypts**.
+- `base_url` supports any OpenAI-compatible endpoint (Ollama, LiteLLM, a gateway) — users
+  bring their own URL as well as their own key.
+- `last_validated_at` is a UI hint only. A key can be revoked upstream at any moment, so it
+  is never an authorisation decision.
+
+**⚠️ The credential must never enter orchestrator step context.**
+`TutorialStepExecution.input_data`/`output_data` persist the whole accumulating dict to
+Postgres verbatim. Steps get `user_id`; the AI client resolves the credential at call time
+and never returns it.
+
+## Billing (`billing.py`) — dormant
+
+Schema only. Nothing reads or writes these in Phase 1 (docs/DECISIONS.md D7: BYOK free and
+unlimited, 5 lifetime platform generations, no paid tier yet). They exist now because
+adding billing tables later means migrating a table with real rows.
+
+`CreditTransaction` is an **append-only ledger**; `UserCreditBalance` is a cache of its sum.
+Never mutate a transaction row — write a compensating one. `idempotency_key` is uniquely
+constrained so a redelivered Stripe webhook or a retried generation cannot double-charge.
+
 ## Orchestration tables (`orchestration.py`)
 
 | Model | Purpose |

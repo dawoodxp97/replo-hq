@@ -64,6 +64,43 @@ class NotificationType(StrEnum):
     WARNING = "warning"
 
 
+class LLMProvider(StrEnum):
+    """Where a user's BYOK credential points.
+
+    CUSTOM covers any OpenAI-compatible endpoint (local Ollama, LiteLLM proxy, a
+    self-hosted gateway) — which is why `user_llm_credentials.base_url` exists.
+    """
+
+    OPENROUTER = "openrouter"
+    OPENAI = "openai"
+    ANTHROPIC = "anthropic"
+    CUSTOM = "custom"
+
+
+class CreditTransactionKind(StrEnum):
+    """Append-only ledger entry types. Dormant until Phase 2 monetisation."""
+
+    SIGNUP_GRANT = "signup_grant"
+    GENERATION = "generation"
+    PURCHASE = "purchase"
+    SUBSCRIPTION_GRANT = "subscription_grant"
+    REFUND = "refund"
+    ADMIN_ADJUSTMENT = "admin_adjustment"
+
+
+class SubscriptionStatus(StrEnum):
+    """Mirrors Stripe's subscription statuses so webhook payloads map directly."""
+
+    TRIALING = "trialing"
+    ACTIVE = "active"
+    PAST_DUE = "past_due"
+    CANCELED = "canceled"
+    INCOMPLETE = "incomplete"
+    INCOMPLETE_EXPIRED = "incomplete_expired"
+    UNPAID = "unpaid"
+    PAUSED = "paused"
+
+
 class TutorialVisibility(StrEnum):
     """Public tutorials are the growth channel (see docs/DECISIONS.md D8).
 

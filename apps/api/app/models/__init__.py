@@ -1,3 +1,5 @@
+from .billing import BillingCustomer, CreditTransaction, Subscription, UserCreditBalance
+from .credentials import UserLLMCredential
 from .modules import Module
 from .notifications import Notification
 from .orchestration import (
@@ -14,16 +16,21 @@ from .user_progress import UserProgress
 from .user_settings import UserSettings
 
 __all__ = [
-    "User",
-    "Repository",
-    "Tutorial",
+    "BillingCustomer",
+    "CreditTransaction",
     "Module",
+    "Notification",
     "Quiz",
+    "Repository",
+    "Subscription",
+    "Tutorial",
+    "TutorialExecution",
+    "TutorialInstance",
+    "TutorialStepConfig",
+    "TutorialStepExecution",
+    "User",
+    "UserCreditBalance",
+    "UserLLMCredential",
     "UserProgress",
     "UserSettings",
-    "Notification",
-    "TutorialInstance",
-    "TutorialExecution",
-    "TutorialStepExecution",
-    "TutorialStepConfig",
 ]
