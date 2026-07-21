@@ -1,17 +1,28 @@
-# ./.gitignore
+# --- Secrets ---
+# Broad on purpose. .env.bak was committed with live credentials because the
+# old rule only covered the exact name ".env".
+.env
+.env.*
+!.env.example
 
-# Python
+# --- Python ---
 .venv/
 __pycache__/
 *.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
 
-# Node.js
+# --- Node ---
 node_modules/
 .next/
+dist/
+.turbo/
+*.tsbuildinfo
 npm-debug.log*
 yarn-error.log*
 
-# OS
+# --- OS / editor ---
 .DS_Store
-
-.env
+.idea/
+.vscode/

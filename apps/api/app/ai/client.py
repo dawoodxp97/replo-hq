@@ -1,4 +1,3 @@
-import os
 import logging
 import aiohttp
 import asyncio
@@ -6,15 +5,20 @@ import json
 import re
 from typing import List, Dict, Any, Optional
 
+from ..core.config import settings
+
 logger = logging.getLogger(__name__)
 
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
-DEFAULT_MODEL = "kwaipilot/kat-coder-pro:free"
+BASE_URL = f"{settings.openrouter_base_url}/chat/completions"
+DEFAULT_MODEL = settings.openrouter_model
 
 class AIClient:
     def __init__(self):
-        self.api_key = OPENROUTER_API_KEY
+        # Phase 3 replaces this with per-user BYOK credential resolution. The
+        # credential is fetched at call time and must never enter step context —
+        # step input_data/output_data are persisted verbatim to Postgres.
+        key = settings.openrouter_api_key
+        self.api_key = key.get_secret_value() if key else None
         if not self.api_key:
             logger.warning("OPENROUTER_API_KEY is not set.")
 

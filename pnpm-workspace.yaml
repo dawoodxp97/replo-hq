@@ -1,0 +1,7 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+  # Pre-rewrite frontend, kept as reference until Phase 5 ports the landing
+  # components. Deliberately outside the workspace — it must not resolve deps,
+  # build in CI, or be treated as live code.
+  - "!apps/web-legacy"

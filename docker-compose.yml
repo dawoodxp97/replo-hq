@@ -39,7 +39,7 @@ services:
 
   backend:
     build:
-      context: ./backend
+      context: ./apps/api
       dockerfile: Dockerfile
     container_name: replo-backend
     restart: unless-stopped
@@ -67,7 +67,7 @@ services:
 
   worker:
     build:
-      context: ./backend
+      context: ./apps/api
       dockerfile: Dockerfile
     container_name: replo-worker
     restart: unless-stopped
@@ -86,9 +86,11 @@ services:
     networks:
       - replo-network
 
+  # Pre-rewrite frontend. Replaced by apps/web (Rsbuild) in Phase 4 and
+  # apps/site (Next) in Phase 5. Kept running so the app stays demoable.
   frontend:
     build:
-      context: ./frontend/replo
+      context: ./apps/web-legacy
       dockerfile: Dockerfile
     container_name: replo-frontend
     restart: unless-stopped

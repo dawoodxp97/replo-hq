@@ -1,0 +1,92 @@
+[project]
+name = "replo-api"
+version = "0.1.0"
+description = "Replo API and tutorial-generation worker"
+requires-python = ">=3.12,<3.13"
+
+# Lower bounds only — uv.lock pins the exact resolved versions.
+dependencies = [
+    # Server
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.34",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.7",
+
+    # Implicit but required:
+    #   email-validator  -> pydantic EmailStr (app/schemas/user.py)
+    #   python-multipart -> OAuth2PasswordRequestForm (app/routers/user.py)
+    "email-validator>=2.2",
+    "python-multipart>=0.0.20",
+
+    # Database
+    "sqlalchemy>=2.0.36",
+    "psycopg2-binary>=2.9.10",
+    "alembic>=1.14",
+
+    # Queue
+    "arq>=0.26",
+    "redis>=5.2",
+
+    # HTTP / git
+    "aiohttp>=3.11",
+    "gitpython>=3.1.43",
+
+    # Auth
+    "passlib[bcrypt]>=1.7.4",
+    "python-jose[cryptography]>=3.3",
+]
+
+# Dropped in Phase 1 — verified unimported across the whole package:
+#   torch, transformers  ~2GB of image for CodeBERT that was never wired up
+#   tree-sitter          AST parsing that AI_LAYER_PLAN.md claims works; it does not
+#   pyjwt                dead — python-jose is the actual JWT library in use
+#   pygithub             dead — repos are cloned with gitpython, not the GitHub API
+#   python-dotenv        superseded by pydantic-settings (task 5)
+
+[dependency-groups]
+dev = [
+    # ruff replaces black + flake8 + isort + bandit (S rules) in one tool
+    "ruff>=0.8",
+    "mypy>=1.14",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.25",
+    "pytest-cov>=6.0",
+    "httpx>=0.28",
+]
+
+[tool.uv]
+# Application, not a library — never installed into site-packages.
+package = false
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E", "W",   # pycodestyle
+    "F",        # pyflakes
+    "I",        # isort
+    "B",        # bugbear
+    "UP",       # pyupgrade
+    "S",        # bandit (security)
+    "ASYNC",    # async correctness — relevant given the sync-ORM-in-async-def problem
+]
+ignore = [
+    "E501",  # line length is the formatter's job
+    "B008",  # FastAPI's Depends() in defaults is the documented idiom
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]  # assert is the point of a test
+
+[tool.mypy]
+python_version = "3.12"
+warn_unused_configs = true
+# Deliberately lenient at first. Tightened per-module as Phase 2 rewrites each one,
+# rather than dumping thousands of errors on legacy code nobody is about to touch.
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

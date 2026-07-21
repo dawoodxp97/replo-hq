@@ -1,14 +1,19 @@
-import os
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel
 
-SECRET_KEY = os.environ.get("SECRET_KEY", "a_very_secret_key_fallback")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 7 * 24 * 60
-REFRESH_TOKEN_EXPIRE_DAYS = 1
+from .config import settings
+
+# Previously: os.environ.get("SECRET_KEY", "a_very_secret_key_fallback") — while
+# .env defined JWT_SECRET_KEY. Every token was signed with the public fallback.
+SECRET_KEY = settings.jwt_secret_key.get_secret_value()
+ALGORITHM = settings.jwt_algorithm
+
+# Was 7 days access / 1 day refresh — inverted, which made refresh pointless.
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
+REFRESH_TOKEN_EXPIRE_DAYS = settings.refresh_token_expire_days
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 

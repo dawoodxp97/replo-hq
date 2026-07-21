@@ -16,19 +16,19 @@ from arq.connections import RedisSettings
 from .tutorial_worker import generate_tutorial_task
 from arq import create_pool
 
-REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
-REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
-REDIS_PASSWORD_RAW = os.getenv('REDIS_PASSWORD', '')
-REDIS_PASSWORD = REDIS_PASSWORD_RAW.strip() if REDIS_PASSWORD_RAW else None
-REDIS_DB = int(os.getenv('REDIS_DB', 0))
+from ..core.config import settings
+
+_redis_password = (
+    settings.redis_password.get_secret_value() if settings.redis_password else None
+)
 
 class WorkerSettings:
     functions = [generate_tutorial_task]
     redis_settings = RedisSettings(
-        host=REDIS_HOST,
-        port=REDIS_PORT,
-        password=REDIS_PASSWORD,
-        database=REDIS_DB
+        host=settings.redis_host,
+        port=settings.redis_port,
+        password=_redis_password,
+        database=settings.redis_db,
     )
     
     max_jobs = 10
@@ -36,7 +36,12 @@ class WorkerSettings:
     
     async def startup(self, ctx):
         logger.info("ARQ Worker Starting Up...")
-        logger.info(f"Redis Config: host={REDIS_HOST}, port={REDIS_PORT}, db={REDIS_DB}")
+        logger.info(
+            "Redis config: host=%s port=%s db=%s",
+            settings.redis_host,
+            settings.redis_port,
+            settings.redis_db,
+        )
 
     async def shutdown(self, ctx):
         logger.info("ARQ Worker Shutting Down...")

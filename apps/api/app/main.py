@@ -1,15 +1,7 @@
-import os
-from pathlib import Path
-from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-# Load .env from project root (two levels up from app/)
-env_path = Path(__file__).parent.parent.parent / '.env'
-if env_path.exists():
-    load_dotenv(env_path, override=True)
-load_dotenv()  # Also load from current directory for backward compatibility
-
+from .core.config import settings
 from .routers import (
     author,
     dashboard,
@@ -17,10 +9,12 @@ from .routers import (
     progress,
     repo,
     search,
-    settings,
     tutorial,
     user,
 )
+# Aliased: the module name collides with the `settings` config object above,
+# and a bare `from .routers import settings` silently shadowed it.
+from .routers import settings as settings_router
 from .workers.worker import get_redis_pool
 
 app = FastAPI(
@@ -29,11 +23,9 @@ app = FastAPI(
     version="0.1.0"
 )
 
-cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins,
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -44,7 +36,7 @@ app.include_router(tutorial.router, prefix="/api/tutorial", tags=["Tutorials"])
 app.include_router(user.router, prefix="/api/user", tags=["User"])
 app.include_router(progress.router, prefix="/api/progress", tags=["Progress"])
 app.include_router(author.router, prefix="/api/author", tags=["Authoring"])
-app.include_router(settings.router, prefix="/api/settings", tags=["Settings"])
+app.include_router(settings_router.router, prefix="/api/settings", tags=["Settings"])
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["Dashboard"])
 app.include_router(notification.router, prefix="/api/notifications", tags=["Notifications"])
 app.include_router(search.router, prefix="/api/search", tags=["Search"])
