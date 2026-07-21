@@ -68,13 +68,38 @@ Two details in `env.py` that look cosmetic and are not:
 The destructive `drop_all`/`create_all` setup script is gone. Alembic owns the
 schema now.
 
-## Async/sync mismatch (important)
+## Async/sync migration (in progress — Phase 2)
 
-Everything is `async def` but the DB layer is **synchronous** SQLAlchemy. Every
-`db.query(...)` inside an async route or step blocks the event loop. Under the API this
-starves concurrency; inside the worker it serializes jobs. Either move to
-`asyncpg` + `AsyncSession`, or make the DB-touching functions sync and let FastAPI
-thread-pool them.
+The original problem: everything is `async def` but the DB layer was **synchronous**
+SQLAlchemy, so every `db.query(...)` blocked the event loop — serialising concurrent
+requests in the API and serialising jobs in the worker.
+
+`app/db/session.py` now exposes **both** stacks:
+
+| Dependency | Session | Status |
+|---|---|---|
+| `get_async_db` | `AsyncSession` over asyncpg | **Target.** Use in all new code. |
+| `get_db` | sync `Session` over psycopg2 | Legacy. Every router still on it is unconverted work. |
+
+Both exist so the app keeps working while routers convert one domain at a time. When the
+last router flips, delete the sync half of `session.py` and the `psycopg2` dependency
+(Alembic keeps `settings.sqlalchemy_url` but builds its own engine).
+
+**Conversion order** — each slice becomes async + service-backed + typed schemas +
+N+1-fixed + paginated + ownership-checked in a single pass, rather than being rewritten
+once per concern:
+
+`user/auth` → `repo` → `tutorial` → `progress` → `author` → `settings` → `dashboard` →
+`notification` → `search`
+
+`settings.async_sqlalchemy_url` is derived from `sqlalchemy_url` by swapping the driver,
+so the two can never point at different databases.
+
+## Health endpoints
+
+- `/api/health` — liveness. Touches nothing external, so a database blip can't cause the
+  orchestrator to restart a healthy container.
+- `/api/ready` — readiness. Checks Postgres and Redis. This is what a load balancer polls.
 
 ## Auth
 

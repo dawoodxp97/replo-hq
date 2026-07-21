@@ -1,7 +1,11 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from .core.config import settings
+from .db.session import AsyncSessionLocal, async_engine
 from .routers import (
     author,
     dashboard,
@@ -18,10 +22,25 @@ from .routers import (
 from .routers import settings as settings_router
 from .workers.worker import get_redis_pool
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup/shutdown. Replaces the deprecated @app.on_event hooks, which
+    could not dispose the async engine — that leaks connections on reload and
+    on every redeploy."""
+    app.state.redis_pool = await get_redis_pool()
+    yield
+    if getattr(app.state, "redis_pool", None) is not None:
+        app.state.redis_pool.close()
+        await app.state.redis_pool.wait_closed()
+    await async_engine.dispose()
+
+
 app = FastAPI(
     title="AI Code Tutorial Generator API",
     description="API for analyzing GitHub repos and generating tutorials.",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -44,17 +63,35 @@ app.include_router(search.router, prefix="/api/search", tags=["Search"])
 
 
 @app.get("/api/health", tags=["Health"])
-def get_health():
-    return {"status": "ok", "message": "Backend is running!"}
+async def get_health():
+    """Liveness: the process is up. Deliberately touches nothing external, so a
+    database blip cannot make the orchestrator restart a healthy container."""
+    return {"status": "ok"}
 
 
-@app.on_event("startup")
-async def startup_event():
-    app.state.redis_pool = await get_redis_pool()
+@app.get("/api/ready", tags=["Health"])
+async def get_ready():
+    """Readiness: dependencies are reachable. This is what a load balancer
+    should poll before routing traffic."""
+    checks: dict[str, str] = {}
+    healthy = True
 
+    try:
+        async with AsyncSessionLocal() as session:
+            await session.execute(text("SELECT 1"))
+        checks["database"] = "ok"
+    except Exception as exc:
+        checks["database"] = f"error: {type(exc).__name__}"
+        healthy = False
 
-@app.on_event("shutdown")
-async def shutdown_event():
-    if hasattr(app.state, "redis_pool"):
-        app.state.redis_pool.close()
-        await app.state.redis_pool.wait_closed()
+    try:
+        pool = getattr(app.state, "redis_pool", None)
+        if pool is None:
+            raise RuntimeError("redis pool not initialised")
+        await pool.ping()
+        checks["redis"] = "ok"
+    except Exception as exc:
+        checks["redis"] = f"error: {type(exc).__name__}"
+        healthy = False
+
+    return {"status": "ok" if healthy else "degraded", "checks": checks}

@@ -11,26 +11,25 @@ dependencies = [
     "uvicorn[standard]>=0.34",
     "pydantic>=2.10",
     "pydantic-settings>=2.7",
-
     # Implicit but required:
     #   email-validator  -> pydantic EmailStr (app/schemas/user.py)
     #   python-multipart -> OAuth2PasswordRequestForm (app/routers/user.py)
     "email-validator>=2.2",
     "python-multipart>=0.0.20",
-
     # Database
-    "sqlalchemy>=2.0.36",
+    # Two drivers on purpose: asyncpg for the app, psycopg2 for Alembic.
+    # Sync migrations are simpler and better-trodden; there is no benefit to
+    # running schema changes on an event loop.
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.31.0",
     "psycopg2-binary>=2.9.10",
     "alembic>=1.14",
-
     # Queue
     "arq>=0.26",
     "redis>=5.2",
-
     # HTTP / git
     "aiohttp>=3.11",
     "gitpython>=3.1.43",
-
     # Auth
     "passlib[bcrypt]>=1.7.4",
     "python-jose[cryptography]>=3.3",

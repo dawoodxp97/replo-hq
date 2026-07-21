@@ -115,6 +115,7 @@ class Settings(BaseSettings):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def sqlalchemy_url(self) -> str:
+        """Sync URL (psycopg2). Used by Alembic only."""
         if self.database_url:
             return self.database_url
         from urllib.parse import quote_plus
@@ -124,6 +125,22 @@ class Settings(BaseSettings):
             f"postgresql://{self.postgres_user}:{pw}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def async_sqlalchemy_url(self) -> str:
+        """Async URL (asyncpg). Used by the application and the worker.
+
+        Derived from the sync URL so the two can never point at different
+        databases. Railway and docker-compose both hand us a `postgresql://`
+        DATABASE_URL, which needs the driver swapped in rather than replaced —
+        `postgres://` is also accepted since some providers still emit it.
+        """
+        url = self.sqlalchemy_url
+        for prefix in ("postgresql+psycopg2://", "postgresql://", "postgres://"):
+            if url.startswith(prefix):
+                return "postgresql+asyncpg://" + url[len(prefix) :]
+        return url
 
     @property
     def is_production(self) -> bool:
