@@ -103,8 +103,9 @@ ignore = [
 "run_worker.py" = ["E402"]
 # Binding 0.0.0.0 is correct inside a container.
 "run.py" = ["S104"]
-# `token_type` holds "access"/"refresh" — not a credential.
+# `token_type` holds "access"/"refresh"/"bearer" — an OAuth field name, not a credential.
 "app/core/security.py" = ["S105"]
+"app/schemas/user.py" = ["S105"]
 
 [tool.mypy]
 python_version = "3.12"

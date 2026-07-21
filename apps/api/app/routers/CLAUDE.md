@@ -1,7 +1,33 @@
 # app/routers/ — HTTP layer
 
-9 routers, ~2.1k LOC. **This is where the business logic lives.** There is no service layer;
-routers query the ORM directly, shape responses inline, and own transaction boundaries.
+**Mid-conversion.** Each slice becomes async + service-backed + typed schemas + N+1-fixed +
+paginated + ownership-checked in a single pass.
+
+| Converted | Remaining |
+|---|---|
+| `user.py`, `repo.py` | `tutorial` → `progress` → `author` → `settings` → `dashboard` → `notification` → `search` |
+
+`grep -l get_db app/routers/` lists what's left.
+
+## The shape to copy (see `user.py`)
+
+```python
+@router.post("/thing", response_model=ThingOut, status_code=201)
+async def create_thing(
+    body: ThingCreate,                                   # schema in app/schemas/
+    current_user: User = Depends(get_current_user_async),
+    db: AsyncSession = Depends(get_async_db),
+) -> Thing:
+    return await thing_service.create(db, current_user.user_id, body)
+```
+
+Rules:
+- **No ORM queries in routers.** Logic goes in `app/services/`.
+- **No `HTTPException`.** Raise `AppError` subclasses from `core/exceptions.py`, so services
+  stay callable from a worker or a test without FastAPI.
+- **No inline response models.** Schemas live in `app/schemas/`.
+- Ownership via `core/ownership.py`, never a hand-written join.
+- Lists take `page_params` and return `Page[T]`.
 
 | Router | Prefix | LOC | Notes |
 |--------|--------|-----|-------|
@@ -10,10 +36,10 @@ routers query the ORM directly, shape responses inline, and own transaction boun
 | `settings.py` | `/api/settings` | 358 | Profile/notification/learning/appearance/security sub-resources. |
 | `author.py` | `/api/author` | 274 | Manual tutorial/module/quiz editing. |
 | `progress.py` | `/api/progress` | 269 | Module completion tracking. |
-| `repo.py` | `/api/repo` | 238 | Repo CRUD + analyze. |
+| `repo.py` | `/api/repo` | 93 | **Converted.** CRUD + tree + file. See git safety notes in `utils/repo_utils.py`. |
 | `search.py` | `/api/search` | 192 | Likely `ILIKE` scans — no full-text index. |
 | `notification.py` | `/api/notifications` | 149 | |
-| `user.py` | `/api/user` | 126 | signup / login (OAuth2 form) / refresh. |
+| `user.py` | `/api/user` | 78 | **Converted.** signup / login / refresh / **me**. |
 
 ## Patterns in use
 

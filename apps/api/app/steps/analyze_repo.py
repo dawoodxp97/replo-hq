@@ -1,7 +1,14 @@
 from typing import Any
 
+from ..core.exceptions import InvalidInputError
 from ..orchestrator.step import Step
-from ..utils.repo_utils import build_file_tree, clone_repo, get_file_content
+from ..utils.repo_utils import (
+    build_file_tree,
+    clone_repository,
+    normalise_repo_url,
+    read_file,
+    repo_name_from_url,
+)
 
 
 class AnalyzeRepoStructureStep(Step):
@@ -18,8 +25,12 @@ class AnalyzeRepoStructureStep(Step):
 
         instance_id = self.execution.tutorial_instance_id
 
-        # 2. Clone Repo
-        repo_path = clone_repo(repo_url, instance_id)
+        # 2. Clone Repo.
+        #    Re-validated here rather than trusting the caller: this step also
+        #    runs from the worker, where the URL arrives via a queued job payload
+        #    rather than through the API's validation.
+        repo_url = normalise_repo_url(repo_url)
+        repo_path = await clone_repository(repo_url, instance_id)
 
         # 3. Build File Tree
         file_tree = build_file_tree(repo_path)
@@ -30,13 +41,17 @@ class AnalyzeRepoStructureStep(Step):
         # 5. Read Key Files Content
         key_files_content = ""
         for file in key_files[:5]:  # Limit to top 5 files
-            content = get_file_content(repo_path, file["path"])
+            try:
+                content, _size = read_file(repo_path, file["path"])
+            except InvalidInputError:
+                # Too large, a symlink, or vanished between walk and read.
+                continue
             if content:
                 key_files_content += f"\n--- {file['path']} ---\n{content[:2000]}\n"
 
         # 6. Prepare prompt data
         prompt_data = {
-            "repo_name": repo_url.split("/")[-1],
+            "repo_name": repo_name_from_url(repo_url),
             "primary_language": "Unknown",
             "repo_description": "A GitHub repository",
             "file_tree": self._format_json_for_prompt(file_tree),
@@ -95,7 +110,9 @@ Respond in JSON format:
 
         # Return both the analysis and the repo path for next steps
         result = parsed_response
-        result["repo_path"] = repo_path
+        # str(), not Path: this dict is merged into the step context and
+        # persisted as JSON, which cannot serialise a PosixPath.
+        result["repo_path"] = str(repo_path)
         result["key_files_content"] = key_files_content
         return result
 

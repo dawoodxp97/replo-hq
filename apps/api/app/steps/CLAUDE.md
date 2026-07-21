@@ -25,10 +25,11 @@ equals the literal `"Default prompt"`, replace with a hardcoded template in the 
   whole-repository tutorial. `requirements.txt` still pins `tree-sitter` and `transformers`
   (CodeBERT) — `AI_LAYER_PLAN.md` claims AST parsing works — but **nothing imports them**.
   The heavy ML deps are dead weight in the image.
-- **`clone_repo` never cleans up.** `/tmp/reploai/{instance_id}` accumulates full repo
-  clones forever. On a container this fills the disk; across worker restarts, orphaned.
-- **No repo size/depth guard.** Cloning an arbitrary user-supplied URL with no shallow
-  clone (`depth=1`), no size cap, no timeout, no private-URL/SSRF check.
+- ~~`clone_repo` never cleans up~~ / ~~no size or SSRF guard~~ — **fixed in the repo slice.**
+  `utils/repo_utils.py` now enforces an https+github.com allowlist, `--depth 1`, a 120s
+  timeout, a 500MB cap, symlink refusal, and `remove_clone()`. Cloning runs in a worker
+  thread so it no longer blocks the event loop. Read that module's docstring before
+  touching anything that handles a URL or a file path.
 - **`save_tutorial` is not atomic.** Commit per module; a mid-loop failure leaves a
   half-written tutorial marked as produced by a failed execution.
 - `save_tutorial` hardcodes `level="INTERMEDIATE"` — the user's chosen difficulty from

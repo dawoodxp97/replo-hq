@@ -187,10 +187,41 @@ credibility with exactly the audience this product targets.
 
 ## D10 — GitHub OAuth as primary login
 
-**Decision:** OAuth replaces most hand-rolled password auth.
+**Decision:** OAuth alongside password auth. GitHub only — **not** Google.
 
 **Why:** it is signup, private-repo cloning, and the future paid feature in one system.
 The paid feature and the auth work are the same work.
+
+### D10a — GitHub over Google (2026-07-21)
+
+Reconsidered mid-Phase-2. Confirmed GitHub.
+
+Google provides identity and nothing else. The Phase 2 paywall is private repos → private
+tutorials (D8), and cloning a private repo needs a GitHub token — so choosing Google means
+building **two** OAuth integrations (Google to log in, GitHub for repos) where GitHub alone
+is one. Every user is a developer submitting GitHub URLs; the coverage argument for Google
+does not apply.
+
+**Incremental authorization** answers the real objection, which is that asking for `repo`
+scope at signup reads as "this app wants access to all my code":
+
+| Step | Scope | When |
+|---|---|---|
+| Sign up | `read:user user:email` | Login |
+| Connect repos | `repo` | Only when a private repo is first used |
+
+The alarming consent screen appears only after the user has decided they want the feature.
+
+**Revisit if:** signup analytics show users bouncing off the GitHub consent screen, or the
+audience broadens past developers. Note that anonymous readers of public tutorials need no
+account at all, so that audience does not by itself justify Google.
+
+### D10b — OAuth deferred (2026-07-21)
+
+Password auth is converted, tested and sufficient. OAuth is purely additive: `hashed_password`
+is already nullable and `get_current_user_async` does not care how a session was created, so
+it slots in later with no rework. The `repo` slice is on the critical path (unguarded repo
+cloning, SSRF) and needs no external setup, so it goes first.
 
 ---
 

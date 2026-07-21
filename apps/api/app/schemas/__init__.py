@@ -18,7 +18,15 @@ from .settings import (
     ProfileSettingsUpdate,
     UserSettingsResponse,
 )
-from .user import RefreshTokenRequest, Token, UserCreate, UserLogin, UserPublic
+from .user import (
+    RefreshTokenRequest,
+    Token,
+    TokenWithUser,
+    UserCreate,
+    UserLogin,
+    UserPublic,
+)
 
-# You can add imports from other schema files here as you create them
-# e.g.: from .tutorial import Tutorial, TutorialCreate
+# Converted slices import their schemas directly (`from ..schemas.user import ...`)
+# rather than through this module — an explicit path beats a re-export that has to
+# be kept in sync by hand.
