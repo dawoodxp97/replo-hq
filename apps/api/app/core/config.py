@@ -77,6 +77,18 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = Field(default=30)
     refresh_token_expire_days: int = Field(default=30)
 
+    # --- Credential encryption (BYOK) ---
+    # Base64-encoded 32 bytes (AES-256). Generate:
+    #   python -c "import base64,os; print(base64.b64encode(os.urandom(32)).decode())"
+    #
+    # Optional so the API can boot without BYOK configured — storing a credential
+    # then fails loudly rather than silently writing something unencrypted.
+    credential_encryption_key: SecretStr | None = Field(default=None)
+    credential_key_version: int = Field(default=1)
+    # Set during a key rotation window: new writes use the current key, existing
+    # rows still decrypt with the previous one until re-encrypted.
+    credential_encryption_key_previous: SecretStr | None = Field(default=None)
+
     # --- LLM ---
     openrouter_api_key: SecretStr | None = Field(default=None)
     openrouter_model: str = Field(default="anthropic/claude-haiku-4.5")

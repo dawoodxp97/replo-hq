@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from .core.config import settings
+from .core.logging import configure_logging
 from .db.session import AsyncSessionLocal, async_engine
 from .routers import (
     author,
@@ -21,6 +22,9 @@ from .routers import (
 # and a bare `from .routers import settings` silently shadowed it.
 from .routers import settings as settings_router
 from .workers.worker import get_redis_pool
+
+# Installs the secret-redaction filter before the app can emit a record.
+configure_logging()
 
 
 @asynccontextmanager

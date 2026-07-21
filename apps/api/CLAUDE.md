@@ -40,7 +40,8 @@ Frontend polls `GET /api/tutorial/generation-status?repo_url=...`.
 | `app/orchestrator/` | Pipeline engine | See `app/orchestrator/CLAUDE.md`. |
 | `app/steps/` | The 5 LLM steps | See `app/steps/CLAUDE.md`. |
 | `app/ai/client.py` | OpenRouter HTTP client | Retry + JSON-from-markdown salvage. |
-| `app/core/` | security, dependencies, quiz_service, notification_service | Mixed concerns. |
+| `app/core/` | config, security, crypto, logging, dependencies | See BYOK section below. |
+| `app/services/` | Business logic | New in Phase 2. Routers call services; services own the domain rules. |
 | `app/db/session.py` | Engine + `get_db()` | Sync engine, default pool, no `pool_pre_ping`. |
 | `app/workers/` | ARQ settings + task | `max_jobs=10`, `job_timeout=3600`. |
 | `app/utils/repo_utils.py` | git clone, file tree walk | Clones to `/tmp/reploai/{id}`, never cleans up. |
@@ -94,6 +95,40 @@ once per concern:
 
 `settings.async_sqlalchemy_url` is derived from `sqlalchemy_url` by swapping the driver,
 so the two can never point at different databases.
+
+## BYOK credentials
+
+`app/core/crypto.py` (AES-256-GCM) + `app/services/credentials.py`.
+
+**`services/credentials.py` is the only decryption path in the application.**
+Routers, the orchestrator and steps work with `user_id` and never see key material.
+
+Three properties worth not breaking:
+
+1. **AAD binding.** Every ciphertext is authenticated against `"{user_id}:{provider}"`.
+   Copying a `ciphertext`/`nonce` pair from one user's row into another's makes decryption
+   *fail* rather than yielding a working key billed to the first user. Verified by test.
+2. **Never in step context.** `TutorialStepExecution.input_data` persists the accumulating
+   context dict to Postgres verbatim. The credential can't leak there because it's never put
+   in the dict — `resolve_credential` is called at the moment of the LLM request.
+3. **`ResolvedCredential` has a custom `__repr__`.** The default dataclass repr prints every
+   field, which would put the key in any traceback or f-string that touches it.
+
+Decryption failure returns `None`, never a partial result — an unreadable credential is
+treated as absent, so callers fall back to "no key configured" rather than sending garbage.
+
+`app/core/logging.py` installs `RedactingFilter` on the root handlers in both entrypoints.
+It scrubs `sk-`/`sk-or-v1-`/`sk-ant-`/`gh*_` tokens, `Authorization` headers, and inline
+credentials in Postgres/Redis URLs — from messages, args **and exception text**. It is
+defence in depth; the primary control is still not logging secrets.
+
+### Key rotation
+
+`key_version` is stored per row. Set `CREDENTIAL_ENCRYPTION_KEY_PREVIOUS` during a rotation
+window so old rows still decrypt while new writes use the current key.
+
+**Losing `CREDENTIAL_ENCRYPTION_KEY` makes every stored credential permanently unreadable.**
+Back it up somewhere other than `.env`.
 
 ## Health endpoints
 

@@ -1,12 +1,10 @@
 import logging
-import sys
 
-# Configure logging with a format that includes timestamp and level
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)],
-)
+from ..core.logging import configure_logging
+
+# The worker is the process that actually calls the LLM with a user's key, so
+# redaction matters here at least as much as in the API.
+configure_logging()
 logger = logging.getLogger(__name__)
 
 from arq import create_pool
