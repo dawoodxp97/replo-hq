@@ -96,6 +96,55 @@ once per concern:
 `settings.async_sqlalchemy_url` is derived from `sqlalchemy_url` by swapping the driver,
 so the two can never point at different databases.
 
+## Shared plumbing (Phase 2 foundation)
+
+Use these in every converted router. They exist so nine slices don't each invent their own.
+
+| Module | Use |
+|---|---|
+| `core/exceptions.py` | Raise `NotFoundError`, `ConflictError`, `ExternalServiceError`… **never** `HTTPException` in new code — services must be callable without FastAPI |
+| `core/ownership.py` | `get_owned_tutorial`, `get_readable_tutorial`, `get_owned_module`, `owned_tutorials_stmt` |
+| `core/pagination.py` | `page_params` dependency, `Page[T]` envelope, `paginate()` |
+| `core/dependencies.py` | `get_current_user_async`, `get_optional_user` |
+| `core/middleware.py` | Request IDs (already wired) |
+| `core/context.py` | `get_request_id()` anywhere, no argument threading |
+
+### Ownership raises NotFound, never PermissionDenied
+
+"Exists but isn't yours" and "doesn't exist" both return **404**. A 403 confirms the id is
+real, turning a guessable id into an enumeration oracle. `PermissionDeniedError` is only for
+operations on objects the caller can legitimately see (role/plan checks).
+
+Nothing but `Repository` stores `user_id`, so ownership is derived:
+`Repository → Tutorial → Module → Quiz`. Use the helpers rather than re-deriving the join —
+that's where a filter gets dropped, and a missing filter looks like correct code in review.
+
+`get_readable_tutorial` is the wider one backing public `/t/{slug}` pages: public and
+unlisted are readable by anyone including anonymous callers. Unlisted means "not in
+/explore or the sitemap", not access-controlled.
+
+### Error envelope
+
+Every failure — `AppError`, validation, `HTTPException`, unhandled — renders as:
+
+```json
+{"error": {"code": "not_found", "message": "…", "request_id": "…"}}
+```
+
+Unhandled exceptions never surface their text (connection strings, SQL, upstream payloads);
+`request_id` is the bridge to the full trace in the logs.
+
+### Pagination
+
+Offset-based. **`limit` is capped at 100** — without a ceiling `?limit=1000000` is a way to
+exhaust memory. `paginate()` runs two queries and strips `ORDER BY` from the count.
+
+### Request IDs
+
+`RequestIDMiddleware` honours an inbound `X-Request-ID` (so a trace survives across
+services) or generates one. It appears in every log line, the error body, and the response
+header. uvicorn's own access log is raised to WARNING because ours supersedes it.
+
 ## BYOK credentials
 
 `app/core/crypto.py` (AES-256-GCM) + `app/services/credentials.py`.

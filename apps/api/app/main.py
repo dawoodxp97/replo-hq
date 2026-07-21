@@ -5,7 +5,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from .core.config import settings
+from .core.exceptions import register_exception_handlers
 from .core.logging import configure_logging
+from .core.middleware import RequestIDMiddleware
 from .db.session import AsyncSessionLocal, async_engine
 from .routers import (
     author,
@@ -47,13 +49,20 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+register_exception_handlers(app)
+
+# Middleware runs in reverse registration order, so RequestIDMiddleware being
+# added last puts it outermost — the request id is therefore set before CORS or
+# any handler runs, and is available to every log line and error body.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Request-ID"],
 )
+app.add_middleware(RequestIDMiddleware)
 
 app.include_router(repo.router, prefix="/api/repo", tags=["Repository"])
 app.include_router(tutorial.router, prefix="/api/tutorial", tags=["Tutorials"])

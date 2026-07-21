@@ -14,6 +14,8 @@ broken during a 2am debugging session.
 import logging
 import re
 
+from .context import get_request_id
+
 # Ordered most-specific first so a provider-shaped key is labelled precisely
 # rather than being swallowed by the generic Bearer rule.
 _PATTERNS: list[tuple[re.Pattern[str], str]] = [
@@ -67,17 +69,44 @@ class RedactingFilter(logging.Filter):
         return True
 
 
+class RequestIDFilter(logging.Filter):
+    """Attach the current request id to every record.
+
+    Set unconditionally — including to '-' outside a request — because a format
+    string referencing a missing attribute raises during logging, which is a
+    spectacularly annoying way to lose logs in the worker.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.request_id = get_request_id() or "-"
+        return True
+
+
 def configure_logging(level: int = logging.INFO) -> None:
-    """Install the redaction filter on every handler on the root logger.
+    """Install redaction and request-id filters on the root handlers.
 
     Filters attached to a *logger* do not apply to records propagated from child
-    loggers — attaching to the handlers is what makes this apply process-wide.
+    loggers — attaching them to the handlers is what makes this process-wide.
     """
     logging.basicConfig(
         level=level,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        format="%(asctime)s [%(request_id)s] %(name)s %(levelname)s %(message)s",
     )
 
-    redacting = RedactingFilter()
+    filters: list[logging.Filter] = [RequestIDFilter(), RedactingFilter()]
     for handler in logging.getLogger().handlers:
-        handler.addFilter(redacting)
+        for f in filters:
+            handler.addFilter(f)
+
+    # uvicorn installs its own handlers that bypass the root logger's, so the
+    # filters have to be attached there too or its output escapes unredacted.
+    for name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
+        for handler in logging.getLogger(name).handlers:
+            for f in filters:
+                handler.addFilter(f)
+
+    # RequestIDMiddleware already logs every request *with* a request id, so
+    # uvicorn's access log is a second, less useful copy of the same lines.
+    # Raised to WARNING rather than disabled, so uvicorn can still report
+    # problems it alone knows about.
+    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
