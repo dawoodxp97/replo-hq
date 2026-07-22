@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, String
+from sqlalchemy import Boolean, Column, DateTime, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import text
@@ -29,6 +29,19 @@ class User(Base, TimestampMixin):
     # Lets an account be disabled without deleting it and cascading away every
     # tutorial they own.
     is_active = Column(Boolean, nullable=False, server_default=text("true"))
+
+    # Tokens issued before this instant are rejected. Bumped on password change
+    # and on "sign out everywhere".
+    #
+    # Without it a password change did nothing to existing sessions: refresh
+    # tokens live 30 days, so an attacker holding one keeps access for a month
+    # after the victim changes their password — which is precisely the action
+    # taken *because* of a suspected compromise.
+    #
+    # This is a stopgap, not the real fix. Proper refresh-token rotation with
+    # reuse detection needs a token store; a single timestamp can only revoke
+    # everything at once, never one device.
+    sessions_valid_from = Column(DateTime(timezone=True), nullable=True)
 
     # Add relationships later if needed, e.g.:
     # tutorials = relationship("Tutorial", back_populates="owner")

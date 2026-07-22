@@ -14,6 +14,7 @@ cannot leak that way because it is never placed in the dict: steps carry
 
 import logging
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from uuid import UUID
 
 import aiohttp
@@ -27,6 +28,7 @@ from ..core.crypto import (
     encrypt_credential,
     last_four,
 )
+from ..core.net import validate_outbound_url
 from ..models.credentials import UserLLMCredential
 from ..models.enums import LLMProvider
 
@@ -93,6 +95,12 @@ async def store_credential(
     is friction with no security benefit.
     """
     api_key = api_key.strip()
+
+    # Validated here as well as at the schema, because this function is callable
+    # from anywhere and the stored value is what later gets fetched.
+    if base_url:
+        base_url = validate_outbound_url(base_url)
+
     aad = build_aad(str(user_id), provider.value)
     ciphertext, nonce, key_version = encrypt_credential(api_key, aad=aad)
 
@@ -132,6 +140,16 @@ async def store_credential(
     await db.commit()
     await db.refresh(credential)
     return credential
+
+
+async def mark_validated(db: AsyncSession, credential: UserLLMCredential) -> None:
+    """Record that a key passed a live check.
+
+    A UI hint only. The key can be revoked upstream a second later, so this is
+    never consulted for an authorisation decision.
+    """
+    credential.last_validated_at = datetime.now(UTC)
+    await db.commit()
 
 
 async def resolve_credential(
@@ -240,7 +258,11 @@ async def validate_credential(
     try:
         async with (
             aiohttp.ClientSession(timeout=timeout) as session,
-            session.get(url, headers=headers) as response,
+            # allow_redirects=False is load-bearing, not tidiness: without it a
+            # perfectly public host can 302 to http://169.254.169.254/ and the
+            # client follows it, defeating the address check in core/net.py
+            # without needing DNS rebinding at all.
+            session.get(url, headers=headers, allow_redirects=False) as response,
         ):
             if response.status == 200:
                 return True, None

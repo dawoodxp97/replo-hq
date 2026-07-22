@@ -114,6 +114,12 @@ async def refresh_tokens(db: AsyncSession, refresh_token: str) -> tuple[User, To
     remain valid until they expire, so a stolen one is usable for its full
     lifetime. Tracked for the auth hardening pass; it needs a token store, which
     is a bigger change than this slice.
+
+    The `sessions_valid_from` check below is the partial mitigation: a password
+    change or "sign out everywhere" invalidates every outstanding refresh token
+    at once. **This endpoint is the one that matters** — without the check here,
+    revocation would expire the 30-minute access tokens and then hand out fresh
+    ones for the next 30 days.
     """
     token_data = security.decode_refresh_token(refresh_token)
     if token_data is None:
@@ -124,6 +130,9 @@ async def refresh_tokens(db: AsyncSession, refresh_token: str) -> tuple[User, To
     ).scalar_one_or_none()
 
     if user is None or not user.is_active:
+        raise AuthenticationError("Invalid or expired refresh token.")
+
+    if security.is_session_revoked(token_data, user.sessions_valid_from):
         raise AuthenticationError("Invalid or expired refresh token.")
 
     return user, issue_tokens(user)

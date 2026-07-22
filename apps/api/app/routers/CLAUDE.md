@@ -5,7 +5,7 @@ paginated + ownership-checked in a single pass.
 
 | Converted | Remaining |
 |---|---|
-| `user.py`, `repo.py`, `tutorial.py`, `progress.py`, `author.py` | `settings` → `dashboard` → `notification` → `search` |
+| `user.py`, `repo.py`, `tutorial.py`, `progress.py`, `author.py`, `settings.py` | `dashboard` → `notification` → `search` |
 
 `grep -l get_db app/routers/` lists what's left.
 
@@ -33,7 +33,7 @@ Rules:
 |--------|--------|-----|-------|
 | `tutorial.py` | `/api/tutorial` | 162 | **Converted.** Read/list/delete/publish + generation. Route order matters — see the module docstring. |
 | `dashboard.py` | `/api/dashboard` | 367 | Aggregate stats. Many separate queries per request. |
-| `settings.py` | `/api/settings` | 358 | Profile/notification/learning/appearance/security sub-resources. |
+| `settings.py` | `/api/settings` | 253 | **Converted.** Profile/notifications/appearance/learning/security **+ BYOK credentials**. |
 | `author.py` | `/api/author` | 143 | **Converted.** Tutorial/module/quiz CRUD. Quiz addressed by module id. |
 | `progress.py` | `/api/progress` | 94 | **Converted.** Completion, quiz grading, overview + paginated history. |
 | `repo.py` | `/api/repo` | 93 | **Converted.** CRUD + tree + file. See git safety notes in `utils/repo_utils.py`. |

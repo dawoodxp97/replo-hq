@@ -1,348 +1,253 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+"""Settings endpoints — profile, notifications, appearance, learning, security,
+and the BYOK credential surface.
+"""
 
-from .. import models, schemas
-from ..core.dependencies import get_current_user
-from ..db.session import get_db
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ..core.dependencies import get_current_user_async
+from ..core.exceptions import NotFoundError
+from ..db.session import get_async_db
+from ..models.user import User
+from ..schemas.credentials import (
+    CredentialCreate,
+    CredentialCreateResponse,
+    CredentialResponse,
+)
+from ..schemas.settings import (
+    AccountDeleteRequest,
+    AppearanceSettingsResponse,
+    AppearanceSettingsUpdate,
+    LearningSettingsResponse,
+    LearningSettingsUpdate,
+    NotificationSettingsResponse,
+    NotificationSettingsUpdate,
+    PasswordChangeRequest,
+    PasswordChangeResponse,
+    ProfileSettingsResponse,
+    ProfileSettingsUpdate,
+    UserSettingsResponse,
+)
+from ..services import credentials as credentials_service
+from ..services import settings as settings_service
 
 router = APIRouter()
 
 
-def mask_api_key(api_key: str | None) -> str | None:
-    if not api_key or len(api_key) <= 8:
-        return None
-
-    if len(api_key) <= 12:
-        return f"{api_key[:3]}...{api_key[-3:]}"
-    else:
-        return f"{api_key[:4]}...{api_key[-4:]}"
-
-
-def get_or_create_user_settings(user: models.User, db: Session) -> models.UserSettings:
-    if user.settings:
-        return user.settings
-
-    default_settings = models.UserSettings(
-        user_id=user.user_id,
-        email_notifications_enabled=True,
-        tutorial_completions=True,
-        new_features=True,
-        weekly_digest=True,
-        browser_notifications=True,
-        language="en",
-        code_editor_theme="github-dark",
-        default_difficulty_level="beginner",
-        daily_learning_goal=10,
-        auto_play_next_module=True,
-        show_code_hints=True,
-        quiz_mode=True,
+def _profile(user: User, settings) -> ProfileSettingsResponse:
+    return ProfileSettingsResponse(
+        first_name=user.first_name,
+        last_name=user.last_name,
+        email=user.email,
+        bio=settings.bio,
+        location=settings.location,
+        website=settings.website,
+        profile_picture_url=settings.profile_picture_url,
+        connected_accounts=settings.connected_accounts or [],
     )
-    db.add(default_settings)
-    db.commit()
-    db.refresh(default_settings)
-    return default_settings
 
 
-@router.get("/profile", response_model=schemas.ProfileSettingsResponse)
-def get_profile_settings(
-    current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
+# --- Profile ----------------------------------------------------------------
+
+
+@router.get("/profile", response_model=ProfileSettingsResponse)
+async def get_profile(
+    current_user: User = Depends(get_current_user_async),
+    db: AsyncSession = Depends(get_async_db),
 ):
-    settings = get_or_create_user_settings(current_user, db)
-
-    return {
-        "first_name": current_user.first_name,
-        "last_name": current_user.last_name,
-        "email": current_user.email,
-        "bio": settings.bio,
-        "location": settings.location,
-        "website": settings.website,
-        "profile_picture_url": settings.profile_picture_url,
-        "connected_accounts": settings.connected_accounts or [],
-    }
+    settings = await settings_service.get_or_create_settings(db, current_user.user_id)
+    return _profile(current_user, settings)
 
 
-@router.put("/profile", response_model=schemas.ProfileSettingsResponse)
-def update_profile_settings(
-    profile_update: schemas.ProfileSettingsUpdate,
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+@router.patch("/profile", response_model=ProfileSettingsResponse)
+async def update_profile(
+    body: ProfileSettingsUpdate,
+    current_user: User = Depends(get_current_user_async),
+    db: AsyncSession = Depends(get_async_db),
 ):
-    settings = get_or_create_user_settings(current_user, db)
-
-    if profile_update.first_name is not None:
-        current_user.first_name = profile_update.first_name
-    if profile_update.last_name is not None:
-        current_user.last_name = profile_update.last_name
-    if profile_update.bio is not None:
-        settings.bio = profile_update.bio
-    if profile_update.location is not None:
-        settings.location = profile_update.location
-    if profile_update.website is not None:
-        settings.website = profile_update.website
-    if profile_update.profile_picture_url is not None:
-        settings.profile_picture_url = profile_update.profile_picture_url
-    if profile_update.connected_accounts is not None:
-        settings.connected_accounts = [
-            account.model_dump() for account in profile_update.connected_accounts
-        ]
-
-    db.commit()
-    db.refresh(settings)
-    db.refresh(current_user)
-
-    return {
-        "first_name": current_user.first_name,
-        "last_name": current_user.last_name,
-        "email": current_user.email,
-        "bio": settings.bio,
-        "location": settings.location,
-        "website": settings.website,
-        "profile_picture_url": settings.profile_picture_url,
-        "connected_accounts": settings.connected_accounts or [],
-    }
+    """`connected_accounts` is no longer accepted — it is server-managed."""
+    settings = await settings_service.update_profile(db, current_user, body)
+    return _profile(current_user, settings)
 
 
-@router.get("/notifications", response_model=schemas.NotificationSettingsResponse)
-def get_notification_settings(
-    current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
+# --- Preferences ------------------------------------------------------------
+
+
+@router.get("/notifications", response_model=NotificationSettingsResponse)
+async def get_notifications(
+    current_user: User = Depends(get_current_user_async),
+    db: AsyncSession = Depends(get_async_db),
 ):
-    """
-    Get user's notification settings.
-    """
-    settings = get_or_create_user_settings(current_user, db)
-
-    return {
-        "email_notifications_enabled": settings.email_notifications_enabled,
-        "tutorial_completions": settings.tutorial_completions,
-        "new_features": settings.new_features,
-        "weekly_digest": settings.weekly_digest,
-        "browser_notifications": settings.browser_notifications,
-    }
+    return await settings_service.get_or_create_settings(db, current_user.user_id)
 
 
-@router.put("/notifications", response_model=schemas.NotificationSettingsResponse)
-def update_notification_settings(
-    notification_update: schemas.NotificationSettingsUpdate,
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+@router.patch("/notifications", response_model=NotificationSettingsResponse)
+async def update_notifications(
+    body: NotificationSettingsUpdate,
+    current_user: User = Depends(get_current_user_async),
+    db: AsyncSession = Depends(get_async_db),
 ):
-    """
-    Update user's notification settings.
-    """
-    settings = get_or_create_user_settings(current_user, db)
-
-    if notification_update.email_notifications_enabled is not None:
-        settings.email_notifications_enabled = notification_update.email_notifications_enabled
-    if notification_update.tutorial_completions is not None:
-        settings.tutorial_completions = notification_update.tutorial_completions
-    if notification_update.new_features is not None:
-        settings.new_features = notification_update.new_features
-    if notification_update.weekly_digest is not None:
-        settings.weekly_digest = notification_update.weekly_digest
-    if notification_update.browser_notifications is not None:
-        settings.browser_notifications = notification_update.browser_notifications
-
-    db.commit()
-    db.refresh(settings)
-
-    return {
-        "email_notifications_enabled": settings.email_notifications_enabled,
-        "tutorial_completions": settings.tutorial_completions,
-        "new_features": settings.new_features,
-        "weekly_digest": settings.weekly_digest,
-        "browser_notifications": settings.browser_notifications,
-    }
+    return await settings_service.update_notifications(db, current_user.user_id, body)
 
 
-# --- Appearance Settings Endpoints ---
-@router.get("/appearance", response_model=schemas.AppearanceSettingsResponse)
-def get_appearance_settings(
-    current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
+@router.get("/appearance", response_model=AppearanceSettingsResponse)
+async def get_appearance(
+    current_user: User = Depends(get_current_user_async),
+    db: AsyncSession = Depends(get_async_db),
 ):
-    """
-    Get user's appearance settings.
-    """
-    settings = get_or_create_user_settings(current_user, db)
-
-    return {
-        "language": settings.language,
-        "code_editor_theme": settings.code_editor_theme,
-    }
+    return await settings_service.get_or_create_settings(db, current_user.user_id)
 
 
-@router.put("/appearance", response_model=schemas.AppearanceSettingsResponse)
-def update_appearance_settings(
-    appearance_update: schemas.AppearanceSettingsUpdate,
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+@router.patch("/appearance", response_model=AppearanceSettingsResponse)
+async def update_appearance(
+    body: AppearanceSettingsUpdate,
+    current_user: User = Depends(get_current_user_async),
+    db: AsyncSession = Depends(get_async_db),
 ):
-    """
-    Update user's appearance settings.
-    """
-    settings = get_or_create_user_settings(current_user, db)
-
-    if appearance_update.language is not None:
-        settings.language = appearance_update.language
-    if appearance_update.code_editor_theme is not None:
-        settings.code_editor_theme = appearance_update.code_editor_theme
-
-    db.commit()
-    db.refresh(settings)
-
-    return {
-        "language": settings.language,
-        "code_editor_theme": settings.code_editor_theme,
-    }
+    return await settings_service.update_appearance(db, current_user.user_id, body)
 
 
-# --- Learning Settings Endpoints ---
-@router.get("/learning", response_model=schemas.LearningSettingsResponse)
-def get_learning_settings(
-    current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
+@router.get("/learning", response_model=LearningSettingsResponse)
+async def get_learning(
+    current_user: User = Depends(get_current_user_async),
+    db: AsyncSession = Depends(get_async_db),
 ):
-    """
-    Get user's learning settings.
-    """
-    settings = get_or_create_user_settings(current_user, db)
-
-    return {
-        "default_difficulty_level": settings.default_difficulty_level,
-        "daily_learning_goal": settings.daily_learning_goal,
-        "auto_play_next_module": settings.auto_play_next_module,
-        "show_code_hints": settings.show_code_hints,
-        "quiz_mode": settings.quiz_mode,
-    }
+    return await settings_service.get_or_create_settings(db, current_user.user_id)
 
 
-@router.put("/learning", response_model=schemas.LearningSettingsResponse)
-def update_learning_settings(
-    learning_update: schemas.LearningSettingsUpdate,
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+@router.patch("/learning", response_model=LearningSettingsResponse)
+async def update_learning(
+    body: LearningSettingsUpdate,
+    current_user: User = Depends(get_current_user_async),
+    db: AsyncSession = Depends(get_async_db),
 ):
-    """
-    Update user's learning settings.
-    """
-    settings = get_or_create_user_settings(current_user, db)
-
-    if learning_update.default_difficulty_level is not None:
-        settings.default_difficulty_level = learning_update.default_difficulty_level
-    if learning_update.daily_learning_goal is not None:
-        settings.daily_learning_goal = learning_update.daily_learning_goal
-    if learning_update.auto_play_next_module is not None:
-        settings.auto_play_next_module = learning_update.auto_play_next_module
-    if learning_update.show_code_hints is not None:
-        settings.show_code_hints = learning_update.show_code_hints
-    if learning_update.quiz_mode is not None:
-        settings.quiz_mode = learning_update.quiz_mode
-
-    db.commit()
-    db.refresh(settings)
-
-    return {
-        "default_difficulty_level": settings.default_difficulty_level,
-        "daily_learning_goal": settings.daily_learning_goal,
-        "auto_play_next_module": settings.auto_play_next_module,
-        "show_code_hints": settings.show_code_hints,
-        "quiz_mode": settings.quiz_mode,
-    }
+    return await settings_service.update_learning(db, current_user.user_id, body)
 
 
-# --- Security Settings Endpoints ---
-@router.put("/security/password", response_model=schemas.PasswordChangeResponse)
-def change_password(
-    password_change: schemas.PasswordChangeRequest,
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+@router.get("/all", response_model=UserSettingsResponse)
+async def get_all_settings(
+    current_user: User = Depends(get_current_user_async),
+    db: AsyncSession = Depends(get_async_db),
 ):
-    """
-    Change user's password.
-    Validates current password and updates to new password.
-    """
-    from ..core import security
+    settings = await settings_service.get_or_create_settings(db, current_user.user_id)
+    return UserSettingsResponse(
+        user_id=current_user.user_id,
+        profile=_profile(current_user, settings),
+        notifications=NotificationSettingsResponse.model_validate(settings),
+        appearance=AppearanceSettingsResponse.model_validate(settings),
+        learning=LearningSettingsResponse.model_validate(settings),
+        sessions_valid_from=current_user.sessions_valid_from,
+    )
 
-    # Validate current password
-    if not security.verify_password(password_change.current_password, current_user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Current password is incorrect",
+
+# --- Security ---------------------------------------------------------------
+
+
+@router.put("/security/password", response_model=PasswordChangeResponse)
+async def change_password(
+    body: PasswordChangeRequest,
+    current_user: User = Depends(get_current_user_async),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Changing the password signs out every session, including this one."""
+    await settings_service.change_password(
+        db, current_user, body.current_password, body.new_password, body.confirm_new_password
+    )
+    return PasswordChangeResponse(
+        message="Password updated. All sessions have been signed out — please sign in again."
+    )
+
+
+@router.post("/security/revoke-sessions", response_model=PasswordChangeResponse)
+async def revoke_sessions(
+    current_user: User = Depends(get_current_user_async),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Sign out everywhere without changing the password."""
+    await settings_service.revoke_sessions(db, current_user)
+    return PasswordChangeResponse(message="All sessions have been signed out.")
+
+
+@router.post("/security/delete-account", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_account(
+    body: AccountDeleteRequest,
+    current_user: User = Depends(get_current_user_async),
+    db: AsyncSession = Depends(get_async_db),
+) -> None:
+    """Permanently delete the account and everything it owns.
+
+    POST with a body rather than a bare DELETE: this needs the current password,
+    and a DELETE carrying a required body is awkward for clients and proxies.
+    """
+    await settings_service.delete_account(db, current_user, body.current_password)
+
+
+# --- BYOK credentials -------------------------------------------------------
+#
+# The table, the encryption service and the migration all existed; nothing
+# exposed them, so BYOK was unreachable. No endpoint here returns a key — see
+# schemas/credentials.py.
+
+
+@router.get("/credentials", response_model=list[CredentialResponse])
+async def list_credentials(
+    current_user: User = Depends(get_current_user_async),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Decrypts nothing: provider, label and last_four are stored in plaintext
+    precisely so this page never needs the key."""
+    return await credentials_service.list_credentials(db, current_user.user_id)
+
+
+@router.post(
+    "/credentials", response_model=CredentialCreateResponse, status_code=status.HTTP_201_CREATED
+)
+async def add_credential(
+    body: CredentialCreate,
+    current_user: User = Depends(get_current_user_async),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Store a key, optionally checking it against the provider first.
+
+    Re-posting the same (provider, label) replaces the key — that is what
+    rotation looks like, and forcing a delete first is friction with no benefit.
+    """
+    validated: bool | None = None
+    validation_error: str | None = None
+
+    if body.validate_key:
+        validated, validation_error = await credentials_service.validate_credential(
+            body.api_key, body.provider, body.base_url
         )
 
-    # Validate new password matches confirmation
-    if password_change.new_password != password_change.confirm_new_password:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="New password and confirmation do not match",
-        )
+    credential = await credentials_service.store_credential(
+        db,
+        user_id=current_user.user_id,
+        provider=body.provider,
+        api_key=body.api_key,
+        label=body.label,
+        base_url=body.base_url,
+        default_model=body.default_model,
+    )
 
-    # Validate new password is different from current
-    if password_change.current_password == password_change.new_password:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="New password must be different from current password",
-        )
+    if validated:
+        await credentials_service.mark_validated(db, credential)
 
-    # Update password
-    current_user.hashed_password = security.get_password_hash(password_change.new_password)
-    db.commit()
-    db.refresh(current_user)
-
-    return {"message": "Password updated successfully"}
+    return CredentialCreateResponse(
+        credential=CredentialResponse.model_validate(credential),
+        validated=validated,
+        validation_error=validation_error,
+    )
 
 
-@router.delete("/security/account")
-def delete_account(
-    current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
-):
-    """
-    Delete user account and all associated data.
-    This is a destructive operation and should require additional confirmation in production.
-    """
-    # Delete user (this will cascade delete settings due to CASCADE on foreign key)
-    db.delete(current_user)
-    db.commit()
-
-    return {"message": "Account deleted successfully"}
-
-
-# --- Get All Settings (Optional convenience endpoint) ---
-@router.get("/all", response_model=schemas.UserSettingsResponse)
-def get_all_settings(
-    current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
-):
-    """
-    Get all user settings at once.
-    """
-    settings = get_or_create_user_settings(current_user, db)
-
-    return {
-        "user_id": current_user.user_id,
-        "profile": {
-            "first_name": current_user.first_name,
-            "last_name": current_user.last_name,
-            "email": current_user.email,
-            "bio": settings.bio,
-            "location": settings.location,
-            "website": settings.website,
-            "profile_picture_url": settings.profile_picture_url,
-            "connected_accounts": settings.connected_accounts or [],
-        },
-        "notifications": {
-            "email_notifications_enabled": settings.email_notifications_enabled,
-            "tutorial_completions": settings.tutorial_completions,
-            "new_features": settings.new_features,
-            "weekly_digest": settings.weekly_digest,
-            "browser_notifications": settings.browser_notifications,
-        },
-        "appearance": {
-            "language": settings.language,
-            "code_editor_theme": settings.code_editor_theme,
-        },
-        "learning": {
-            "default_difficulty_level": settings.default_difficulty_level,
-            "daily_learning_goal": settings.daily_learning_goal,
-            "auto_play_next_module": settings.auto_play_next_module,
-            "show_code_hints": settings.show_code_hints,
-            "quiz_mode": settings.quiz_mode,
-        },
-    }
+@router.delete("/credentials/{credential_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_credential(
+    credential_id: UUID,
+    current_user: User = Depends(get_current_user_async),
+    db: AsyncSession = Depends(get_async_db),
+) -> None:
+    deleted = await credentials_service.delete_credential(db, current_user.user_id, credential_id)
+    if not deleted:
+        raise NotFoundError("Credential not found.")

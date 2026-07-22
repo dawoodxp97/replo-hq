@@ -44,6 +44,9 @@ async def get_current_user_async(
     if not user.is_active:
         raise AuthenticationError("This account has been deactivated.")
 
+    if security.is_session_revoked(token_data, user.sessions_valid_from):
+        raise AuthenticationError("This session has expired. Please sign in again.")
+
     return user
 
 
@@ -70,6 +73,8 @@ async def get_optional_user(
     ).scalar_one_or_none()
 
     if user is None or not user.is_active:
+        return None
+    if security.is_session_revoked(token_data, user.sessions_valid_from):
         return None
     return user
 

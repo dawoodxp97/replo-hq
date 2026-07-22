@@ -157,7 +157,10 @@ header. uvicorn's own access log is raised to WARNING because ours supersedes it
 
 ## BYOK credentials
 
-`app/core/crypto.py` (AES-256-GCM) + `app/services/credentials.py`.
+`app/core/crypto.py` (AES-256-GCM) + `app/services/credentials.py`, exposed at
+`/api/settings/credentials` (list / add / delete). **No endpoint returns a key** — there is
+deliberately no "reveal" route, since the whole point of encrypting at rest is that a
+database dump yields nothing usable.
 
 **`services/credentials.py` is the only decryption path in the application.**
 Routers, the orchestrator and steps work with `user_id` and never see key material.
@@ -175,6 +178,23 @@ Three properties worth not breaking:
 
 Decryption failure returns `None`, never a partial result — an unreadable credential is
 treated as absent, so callers fall back to "no key configured" rather than sending garbage.
+
+### base_url is an SSRF surface
+
+BYOK lets the user supply the endpoint, and **the server** fetches it — so it is the second
+SSRF surface after `git clone`. It was unvalidated: `http://169.254.169.254/`,
+`http://127.0.0.1:6379` and any internal address were reachable, and `validate_credential`
+returned the HTTP status to the caller, making it a port scanner with a readable oracle.
+
+`core/net.py::validate_outbound_url` enforces https, no embedded credentials, and that
+**every** address the host resolves to is public unicast. Enforced at both the schema and
+`store_credential`, since the stored value is what later gets fetched.
+
+`allow_redirects=False` on the validation request is load-bearing: without it a public host
+just 302s to a private one and the address check never sees it.
+
+Residual: DNS rebinding between the check and the connect. Closing it means pinning the
+validated address into the connector.
 
 `app/core/logging.py` installs `RedactingFilter` on the root handlers in both entrypoints.
 It scrubs `sk-`/`sk-or-v1-`/`sk-ant-`/`gh*_` tokens, `Authorization` headers, and inline
@@ -208,8 +228,24 @@ token in every deployment was signed with the hardcoded fallback string in the s
 org/tenant concept. Login burns the KDF even for unknown emails, so response time does not
 reveal which addresses are registered.
 
-**Still missing:** refresh token rotation and reuse detection. A leaked refresh token is
-valid for its full 30 days and can be replayed indefinitely — it needs a token store.
+### Session revocation
+
+`User.sessions_valid_from` is a cutoff: any token whose issue time precedes it is rejected.
+Set by a password change and by `POST /api/settings/security/revoke-sessions`.
+
+Checked in **three** places — `get_current_user_async`, `get_optional_user`, and
+`auth_service.refresh_tokens`. The refresh path is the one that matters: without it,
+revocation would expire the 30-minute access tokens and then happily mint new ones for the
+next 30 days.
+
+Tokens carry a custom **`iat_ms`** claim. Standard `iat` is whole seconds, which is wrong in
+both directions — comparing at full precision locks a user out of the login they perform
+immediately after changing their password, and flooring the cutoff lets tokens issued in the
+same second survive revocation. Both were caught by test. Don't "simplify" it back to `iat`.
+
+**Still missing:** refresh token rotation and reuse detection. `sessions_valid_from` can only
+revoke *everything* at once, never a single device, and a stolen refresh token is valid until
+used-or-revoked. The real fix needs a token store.
 
 ## Missing for SaaS
 
