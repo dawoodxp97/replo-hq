@@ -5,7 +5,7 @@ paginated + ownership-checked in a single pass.
 
 | Converted | Remaining |
 |---|---|
-| `user.py`, `repo.py`, `tutorial.py`, `progress.py`, `author.py`, `settings.py` | `dashboard` → `notification` → `search` |
+| `user.py`, `repo.py`, `tutorial.py`, `progress.py`, `author.py`, `settings.py`, `dashboard.py` | `notification` → `search` |
 
 `grep -l get_db app/routers/` lists what's left.
 
@@ -32,7 +32,7 @@ Rules:
 | Router | Prefix | LOC | Notes |
 |--------|--------|-----|-------|
 | `tutorial.py` | `/api/tutorial` | 162 | **Converted.** Read/list/delete/publish + generation. Route order matters — see the module docstring. |
-| `dashboard.py` | `/api/dashboard` | 367 | Aggregate stats. Many separate queries per request. |
+| `dashboard.py` | `/api/dashboard` | 79 | **Converted.** Stats, streak, heatmap, recent activity. Date buckets need `?tz=`. |
 | `settings.py` | `/api/settings` | 253 | **Converted.** Profile/notifications/appearance/learning/security **+ BYOK credentials**. |
 | `author.py` | `/api/author` | 143 | **Converted.** Tutorial/module/quiz CRUD. Quiz addressed by module id. |
 | `progress.py` | `/api/progress` | 94 | **Converted.** Completion, quiz grading, overview + paginated history. |
@@ -103,8 +103,20 @@ the replacement.
 | `PUT /api/author/tutorials/{id}` | `PATCH` — partial, `level` is the lowercase enum |
 | `PUT /api/author/quizzes/{quiz_id}` | `PUT /api/author/modules/{module_id}/quiz` (upsert) |
 
+## Dates belong to the caller, not the server
+
+Anything bucketed by calendar day — streaks, "this week", the activity heatmap — takes an
+IANA `?tz=` parameter (`Intl.DateTimeFormat().resolvedOptions().timeZone`), defaulting to
+UTC, and does **all** date maths in Postgres.
+
+Never mix `func.date(col)` with `datetime.now().date()`. The first bins in Postgres's
+timezone, the second in the API container's; when they differ, "today" is never in the set
+and a streak silently reports 0 forever. Binning in UTC is also wrong for the user — two
+sessions at 18:00 and 20:00 UTC are one day in UTC and two days in Asia/Kolkata (23:30 Mon,
+01:30 Tue).
+
 ## When adding an endpoint
 
-Follow the existing shape (router → `Depends(get_current_user)` → `Depends(get_db)` →
-inline query), or, if refactoring, extract to a service module and do it consistently
-across a whole router — not one endpoint at a time.
+Follow the shape above: router → service → typed schema, `AppError` not `HTTPException`,
+ownership via `core/ownership.py`, `Page[T]` for lists. Convert a whole router at once, not
+one endpoint at a time.

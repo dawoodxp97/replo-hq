@@ -31,8 +31,16 @@ class TutorialExecution(Base):
     __tablename__ = "tutorial_executions"
 
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    # ondelete CASCADE is required, not tidiness. The ORM relationship's
+    # `cascade="all, delete-orphan"` only fires when SQLAlchemy walks the
+    # relationship itself — deleting a *user* cascades to tutorial_instances in
+    # the database, which never loads these rows, so without this the FK aborts
+    # the whole transaction. Account deletion failed for anyone who had ever run
+    # a generation.
     tutorial_instance_id = Column(
-        UUID(as_uuid=True), ForeignKey("tutorial_instances.id"), nullable=False
+        UUID(as_uuid=True),
+        ForeignKey("tutorial_instances.id", ondelete="CASCADE"),
+        nullable=False,
     )
     status = Column(
         enum_column(RunStatus, "run_status"),
@@ -57,7 +65,9 @@ class TutorialStepExecution(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
     tutorial_execution_id = Column(
-        UUID(as_uuid=True), ForeignKey("tutorial_executions.id"), nullable=False
+        UUID(as_uuid=True),
+        ForeignKey("tutorial_executions.id", ondelete="CASCADE"),
+        nullable=False,
     )
     step_type = Column(String, nullable=False)
     step_order = Column(Integer, nullable=False)
