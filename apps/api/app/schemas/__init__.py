@@ -1,8 +1,7 @@
 from .notifications import (
-    MarkAsReadRequest,
     MarkAsReadResponse,
-    NotificationListResponse,
     NotificationResponse,
+    UnreadCountResponse,
 )
 from .settings import (
     AppearanceSettingsResponse,

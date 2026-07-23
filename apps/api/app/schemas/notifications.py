@@ -1,30 +1,40 @@
-# ./backend/app/schemas/notifications.py
+"""Notification schemas.
 
-from pydantic import BaseModel
+The old models typed everything as `str` — `id`, `type` and `created_at` — with
+`str(...)` and `.isoformat()` called by hand at the one construction site.
+Pydantic serialises UUIDs, enums and datetimes on its own, and typing them
+properly is what lets a generated client know a date is a date.
+"""
+
+from datetime import datetime
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict
+
+from ..models.enums import NotificationType
 
 
 class NotificationResponse(BaseModel):
-    id: str  # notification_id as string
+    # Was `id: str`. Renamed to match the column — the `id` alias existed only
+    # because the value was being stringified by hand.
+    notification_id: UUID
     title: str
     message: str
-    type: str  # success, info, warning, default
-    created_at: str  # ISO format datetime
+    type: NotificationType
+    created_at: datetime
     read: bool
+    read_at: datetime | None = None
     link: str | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
-class NotificationListResponse(BaseModel):
-    notifications: list[NotificationResponse]
+class UnreadCountResponse(BaseModel):
+    """Its own endpoint so a bell badge can poll the count without pulling a
+    page of notification bodies every few seconds."""
+
     unread_count: int
 
 
-class MarkAsReadRequest(BaseModel):
-    notification_id: str
-
-
 class MarkAsReadResponse(BaseModel):
-    success: bool
-    message: str
+    updated: int
