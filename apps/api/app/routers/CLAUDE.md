@@ -5,7 +5,7 @@ paginated + ownership-checked in a single pass.
 
 | Converted | Remaining |
 |---|---|
-| `user.py`, `repo.py`, `tutorial.py`, `progress.py`, `author.py`, `settings.py`, `dashboard.py` | `notification` → `search` |
+| `user.py`, `repo.py`, `tutorial.py`, `progress.py`, `author.py`, `settings.py`, `dashboard.py`, `notification.py` | `search` |
 
 `grep -l get_db app/routers/` lists what's left.
 
@@ -38,7 +38,7 @@ Rules:
 | `progress.py` | `/api/progress` | 94 | **Converted.** Completion, quiz grading, overview + paginated history. |
 | `repo.py` | `/api/repo` | 93 | **Converted.** CRUD + tree + file. See git safety notes in `utils/repo_utils.py`. |
 | `search.py` | `/api/search` | 192 | Likely `ILIKE` scans — no full-text index. |
-| `notification.py` | `/api/notifications` | 149 | |
+| `notification.py` | `/api/notifications` | 85 | **Converted.** List/count/mark/dismiss. Produced by the worker — `services/notifications.py`. |
 | `user.py` | `/api/user` | 78 | **Converted.** signup / login / refresh / **me**. |
 
 ## Patterns in the unconverted routers

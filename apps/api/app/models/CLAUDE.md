@@ -14,7 +14,7 @@ All models inherit `Base` from `app/db/session.py`. UUID PKs via
 | `Quiz` | `quizzes` | | **`options` JSONB holds the answer key** — its dicts carry `is_correct`, and `correct_answer` is derived from it. Never serialise `options` raw; see `schemas/tutorial.py::QuizOption`. Nothing in the pipeline creates quizzes yet — only `routers/author.py` does. |
 | `UserProgress` | `user_progress` | | Completion rows. `uq_user_module` makes check-then-insert a race — verified: 7 of 8 concurrent completions raised `IntegrityError`. Write with `ON CONFLICT`. |
 | `UserSettings` | `user_settings` | | 1:1 with User. |
-| `Notification` | `notifications` | | |
+| `Notification` | `notifications` | | Produced only by the worker on generation finish (`services/notifications.py::notify_generation_finished`). The producer existed from the start but was **called from nowhere**, so the table stayed empty and the whole UI rendered blank — wired up in the notification slice. |
 
 ## Credentials (`credentials.py`)
 

@@ -10,10 +10,11 @@ from ..models.tutorials import Tutorial
 from ..orchestrator.orchestrator import TutorialOrchestrator
 from ..services import notifications as notification_service
 
-# Was `logging.basicConfig(...)` at import time, which reconfigured the root
-# logger and dropped the redaction filter installed by `configure_logging()` —
-# so the worker, the process that actually handles API keys, was the one process
-# logging without redaction.
+# Was a module-level `logging.basicConfig(...)`. It happened to be a no-op —
+# `worker.py` calls `configure_logging()` before importing this module, and
+# basicConfig returns early when the root logger already has handlers — but it is
+# a landmine: any import-order change would let it seize the root logger and drop
+# the redaction filter in the one process that actually handles API keys. Gone.
 logger = logging.getLogger(__name__)
 
 
