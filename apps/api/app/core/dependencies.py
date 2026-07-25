@@ -1,18 +1,22 @@
 """Auth dependencies.
 
-Async versions are the target; the sync `get_current_user` stays until the last
-router is converted. Every router still importing it is unconverted work.
+Fully async. The sync `get_current_user` was removed once the last router
+converted — it had no callers left and a lingering sync auth dependency is a
+footgun: a new endpoint could grab it and silently reintroduce blocking DB IO on
+the event loop.
+
+The sync **session** (`SessionLocal`) still exists in `db/session.py` for the ARQ
+worker and orchestrator, which are Phase 3's conversion.
 """
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Session
 
 from .. import models
 from ..core import security
-from ..db.session import get_async_db, get_db
+from ..db.session import get_async_db
 from .exceptions import AuthenticationError
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/user/login")
@@ -82,29 +86,3 @@ async def get_optional_user(
 def get_request_id(request: Request) -> str:
     """The current request id, for handlers that want to echo it."""
     return getattr(request.state, "request_id", "-")
-
-
-# --- Sync (legacy, being removed) -------------------------------------------
-
-
-def get_current_user(
-    token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
-) -> models.User:
-    """Legacy sync dependency. Use get_current_user_async in new code."""
-    token_data = security.decode_access_token(token)
-    if token_data is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    user = db.query(models.User).filter(models.User.email == token_data.email).first()
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    return user

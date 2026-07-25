@@ -29,5 +29,21 @@ class Module(Base, TimestampMixin):
     code_snippet = Column(Text)
     diagram_mermaid = Column(Text)
 
-    # Performance index on tutorial_id
-    __table_args__ = (Index("idx_module_tutorial", "tutorial_id"),)
+    __table_args__ = (
+        Index("idx_module_tutorial", "tutorial_id"),
+        # Trigram GIN indexes for services/search.py (see migration 80e2e03a0776).
+        # `content_markdown` is the largest column in the schema and the one whose
+        # sequential scan hurt most.
+        Index(
+            "idx_trgm_module_title",
+            "title",
+            postgresql_using="gin",
+            postgresql_ops={"title": "gin_trgm_ops"},
+        ),
+        Index(
+            "idx_trgm_module_content",
+            "content_markdown",
+            postgresql_using="gin",
+            postgresql_ops={"content_markdown": "gin_trgm_ops"},
+        ),
+    )

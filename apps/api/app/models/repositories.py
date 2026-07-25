@@ -17,6 +17,16 @@ class Repository(Base, TimestampMixin):
         # added github.com/facebook/react, no other user ever could. Uniqueness
         # belongs per-owner.
         UniqueConstraint("user_id", "github_url", name="uq_repo_user_url"),
+        # Trigram GIN index backing services/search.py. Declared here, not only in
+        # the migration, or `alembic check` reads the DB index as drift and
+        # autogenerate offers to drop it. See migration 80e2e03a0776 for why a
+        # B-tree cannot serve `ILIKE '%…%'`.
+        Index(
+            "idx_trgm_repo_name",
+            "name",
+            postgresql_using="gin",
+            postgresql_ops={"name": "gin_trgm_ops"},
+        ),
     )
 
     repo_id = Column(

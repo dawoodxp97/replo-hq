@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, Text
+from sqlalchemy import Column, ForeignKey, Index, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.sql import text
 
@@ -9,6 +9,16 @@ from .mixins import TimestampMixin
 
 class Quiz(Base, TimestampMixin):
     __tablename__ = "quizzes"
+
+    __table_args__ = (
+        # Trigram GIN index for services/search.py (see migration 80e2e03a0776).
+        Index(
+            "idx_trgm_quiz_question",
+            "question_text",
+            postgresql_using="gin",
+            postgresql_ops={"question_text": "gin_trgm_ops"},
+        ),
+    )
 
     quiz_id = Column(
         UUID(as_uuid=True),

@@ -79,32 +79,26 @@ Two details in `env.py` that look cosmetic and are not:
 The destructive `drop_all`/`create_all` setup script is gone. Alembic owns the
 schema now.
 
-## Async/sync migration (in progress — Phase 2)
+## Async/sync migration — HTTP layer done
 
-The original problem: everything is `async def` but the DB layer was **synchronous**
-SQLAlchemy, so every `db.query(...)` blocked the event loop — serialising concurrent
-requests in the API and serialising jobs in the worker.
+The original problem: everything was `async def` over a **synchronous** DB layer, so every
+`db.query(...)` blocked the event loop, serialising concurrent requests and worker jobs.
 
-`app/db/session.py` now exposes **both** stacks:
-
-| Dependency | Session | Status |
-|---|---|---|
-| `get_async_db` | `AsyncSession` over asyncpg | **Target.** Use in all new code. |
-| `get_db` | sync `Session` over psycopg2 | Legacy. Every router still on it is unconverted work. |
-
-Both exist so the app keeps working while routers convert one domain at a time. When the
-last router flips, delete the sync half of `session.py` and the `psycopg2` dependency
-(Alembic keeps `settings.sqlalchemy_url` but builds its own engine).
-
-**Conversion order** — each slice becomes async + service-backed + typed schemas +
-N+1-fixed + paginated + ownership-checked in a single pass, rather than being rewritten
-once per concern:
+**All routers are now async** (`get_async_db` / `AsyncSession` over asyncpg), converted one
+domain at a time in this order — each pass doing async + service-backed + typed schemas +
+N+1-fixed + paginated + ownership-checked together:
 
 `user/auth` → `repo` → `tutorial` → `progress` → `author` → `settings` → `dashboard` →
-`notification` → `search`
+`notification` → `search` ✅
 
-`settings.async_sqlalchemy_url` is derived from `sqlalchemy_url` by swapping the driver,
-so the two can never point at different databases.
+**What remains sync:** the ARQ worker and the orchestrator/steps (`app/orchestrator/`,
+`app/steps/`, `app/workers/tutorial_worker.py`) still use `SessionLocal`. `db/session.py`
+keeps its sync half alive for them; that is Phase 3's conversion. Delete the sync half and
+the `psycopg2` dependency only when the pipeline flips — Alembic keeps `settings.sqlalchemy_url`
+but builds its own engine, so it is unaffected.
+
+`settings.async_sqlalchemy_url` is derived from `sqlalchemy_url` by swapping the driver, so
+the two can never point at different databases.
 
 ## Shared plumbing (Phase 2 foundation)
 

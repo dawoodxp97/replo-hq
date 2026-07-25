@@ -1,13 +1,12 @@
 # app/routers/ — HTTP layer
 
-**Mid-conversion.** Each slice becomes async + service-backed + typed schemas + N+1-fixed +
-paginated + ownership-checked in a single pass.
+**Conversion complete.** Every router is async + service-backed + typed schemas + N+1-fixed +
+paginated + ownership-checked. `grep -rl "get_db\b" app/routers/` returns nothing.
 
-| Converted | Remaining |
-|---|---|
-| `user.py`, `repo.py`, `tutorial.py`, `progress.py`, `author.py`, `settings.py`, `dashboard.py`, `notification.py` | `search` |
-
-`grep -l get_db app/routers/` lists what's left.
+The sync **session** still exists in `db/session.py` for the ARQ worker and orchestrator —
+that is Phase 3. The sync `get_current_user` auth dependency was removed with the search
+slice (no callers left, and a stray sync auth dependency invites blocking IO back onto the
+event loop).
 
 ## The shape to copy (see `user.py`)
 
@@ -37,7 +36,7 @@ Rules:
 | `author.py` | `/api/author` | 143 | **Converted.** Tutorial/module/quiz CRUD. Quiz addressed by module id. |
 | `progress.py` | `/api/progress` | 94 | **Converted.** Completion, quiz grading, overview + paginated history. |
 | `repo.py` | `/api/repo` | 93 | **Converted.** CRUD + tree + file. See git safety notes in `utils/repo_utils.py`. |
-| `search.py` | `/api/search` | 192 | Likely `ILIKE` scans — no full-text index. |
+| `search.py` | `/api/search` | 29 | **Converted.** Trigram-indexed substring search over the caller's own entities. |
 | `notification.py` | `/api/notifications` | 85 | **Converted.** List/count/mark/dismiss. Produced by the worker — `services/notifications.py`. |
 | `user.py` | `/api/user` | 78 | **Converted.** signup / login / refresh / **me**. |
 
@@ -102,6 +101,8 @@ the replacement.
 | `GET /api/author/` | `GET /api/author/tutorials`, paginated |
 | `PUT /api/author/tutorials/{id}` | `PATCH` — partial, `level` is the lowercase enum |
 | `PUT /api/author/quizzes/{quiz_id}` | `PUT /api/author/modules/{module_id}/quiz` (upsert) |
+| `GET /api/search/entities?query=` → bare list | `?q=`, returns `{query, results}`, `module_index` 0-based |
+| `DELETE /api/settings/security/account` (no body) | `POST /api/settings/security/delete-account` (password required) |
 
 ## Dates belong to the caller, not the server
 

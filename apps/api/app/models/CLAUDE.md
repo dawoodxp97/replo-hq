@@ -104,6 +104,20 @@ Migrations hardcode enum values as literals rather than importing `app.models.en
 migration describes one historical transition and must not change meaning when a model is
 edited later.
 
+## Search indexes (`pg_trgm`)
+
+`services/search.py` filters with `ILIKE '%term%'`. A leading wildcard makes a B-tree
+useless, so migration `80e2e03a0776` installs `pg_trgm` and adds **GIN trigram** indexes on
+`repositories.name`, `tutorials.title`, `modules.title`, `modules.content_markdown` and
+`quizzes.question_text`.
+
+They are declared on the models (`postgresql_using="gin"`,
+`postgresql_ops={"col": "gin_trgm_ops"}`) **as well as** in the migration. Both are required:
+without the model declaration `alembic check` reads the DB index as drift and autogenerate
+offers to drop it; and alembic renders a GIN/opclass index as a plain `create_index` that
+silently omits `gin_trgm_ops`, producing an index the planner cannot use for ILIKE — which is
+why that migration is hand-written.
+
 ## Timestamps (`mixins.py`)
 
 `TimestampMixin` gives `created_at`/`updated_at`, both server-side defaults so rows written

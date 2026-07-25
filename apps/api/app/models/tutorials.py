@@ -19,6 +19,13 @@ class Tutorial(Base):
             "published_at",
             postgresql_where=text("visibility = 'public'"),
         ),
+        # Trigram GIN index for services/search.py (see migration 80e2e03a0776).
+        Index(
+            "idx_trgm_tutorial_title",
+            "title",
+            postgresql_using="gin",
+            postgresql_ops={"title": "gin_trgm_ops"},
+        ),
     )
 
     tutorial_id = Column(
