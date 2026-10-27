@@ -30,11 +30,11 @@ than a replacement.
 |---|------|-----|
 | 0.1 | Rotate OpenRouter key, `JWT_SECRET_KEY`, Postgres + Redis passwords | `.env.bak` is committed in `9d19c25` with live values |
 | 0.2 | `git rm --cached .env.bak`; `.gitignore` → `.env*` | Stop re-leaking |
-| 0.3 | Decide on history scrub (`git filter-repo`) | Rotation makes leaked values useless; scrubbing is optional hygiene |
-| 0.4 | MIT → `FSL-1.1-Apache-2.0` | Trivial now (49 commits, one author); hard after contributors |
+(removed)
+| 0.3 | History scrub (`git filter-repo`) — skipped; rotation makes leaked values inert |
 | 0.5 | Delete `.github/workflows/migrations.yml` | Runs `alembic upgrade head` against prod with no `alembic/` in the repo. Restored properly in 1.4 |
 
-**Milestone:** no live secrets in git, license protects commercial use.
+**Milestone:** no live secrets in git.
 
 ---
 
@@ -42,6 +42,8 @@ than a replacement.
 
 **~1 week.** Structure and tooling only. **No logic changes** — the old code moves, it
 doesn't change. Keeps the diff reviewable and the blast radius small.
+
+**Note:** No deployment until the full product is complete (D11).
 
 ```
 apps/api/          # FastAPI package, 2 entrypoints, 1 image
@@ -62,9 +64,9 @@ docs/
 | 1.5 | **pydantic-settings** for all config | Permanently kills the `SECRET_KEY` / `JWT_SECRET_KEY` class of bug — typed, validated, fails at boot instead of falling back to a hardcoded string |
 | 1.6 | Drop `torch`, `transformers`, `tree-sitter` | ~2GB of image for libraries nothing imports |
 | 1.7 | CI with path filters (`paths: ['apps/api/**']`) | Independent deploys from one repo |
-| 1.8 | Deploy `apps/api` to Railway — old code, new plumbing | Proves deploy + migrations + secrets before betting the rewrite on them |
+| 1.8 | Prepare infra config for eventual deploy | (Deferred until product complete) |
 
-**Milestone:** deployed API, real migrations, typed config, no secrets in repo.
+**Milestone:** local dev environment ready, real migrations, typed config, no secrets in repo.
 
 ---
 
@@ -81,12 +83,11 @@ docs/
 | 2.5 | Pagination on every list endpoint | There is currently none anywhere |
 | 2.6 | Status strings → enums + PG constraints | `Repository.status` is `'PENDING'`, orchestration is `'pending'` |
 | 2.7 | Drop global-unique on `Repository.github_url` → unique per `(user_id, github_url)` | Today two users cannot both add `facebook/react` |
-| 2.8 | **GitHub OAuth as primary login** | Signup + private-repo access + future paid feature, one system. Deletes most hand-rolled password auth |
+| 2.8 | **Multi-provider auth** | Keep password auth. Add GitHub + Google OAuth to UI |
 | 2.9 | Fix token lifetimes | Refresh (1d) is currently *shorter* than access (7d) — inverted |
 | 2.10 | Central ownership enforcement | Today each endpoint re-derives "is this mine?" by joining through `Repository.user_id`. One forgotten check = data leak |
-| 2.11 | **`user_llm_credentials`** — AES-256-GCM, per-row nonce, `key_version`, KEK in Railway vars | Plaintext `provider`/`label`/`last_four` for UI. Validate key on save |
+| 2.11 | **`user_llm_credentials`** — AES-256-GCM, per-row nonce, `key_version`, KEK in env vars | Plaintext `provider`/`label`/`last_four` for UI. Validate key on save |
 | 2.12 | `Tutorial.visibility` enum + slug | Public/private from migration #1, not retrofitted |
-| 2.13 | Credit ledger + Stripe customer tables — **schema only, dormant** | Cheap now, expensive to retrofit. Nothing is sold in Phase 1 |
 
 **Milestone:** typed, async, authenticated API whose OpenAPI schema is good enough to
 generate a TS client from.
@@ -144,8 +145,8 @@ publishing. **Generate 25 tutorials for well-known repos here** — Phase 5 need
 | 4.1 | Rsbuild + React 19 scaffold |
 | 4.2 | TanStack Router (typed routes) + TanStack Query |
 | 4.3 | **`packages/api-client` generated from OpenAPI** in CI — permanently kills the `as unknown as T` casts |
-| 4.4 | `packages/ui` foundation: design tokens, primitives, `MarkdownRenderer`, `DiagramViewer` |
-| 4.5 | Auth: GitHub OAuth flow, **one** session module — not three hand-rolled JWT decoders |
+| 4.4 | `packages/ui` foundation: shadcn + baseUI + Tailwind, `MarkdownRenderer`, `DiagramViewer` |
+| 4.5 | Auth: Password + GitHub + Google OAuth, **one** session module — not three hand-rolled JWT decoders |
 | 4.6 | Screens: login → generate → live status → tutorial player → library → settings (BYOK) |
 | 4.7 | Error boundaries, loading/error conventions |
 | 4.8 | Generation status via **SSE**, not polling |
@@ -157,7 +158,7 @@ usable product.
 **Pick one UI system.** Ant + Radix + a bespoke `ui/` dir is why `Input.tsx` is 596 lines.
 **Recommendation: Radix primitives + Tailwind**, no Ant.
 
-**Milestone:** the product works end to end, deployed.
+**Milestone:** the product works end to end locally.
 
 ---
 
@@ -191,15 +192,15 @@ highest-value deliverable for the portfolio goal.
 - Structured JSON logging + request IDs; `/health` vs `/ready` split; Sentry
 - **Tests** — pytest + testcontainers on the step contracts and pipeline resume; Vitest +
   Playwright on one critical path. Testing what breaks, not chasing coverage
-- LLM cost tracking per generation (feeds the dormant ledger)
+- LLM cost tracking per generation (for visibility only)
 - `docs/adr/` — one ADR per irreversible decision
 
 ---
 
 ## Sequencing rationale
 
-- **Phase 1 deploys before the rewrite starts.** Discovering Railway/migration problems
-  while also debugging new code is two unknowns at once.
+- **Build complete before any deploy.** Per D11, we build the entire product locally before
+deploying. This simplifies testing and iteration.
 - **Phase 3 before Phase 4** — the pipeline is testable through OpenAPI docs and needs no UI.
 - **Phase 4 is thin on purpose.** The old frontend's 14.3k LOC includes an authoring
   editor, progress analytics, and search — none load-bearing for a first usable product.
@@ -210,10 +211,10 @@ highest-value deliverable for the portfolio goal.
 
 | Risk | Mitigation |
 |------|-----------|
-| **Stalling at 70%** — the classic rewrite death | Every phase ends deployed. No phase is longer than ~3 weeks |
+| **Stalling at 70%** — the classic rewrite death | Product is complete before deploy. No phase is longer than ~3 weeks |
 | Async SQLAlchemy conversion sprawls | Phase 2.1 is mechanical and isolated; do it in one pass, not incrementally |
 | Tutorial quality stays mediocre | 3.14 is the real fix. If output isn't good after Phase 3, **stop and fix it** — no amount of frontend saves a bad generator |
-| Scope creep into Phase 2 monetization | Ledger schema is dormant by design. Do not build Stripe flows in Phase 1 |
+(removed)
 
 ## Timeline
 

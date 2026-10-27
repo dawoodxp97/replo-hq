@@ -26,17 +26,9 @@ frontend is being wholly replaced anyway, so incrementalism buys little.
 
 ---
 
-## D2 — MIT → FSL-1.1-Apache-2.0
+## D2 — MIT License (unchanged)
 
-**Decision:** relicense before the rewrite.
-
-**Why:** the repo is public and on a resume, and that's fine — reading the code isn't the
-threat. But MIT *explicitly grants* anyone the right to take it, close it, rebrand it, and
-sell it. FSL is source-available and non-compete, auto-converting to Apache-2.0 after two
-years. Recruiters read it identically to open source; commercial free-riders cannot use it.
-
-**Timing:** trivial at 49 commits with a sole author. Effectively impossible once there
-are outside contributors.
+**Decision:** Keep existing MIT license. No relicensing needed.
 
 ---
 
@@ -63,7 +55,7 @@ orchestrator. The existing docker-compose already got this right.
 
 ## D4 — Rsbuild SPA for the product, Next for the public site
 
-**Decision:** `apps/web` = Rsbuild + React 19 + TanStack Router + TanStack Query.
+**Decision:** `apps/web` = Rsbuild + React 19 + TanStack Router + TanStack Query + shadcn + baseUI + Tailwind.
 `apps/site` = Next.
 
 **Why the split is right:** the current frontend is ~100% `'use client'` — already an SPA,
@@ -120,10 +112,10 @@ Only cheap because of D3.
 
 ---
 
-## D7 — BYOK free and unlimited; no paid tier in Phase 1
+## D7 — BYOK free and unlimited; no payment system
 
-**Decision:** BYOK unrestricted. 5 lifetime free platform generations as a demo path.
-No paid tier, no ads. Credit ledger and Stripe customer schema built but dormant.
+**Decision:** Product is completely free for everyone. BYOK (bring your own keys) only.
+No Stripe, no credit ledger, no ads, no paid tier ever.
 
 **The reframe that produced this:** BYOK looks like lost revenue. It's **avoided cost**.
 What kills solo AI products is inference bills arriving before revenue. Under BYOK a user
@@ -185,49 +177,23 @@ credibility with exactly the audience this product targets.
 
 ---
 
-## D10 — GitHub OAuth as primary login
+## D10 — Multi-provider login
 
-**Decision:** OAuth alongside password auth. GitHub only — **not** Google.
+**Decision:** Keep existing password auth. Add GitHub OAuth and Google OAuth on the UI.
 
 **Why:** it is signup, private-repo cloning, and the future paid feature in one system.
 The paid feature and the auth work are the same work.
 
-### D10a — GitHub over Google (2026-07-21)
+### D10a — All providers supported
 
-Reconsidered mid-Phase-2. Confirmed GitHub.
-
-Google provides identity and nothing else. The Phase 2 paywall is private repos → private
-tutorials (D8), and cloning a private repo needs a GitHub token — so choosing Google means
-building **two** OAuth integrations (Google to log in, GitHub for repos) where GitHub alone
-is one. Every user is a developer submitting GitHub URLs; the coverage argument for Google
-does not apply.
-
-**Incremental authorization** answers the real objection, which is that asking for `repo`
-scope at signup reads as "this app wants access to all my code":
-
-| Step | Scope | When |
-|---|---|---|
-| Sign up | `read:user user:email` | Login |
-| Connect repos | `repo` | Only when a private repo is first used |
-
-The alarming consent screen appears only after the user has decided they want the feature.
-
-**Revisit if:** signup analytics show users bouncing off the GitHub consent screen, or the
-audience broadens past developers. Note that anonymous readers of public tutorials need no
-account at all, so that audience does not by itself justify Google.
-
-### D10b — OAuth deferred (2026-07-21)
-
-Password auth is converted, tested and sufficient. OAuth is purely additive: `hashed_password`
-is already nullable and `get_current_user_async` does not care how a session was created, so
-it slots in later with no rework. The `repo` slice is on the critical path (unguarded repo
-cloning, SSRF) and needs no external setup, so it goes first.
+We support password, GitHub, and Google login on the UI. Password remains available for all
+users. OAuth providers are interchangeable via the session module.
 
 ---
 
-## D11 — Railway
+## D11 — Deployment timing
 
-**Decision:** Railway for Phase 1. Managed Postgres + Redis, real secrets handling.
+**Decision:** Build the entire product before any deployment. No phased deploys during the rewrite.
 
 **Why not AWS:** two weeks of IAM instead of shipping, at zero users. Move when there's a
 reason.
@@ -236,8 +202,7 @@ reason.
 
 ## Open
 
-- History scrub of `.env.bak` (`git filter-repo`) — rotation makes the leaked values inert,
-  so this is optional hygiene.
+(No open decisions remaining)
 
 ## Resolved
 
