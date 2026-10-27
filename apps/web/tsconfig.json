@@ -1,0 +1,9 @@
+import { tsconfig } from '@rsbuild/plugin-react';
+
+export default {
+  resolve: {
+    alias: {
+      '@': './src',
+    },
+  },
+};

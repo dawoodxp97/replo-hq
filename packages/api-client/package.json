@@ -1,0 +1,23 @@
+{
+  "name": "@replo/api-client",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schemas": "./src/schemas.ts"
+  },
+  "scripts": {
+    "generate": "openapi-ts -i ../api/openapi.json -o ./src && prettier --write ./src",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "fetch-wrapper": "^1.1.0",
+    "type-fest": "^4.30.0"
+  },
+  "devDependencies": {
+    "@hey-api/openapi-ts": "^0.54.0",
+    "typescript": "^5.7.0"
+  }
+}

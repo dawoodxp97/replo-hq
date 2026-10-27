@@ -10,11 +10,11 @@ Status: **draft, approved in principle** · Author: Dawood · Date: 2026-07-21
 | **Phase 1** | ✅ Complete | Foundation complete: monorepo, uv, alembic with 6 migrations, pydantic-settings, CI |
 | **Phase 2** | ✅ Complete | Backend core complete: async, service layer, pagination, enums, ownership, BYOK |
 | **Phase 3** | ✅ Complete | Pipeline complete: typed contracts, registry, resume, centralized prompts, BYOK credential resolution |
-| **Phase 4** | ❌ Not started | apps/web/ does not exist |
+| **Phase 4** | 🔄 In Progress | apps/web/ scaffolded with Rsbuild + React 19, TanStack Router, packages/ui foundation |
 | **Phase 5** | ❌ Not started | apps/site/ does not exist |
 | **Phase 6** | ❌ Not started | No tests exist yet |
 
-**Completion: ~50%** (Phases 0-3 complete; Phases 4-6 not started)
+**Completion: ~60%** (Phases 0-3 complete; Phase 4 in progress; Phases 5-6 not started)
 
 Outcome of a design interview. Decisions and their reasoning are in
 [`docs/DECISIONS.md`](./DECISIONS.md); this file is the execution sequence.
@@ -153,11 +153,21 @@ publishing. **Generate 25 tutorials for well-known repos here** — Phase 5 need
 
 ## Phase 4 — `apps/web` (MVP)
 
-**Status: Not started**
+**Status: In Progress**
 
 **~3 weeks.** Deliberately thin. Ship it, then enrich.
 
-**Note: apps/web/ does not exist yet.**
+**Completed:**
+- 4.1 Rsbuild + React 19 scaffold ✅
+- 4.2 TanStack Router (typed routes) + TanStack Query ✅
+- 4.3 `packages/api-client` scaffold (OpenAPI generation pending) ⏳
+- 4.4 `packages/ui` foundation: Radix primitives + Tailwind, `MarkdownRenderer`, `DiagramViewer` ✅
+
+**Remaining:**
+- 4.5 Auth: Password + GitHub + Google OAuth, unified session
+- 4.6 Screens: login → generate → live status → tutorial player → library → settings (BYOK)
+- 4.7 Error boundaries, loading/error conventions
+- 4.8 Generation status via SSE
 
 | # | Task |
 |---|------|
