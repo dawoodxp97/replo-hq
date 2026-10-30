@@ -1,0 +1,6247 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "AI Code Tutorial Generator API",
+    "description": "API for analyzing GitHub repos and generating tutorials.",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/repo": {
+      "post": {
+        "tags": [
+          "Repository"
+        ],
+        "summary": "Add Repository",
+        "description": "Add a repository to the caller's account.\n\nIdempotent per user: submitting a URL already on the account returns the\nexisting row rather than erroring.",
+        "operationId": "add_repository_api_repo_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RepoCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepoResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Repository"
+        ],
+        "summary": "List Repositories",
+        "description": "List the caller's repositories.\n\nNow paginated. The old version returned every repository the user owned in a\n`{\"repositories\": [...]}` wrapper with no limit.",
+        "operationId": "list_repositories_api_repo_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Items per page",
+              "default": 20,
+              "title": "Limit"
+            },
+            "description": "Items per page"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_RepoResponse_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/repo/{repo_id}": {
+      "get": {
+        "tags": [
+          "Repository"
+        ],
+        "summary": "Get Repository",
+        "operationId": "get_repository_api_repo__repo_id__get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Repo Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepoDetailResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Repository"
+        ],
+        "summary": "Delete Repository",
+        "description": "Delete a repository, its tutorials (FK cascade), and its on-disk clone.",
+        "operationId": "delete_repository_api_repo__repo_id__delete",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Repo Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/repo/{repo_id}/tree": {
+      "get": {
+        "tags": [
+          "Repository"
+        ],
+        "summary": "Get File Tree",
+        "operationId": "get_file_tree_api_repo__repo_id__tree_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Repo Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepoFileTreeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/repo/{repo_id}/file": {
+      "get": {
+        "tags": [
+          "Repository"
+        ],
+        "summary": "Get File Content",
+        "operationId": "get_file_content_api_repo__repo_id__file_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Repo Id"
+            }
+          },
+          {
+            "name": "file_path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Path relative to the repository root",
+              "title": "File Path"
+            },
+            "description": "Path relative to the repository root"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepoFileContentResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutorial/generate": {
+      "post": {
+        "tags": [
+          "Tutorials"
+        ],
+        "summary": "Generate Tutorial",
+        "description": "Queue a tutorial generation.\n\n202, not 200: nothing is generated when this returns. Poll\n`/{instance_id}/status` \u2014 or better, open `/{instance_id}/stream`.",
+        "operationId": "generate_tutorial_api_tutorial_generate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/tutorial/generation/status": {
+      "get": {
+        "tags": [
+          "Tutorials"
+        ],
+        "summary": "Get Generation Status By Url",
+        "description": "Legacy polling endpoint, keyed by repo URL. Prefer `/{instance_id}/status`.",
+        "operationId": "get_generation_status_by_url_api_tutorial_generation_status_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "repo_url",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Repository URL to check status for",
+              "title": "Repo Url"
+            },
+            "description": "Repository URL to check status for"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerationStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutorial/explore": {
+      "get": {
+        "tags": [
+          "Tutorials"
+        ],
+        "summary": "Explore Tutorials",
+        "description": "Public catalogue for apps/site `/explore`. No authentication: this is the\ngrowth channel (D8), and gating it walls off the crawler too.",
+        "operationId": "explore_tutorials_api_tutorial_explore_get",
+        "parameters": [
+          {
+            "name": "language",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by repository language",
+              "title": "Language"
+            },
+            "description": "Filter by repository language"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Items per page",
+              "default": 20,
+              "title": "Limit"
+            },
+            "description": "Items per page"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_ExploreTutorialItem_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutorial/slug/{slug}": {
+      "get": {
+        "tags": [
+          "Tutorials"
+        ],
+        "summary": "Get Tutorial By Slug",
+        "description": "Public tutorial by slug \u2014 the payload behind `/t/{slug}` on apps/site.\n\nPublic rows only; anything else is a plain 404 so the endpoint cannot be\nused to confirm a private tutorial's slug exists.",
+        "operationId": "get_tutorial_by_slug_api_tutorial_slug__slug__get",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TutorialResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutorial": {
+      "get": {
+        "tags": [
+          "Tutorials"
+        ],
+        "summary": "List Tutorials",
+        "operationId": "list_tutorials_api_tutorial_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Items per page",
+              "default": 20,
+              "title": "Limit"
+            },
+            "description": "Items per page"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_TutorialListItem_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutorial/{tutorial_id}": {
+      "get": {
+        "tags": [
+          "Tutorials"
+        ],
+        "summary": "Get Tutorial",
+        "description": "Read a tutorial.\n\nOptional auth: the owner sees their private tutorials, and anyone \u2014 signed in\nor not \u2014 can read a public or unlisted one.\n\nThe previous version took no ownership into account *at all*. It fetched by\nprimary key and returned the whole body, so any authenticated user could read\nany other user's tutorial. It also declared `response_model=Any`, so the\nschema was absent from OpenAPI and nothing constrained what came back.",
+        "operationId": "get_tutorial_api_tutorial__tutorial_id__get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tutorial_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tutorial Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TutorialResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Tutorials"
+        ],
+        "summary": "Delete Tutorial",
+        "operationId": "delete_tutorial_api_tutorial__tutorial_id__delete",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tutorial_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tutorial Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutorial/{tutorial_id}/visibility": {
+      "patch": {
+        "tags": [
+          "Tutorials"
+        ],
+        "summary": "Set Visibility",
+        "description": "Publish or unpublish. Owner only \u2014 visibility is not a read operation.",
+        "operationId": "set_visibility_api_tutorial__tutorial_id__visibility_patch",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tutorial_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tutorial Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisibilityUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TutorialResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutorial/{instance_id}/retry": {
+      "post": {
+        "tags": [
+          "Tutorials"
+        ],
+        "summary": "Retry Generation",
+        "operationId": "retry_generation_api_tutorial__instance_id__retry_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "instance_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Instance Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutorial/{instance_id}/status": {
+      "get": {
+        "tags": [
+          "Tutorials"
+        ],
+        "summary": "Get Generation Status",
+        "operationId": "get_generation_status_api_tutorial__instance_id__status_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "instance_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Instance Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutorial/{instance_id}/result": {
+      "get": {
+        "tags": [
+          "Tutorials"
+        ],
+        "summary": "Get Generation Result",
+        "description": "Raw pipeline output. Internal; use `GET /{tutorial_id}` to read a tutorial.",
+        "operationId": "get_generation_result_api_tutorial__instance_id__result_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "instance_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Instance Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutorial/{instance_id}/stream": {
+      "get": {
+        "tags": [
+          "Tutorials"
+        ],
+        "summary": "Stream Generation",
+        "description": "Server-Sent Events feed of pipeline step transitions.\n\n**Auth is a ticket, not a header, on purpose.** `EventSource` cannot set an\nAuthorization header, and one-off `fetch`-based polyfills give up\nauto-reconnect, which is most of the value of SSE. Instead the client takes\n`stream_ticket` from an already-authenticated `GET /{instance_id}/status`\nresponse and passes it here as a query parameter. The ticket is a JWT bound\nto this instance *and* user, expires in `stream_ticket_expire_seconds` (120s\nby default), and carries type `stream_ticket` \u2014 never accepted as a session\ntoken, and a session token is never accepted as a ticket.\n\nRate limiting is deliberately not applied to this endpoint: it produces no\nLLM work, and throttling heartbeats would break live updates. The\nwork-producing endpoints (`/generate`, `/{id}/retry`) are limited instead.\n\nOne caveat accepted and documented (docs/adr/): a ticket in a URL can leak\nvia referrer headers. The short expiry is the mitigation \u2014 a leaked URL is\ndead in two minutes and only ever exposes step transitions, never content.",
+        "operationId": "stream_generation_api_tutorial__instance_id__stream_get",
+        "parameters": [
+          {
+            "name": "instance_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Instance Id"
+            }
+          },
+          {
+            "name": "ticket",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Short-lived stream ticket from the status payload's `stream_ticket`.",
+              "title": "Ticket"
+            },
+            "description": "Short-lived stream ticket from the status payload's `stream_ticket`."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/user/signup": {
+      "post": {
+        "tags": [
+          "User"
+        ],
+        "summary": "Signup",
+        "description": "Register a new account.\n\nPassword length is enforced by the schema alone \u2014 the previous version\nchecked it in the schema *and* again in the handler, so the two could drift\napart and the duplicate was dead code.\n\nReturns 201; the old handler created a resource and reported 200.",
+        "operationId": "signup_api_user_signup_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPublic"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/user/login": {
+      "post": {
+        "tags": [
+          "User"
+        ],
+        "summary": "Login",
+        "description": "Exchange credentials for a token pair.\n\nStill `OAuth2PasswordRequestForm` (form-encoded, `username` field) because\nthat is what FastAPI's OAuth2 flow and the Swagger \"Authorize\" button expect,\nand what the existing frontend already sends.",
+        "operationId": "login_api_user_login_post",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_login_api_user_login_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenWithUser"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/user/oauth/{provider}/authorize": {
+      "get": {
+        "tags": [
+          "User"
+        ],
+        "summary": "Oauth Authorize",
+        "description": "The provider's consent-screen URL.\n\nReturns JSON rather than a 302: the SPA needs the URL before it can decide\nhow to open it (same window, popup), and a redirect from an API endpoint is\nawkward to consume from `fetch`.",
+        "operationId": "oauth_authorize_api_user_oauth__provider__authorize_get",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/OAuthProvider"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthAuthorizeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/user/oauth/{provider}/callback": {
+      "get": {
+        "tags": [
+          "User"
+        ],
+        "summary": "Oauth Callback",
+        "description": "The URL the provider redirects back to. Exchanges `code` and issues the\nsame token pair password login returns.\n\nThis endpoint is the redirect target, so the browser lands here with the\nauthorization code in the query string. `code` and `state` must never be\nlogged: the redaction filter in core/logging.py is defence in depth (it\nscrubs `code=`/`state=` query shapes), and this handler deliberately does\nnot touch the request log at all.\n\nAn SPA in front of this wants the tokens handed to its own origin. It can\nopen the authorize URL directly in the top-level window, since this response\nis JSON the browser will render \u2014 the documented flow is: frontend fetches\n`/authorize` for the URL, navigates to it, and the provider's redirect lands\nhere, where the response carries the session the SPA then persists.",
+        "operationId": "oauth_callback_api_user_oauth__provider__callback_get",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/OAuthProvider"
+            }
+          },
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Code"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "State"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenWithUser"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/user/refresh": {
+      "post": {
+        "tags": [
+          "User"
+        ],
+        "summary": "Refresh",
+        "operationId": "refresh_api_user_refresh_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenWithUser"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/user/me": {
+      "get": {
+        "tags": [
+          "User"
+        ],
+        "summary": "Get Me",
+        "description": "The authenticated user.\n\nNew. There was no way to ask \"who am I\" \u2014 the frontend faked it by calling\nthe *settings* endpoint and reconstructing a user object, which left\n`id: undefined`, so the client never actually knew the user's id.",
+        "operationId": "get_me_api_user_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPublic"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/progress/complete_module": {
+      "post": {
+        "tags": [
+          "Progress"
+        ],
+        "summary": "Mark Module Complete",
+        "description": "Mark a module finished. Idempotent \u2014 repeat calls keep the first timestamp.",
+        "operationId": "mark_module_complete_api_progress_complete_module_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProgressUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgressResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/progress/modules/{module_id}": {
+      "delete": {
+        "tags": [
+          "Progress"
+        ],
+        "summary": "Unmark Module Complete",
+        "description": "Undo a completion. Progress was previously write-once.",
+        "operationId": "unmark_module_complete_api_progress_modules__module_id__delete",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "module_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Module Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/progress/submit_quiz": {
+      "post": {
+        "tags": [
+          "Progress"
+        ],
+        "summary": "Submit Quiz Answer",
+        "description": "Grade an attempt, record the score, and mark the module complete.\n\nThe response carries `correct_answer` \u2014 after an attempt, which is the only\nplace it is disclosed. The quiz body itself never includes it; see\n`schemas/tutorial.py::QuizOption`.",
+        "operationId": "submit_quiz_answer_api_progress_submit_quiz_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuizSubmit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuizResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/progress": {
+      "get": {
+        "tags": [
+          "Progress"
+        ],
+        "summary": "Get Progress Overview",
+        "operationId": "get_progress_overview_api_progress_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgressOverview"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/progress/modules": {
+      "get": {
+        "tags": [
+          "Progress"
+        ],
+        "summary": "List Module Progress",
+        "description": "Completion history, newest first.",
+        "operationId": "list_module_progress_api_progress_modules_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Items per page",
+              "default": 20,
+              "title": "Limit"
+            },
+            "description": "Items per page"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_ModuleProgressDetail_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/author/tutorials": {
+      "get": {
+        "tags": [
+          "Authoring"
+        ],
+        "summary": "List Authored Tutorials",
+        "description": "The authoring dashboard. Ordered by last edit, not generation date.",
+        "operationId": "list_authored_tutorials_api_author_tutorials_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Items per page",
+              "default": 20,
+              "title": "Limit"
+            },
+            "description": "Items per page"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_AuthorTutorialListItem_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/author/tutorials/{tutorial_id}": {
+      "patch": {
+        "tags": [
+          "Authoring"
+        ],
+        "summary": "Update Tutorial",
+        "description": "PATCH, not PUT: every field is optional and omitted fields are left alone.",
+        "operationId": "update_tutorial_api_author_tutorials__tutorial_id__patch",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tutorial_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tutorial Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TutorialUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TutorialMetaResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/author/tutorials/{tutorial_id}/modules": {
+      "get": {
+        "tags": [
+          "Authoring"
+        ],
+        "summary": "List Modules",
+        "description": "Bounded by one tutorial, so unpaginated.",
+        "operationId": "list_modules_api_author_tutorials__tutorial_id__modules_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tutorial_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tutorial Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/app__schemas__author__ModuleResponse"
+                  },
+                  "title": "Response List Modules Api Author Tutorials  Tutorial Id  Modules Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Authoring"
+        ],
+        "summary": "Create Module",
+        "description": "Append a module. Authoring could previously edit but never add.",
+        "operationId": "create_module_api_author_tutorials__tutorial_id__modules_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tutorial_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tutorial Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModuleWrite"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app__schemas__author__ModuleResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/author/tutorials/{tutorial_id}/modules/reorder": {
+      "put": {
+        "tags": [
+          "Authoring"
+        ],
+        "summary": "Reorder Modules",
+        "description": "Submit **every** module id in the new order \u2014 a partial list is rejected.",
+        "operationId": "reorder_modules_api_author_tutorials__tutorial_id__modules_reorder_put",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tutorial_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tutorial Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModuleReorder"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/app__schemas__author__ModuleResponse"
+                  },
+                  "title": "Response Reorder Modules Api Author Tutorials  Tutorial Id  Modules Reorder Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/author/modules/{module_id}": {
+      "put": {
+        "tags": [
+          "Authoring"
+        ],
+        "summary": "Update Module",
+        "operationId": "update_module_api_author_modules__module_id__put",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "module_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Module Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModuleWrite"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app__schemas__author__ModuleResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Authoring"
+        ],
+        "summary": "Delete Module",
+        "description": "Deletes the module, its quiz (FK cascade), and closes the `order_index` gap.",
+        "operationId": "delete_module_api_author_modules__module_id__delete",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "module_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Module Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/author/modules/{module_id}/quiz": {
+      "get": {
+        "tags": [
+          "Authoring"
+        ],
+        "summary": "Get Quiz",
+        "description": "The authoring view, answer key included \u2014 the owner wrote it.",
+        "operationId": "get_quiz_api_author_modules__module_id__quiz_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "module_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Module Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/app__schemas__author__QuizResponse"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Get Quiz Api Author Modules  Module Id  Quiz Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Authoring"
+        ],
+        "summary": "Upsert Quiz",
+        "description": "Create or replace a module's quiz.",
+        "operationId": "upsert_quiz_api_author_modules__module_id__quiz_put",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "module_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Module Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuizWrite"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app__schemas__author__QuizResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Authoring"
+        ],
+        "summary": "Delete Quiz",
+        "operationId": "delete_quiz_api_author_modules__module_id__quiz_delete",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "module_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Module Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings/profile": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get Profile",
+        "operationId": "get_profile_api_settings_profile_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileSettingsResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Update Profile",
+        "description": "`connected_accounts` is no longer accepted \u2014 it is server-managed.",
+        "operationId": "update_profile_api_settings_profile_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileSettingsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/settings/notifications": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get Notifications",
+        "operationId": "get_notifications_api_settings_notifications_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSettingsResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Update Notifications",
+        "operationId": "update_notifications_api_settings_notifications_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSettingsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/settings/appearance": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get Appearance",
+        "operationId": "get_appearance_api_settings_appearance_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppearanceSettingsResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Update Appearance",
+        "operationId": "update_appearance_api_settings_appearance_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppearanceSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppearanceSettingsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/settings/learning": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get Learning",
+        "operationId": "get_learning_api_settings_learning_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LearningSettingsResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Update Learning",
+        "operationId": "update_learning_api_settings_learning_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LearningSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LearningSettingsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/settings/all": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get All Settings",
+        "operationId": "get_all_settings_api_settings_all_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserSettingsResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/settings/security/password": {
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Change Password",
+        "description": "Changing the password signs out every session, including this one.",
+        "operationId": "change_password_api_settings_security_password_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordChangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordChangeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/settings/security/revoke-sessions": {
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Revoke Sessions",
+        "description": "Sign out everywhere without changing the password.",
+        "operationId": "revoke_sessions_api_settings_security_revoke_sessions_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordChangeResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/settings/security/delete-account": {
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Delete Account",
+        "description": "Permanently delete the account and everything it owns.\n\nPOST with a body rather than a bare DELETE: this needs the current password,\nand a DELETE carrying a required body is awkward for clients and proxies.",
+        "operationId": "delete_account_api_settings_security_delete_account_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountDeleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/settings/credentials": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "List Credentials",
+        "description": "Decrypts nothing: provider, label and last_four are stored in plaintext\nprecisely so this page never needs the key.",
+        "operationId": "list_credentials_api_settings_credentials_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CredentialResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Credentials Api Settings Credentials Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Add Credential",
+        "description": "Store a key, optionally checking it against the provider first.\n\nRe-posting the same (provider, label) replaces the key \u2014 that is what\nrotation looks like, and forcing a delete first is friction with no benefit.",
+        "operationId": "add_credential_api_settings_credentials_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CredentialCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CredentialCreateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/settings/credentials/{credential_id}": {
+      "delete": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Delete Credential",
+        "operationId": "delete_credential_api_settings_credentials__credential_id__delete",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "credential_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Credential Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/stats": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Get Stats",
+        "operationId": "get_stats_api_dashboard_stats_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tz",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "IANA timezone name, e.g. Asia/Kolkata. Defaults to UTC.",
+              "title": "Tz"
+            },
+            "description": "IANA timezone name, e.g. Asia/Kolkata. Defaults to UTC."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardStats"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/weekly-activity": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Get Weekly Activity",
+        "description": "Fixed 7\u00d724 grid, zeros included.",
+        "operationId": "get_weekly_activity_api_dashboard_weekly_activity_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tz",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "IANA timezone name, e.g. Asia/Kolkata. Defaults to UTC.",
+              "title": "Tz"
+            },
+            "description": "IANA timezone name, e.g. Asia/Kolkata. Defaults to UTC."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeeklyActivityResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/tutorial-status": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Get Tutorial Status",
+        "description": "No timezone dependency \u2014 this is a count, not a date bucket.",
+        "operationId": "get_tutorial_status_api_dashboard_tutorial_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TutorialStatusResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/dashboard/recent-activity": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Get Recent Activity",
+        "description": "`limit` is capped. It was an unbounded `int` parameter feeding a loop that\nran up to three queries per row.",
+        "operationId": "get_recent_activity_api_dashboard_recent_activity_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 10,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecentActivityResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notifications": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "List Notifications",
+        "description": "Newest first. `limit` is capped at 100 \u2014 it was an unbounded `int`.",
+        "operationId": "list_notifications_api_notifications_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "unread_only",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Unread Only"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Items per page",
+              "default": 20,
+              "title": "Limit"
+            },
+            "description": "Items per page"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_NotificationResponse_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notifications/unread-count": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Get Unread Count",
+        "description": "Split out of the list response so a polling bell badge costs one count\nquery instead of a page of notification bodies.",
+        "operationId": "get_unread_count_api_notifications_unread_count_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnreadCountResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/notifications/read-all": {
+      "put": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Mark All Read",
+        "operationId": "mark_all_read_api_notifications_read_all_put",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarkAsReadResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/notifications/{notification_id}/read": {
+      "put": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Mark Read",
+        "description": "`notification_id` is a `UUID` path parameter, so a malformed id is a 422\nfrom FastAPI. The old handler took a `str`, parsed it by hand, and wrapped\neverything in a `try/except Exception` that returned `str(e)` to the client.",
+        "operationId": "mark_read_api_notifications__notification_id__read_put",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "notification_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Notification Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notifications/{notification_id}": {
+      "delete": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Delete Notification",
+        "description": "Dismiss. Previously the list could only grow.",
+        "operationId": "delete_notification_api_notifications__notification_id__delete",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "notification_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Notification Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/search/entities": {
+      "get": {
+        "tags": [
+          "Search"
+        ],
+        "summary": "Search Entities",
+        "description": "Substring search across the caller's repositories, tutorials, modules and\nquizzes.\n\nScoped to the caller \u2014 this is not public discovery (that is `/explore` on\napps/site). A query shorter than two characters returns nothing, because\nbelow the trigram threshold every table would be sequentially scanned.",
+        "operationId": "search_entities_api_search_entities_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "description": "Search query",
+              "title": "Q"
+            },
+            "description": "Search query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Get Health",
+        "description": "Liveness: the process is up. Deliberately touches nothing external, so a\ndatabase blip cannot make the orchestrator restart a healthy container.",
+        "operationId": "get_health_api_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ready": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Get Ready",
+        "description": "Readiness: dependencies are reachable. This is what a load balancer\nshould poll before routing traffic.",
+        "operationId": "get_ready_api_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AccountDeleteRequest": {
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Current Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "current_password"
+        ],
+        "title": "AccountDeleteRequest",
+        "description": "Deleting an account is irreversible and cascades to every tutorial the\nuser owns, so it re-authenticates rather than trusting the bearer token\nalone. The old endpoint took no body at all."
+      },
+      "ActivityCell": {
+        "properties": {
+          "day": {
+            "type": "string",
+            "title": "Day"
+          },
+          "hour": {
+            "type": "integer",
+            "title": "Hour"
+          },
+          "value": {
+            "type": "integer",
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "day",
+          "hour",
+          "value"
+        ],
+        "title": "ActivityCell"
+      },
+      "AppearanceSettingsResponse": {
+        "properties": {
+          "language": {
+            "type": "string",
+            "title": "Language"
+          },
+          "code_editor_theme": {
+            "type": "string",
+            "title": "Code Editor Theme"
+          }
+        },
+        "type": "object",
+        "required": [
+          "language",
+          "code_editor_theme"
+        ],
+        "title": "AppearanceSettingsResponse"
+      },
+      "AppearanceSettingsUpdate": {
+        "properties": {
+          "language": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 10,
+                "minLength": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "code_editor_theme": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code Editor Theme"
+          }
+        },
+        "type": "object",
+        "title": "AppearanceSettingsUpdate"
+      },
+      "AuthorTutorialListItem": {
+        "properties": {
+          "tutorial_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Tutorial Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "level": {
+            "$ref": "#/components/schemas/TutorialLevel"
+          },
+          "overview": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overview"
+          },
+          "visibility": {
+            "type": "string",
+            "title": "Visibility"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "module_count": {
+            "type": "integer",
+            "title": "Module Count",
+            "default": 0
+          },
+          "repo_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repo Name"
+          },
+          "repo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repo Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tutorial_id",
+          "title",
+          "level",
+          "visibility",
+          "generated_at",
+          "updated_at"
+        ],
+        "title": "AuthorTutorialListItem"
+      },
+      "Body_login_api_user_login_post": {
+        "properties": {
+          "grant_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^password$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grant Type"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "title": "Password"
+          },
+          "scope": {
+            "type": "string",
+            "title": "Scope",
+            "default": ""
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
+          "client_secret": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "format": "password",
+            "title": "Client Secret"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "Body_login_api_user_login_post"
+      },
+      "ConnectedAccount": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "connected": {
+            "type": "boolean",
+            "title": "Connected"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "connected"
+        ],
+        "title": "ConnectedAccount",
+        "description": "**Read-only.** Server-managed, and no longer accepted on update.\n\nIt was writable, so a user could assert any linked account they liked \u2014\nincluding a GitHub identity they do not control. Nothing consumed it yet, but\nOAuth (docs/DECISIONS.md D10) will, and a user-writable claim about identity\nis a bad thing to inherit."
+      },
+      "CredentialCreate": {
+        "properties": {
+          "provider": {
+            "$ref": "#/components/schemas/LLMProvider",
+            "default": "openrouter"
+          },
+          "api_key": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 8,
+            "title": "Api Key"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Label",
+            "default": "default"
+          },
+          "base_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Url"
+          },
+          "default_model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Model"
+          },
+          "validate_key": {
+            "type": "boolean",
+            "title": "Validate Key",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "api_key"
+        ],
+        "title": "CredentialCreate"
+      },
+      "CredentialCreateResponse": {
+        "properties": {
+          "credential": {
+            "$ref": "#/components/schemas/CredentialResponse"
+          },
+          "validated": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validated"
+          },
+          "validation_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validation Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "credential"
+        ],
+        "title": "CredentialCreateResponse"
+      },
+      "CredentialResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/LLMProvider"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "last_four": {
+            "type": "string",
+            "title": "Last Four"
+          },
+          "base_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Url"
+          },
+          "default_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Model"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "last_validated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Validated At"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "provider",
+          "label",
+          "last_four",
+          "is_active",
+          "created_at"
+        ],
+        "title": "CredentialResponse"
+      },
+      "DashboardStats": {
+        "properties": {
+          "tutorials_generated": {
+            "type": "integer",
+            "title": "Tutorials Generated"
+          },
+          "learning_hours": {
+            "type": "number",
+            "title": "Learning Hours"
+          },
+          "current_streak": {
+            "type": "integer",
+            "title": "Current Streak"
+          },
+          "completed_tutorials": {
+            "type": "integer",
+            "title": "Completed Tutorials"
+          },
+          "total_hours_this_week": {
+            "type": "number",
+            "title": "Total Hours This Week"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tutorials_generated",
+          "learning_hours",
+          "current_streak",
+          "completed_tutorials",
+          "total_hours_this_week",
+          "timezone"
+        ],
+        "title": "DashboardStats"
+      },
+      "ExploreTutorialItem": {
+        "properties": {
+          "tutorial_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Tutorial Id"
+          },
+          "slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slug"
+          },
+          "level": {
+            "$ref": "#/components/schemas/TutorialLevel"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "overview": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overview"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "module_count": {
+            "type": "integer",
+            "title": "Module Count",
+            "default": 0
+          },
+          "repo_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repo Name"
+          },
+          "repo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repo Url"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tutorial_id",
+          "level",
+          "title"
+        ],
+        "title": "ExploreTutorialItem",
+        "description": "A public tutorial in the `/explore` catalogue (Phase 5.5).\n\nDeliberately not `TutorialListItem`: that shape carries per-viewer progress\nfields (`completed_modules`, `progress_percentage`) which have no meaning for\nan anonymous visitor, and it has no `language`/`published_at`, which are the\ntwo things a browse page is *for*. Separate model rather than a union of\noptional fields \u2014 every field here is always present and meaningful."
+      },
+      "FileTreeNode": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "children": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/FileTreeNode"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Children"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "path",
+          "type"
+        ],
+        "title": "FileTreeNode"
+      },
+      "GenerateRequest": {
+        "properties": {
+          "repoUrl": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Repourl"
+          },
+          "difficulty": {
+            "$ref": "#/components/schemas/TutorialLevel",
+            "default": "intermediate"
+          },
+          "focus": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Focus"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "repoUrl"
+        ],
+        "title": "GenerateRequest"
+      },
+      "GenerateResponse": {
+        "properties": {
+          "instance_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Instance Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RunStatus"
+          }
+        },
+        "type": "object",
+        "required": [
+          "instance_id",
+          "status"
+        ],
+        "title": "GenerateResponse"
+      },
+      "GenerationStatusResponse": {
+        "properties": {
+          "isGenerating": {
+            "type": "boolean",
+            "title": "Isgenerating"
+          },
+          "generationStep": {
+            "type": "integer",
+            "title": "Generationstep"
+          },
+          "generationProgress": {
+            "type": "integer",
+            "title": "Generationprogress"
+          },
+          "generationId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generationid"
+          },
+          "repoId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repoid"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "errorMessage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errormessage"
+          }
+        },
+        "type": "object",
+        "required": [
+          "isGenerating",
+          "generationStep",
+          "generationProgress",
+          "status"
+        ],
+        "title": "GenerationStatusResponse",
+        "description": "Frontend-compatibility shape, camelCase and uppercase status.\n\nKept verbatim so the legacy client keeps working through the rewrite. It is\nthe one place uppercase status strings survive; everything else uses the\nlowercase enum values."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "LLMProvider": {
+        "type": "string",
+        "enum": [
+          "openrouter",
+          "openai",
+          "anthropic",
+          "custom"
+        ],
+        "title": "LLMProvider",
+        "description": "Where a user's BYOK credential points.\n\nCUSTOM covers any OpenAI-compatible endpoint (local Ollama, LiteLLM proxy, a\nself-hosted gateway) \u2014 which is why `user_llm_credentials.base_url` exists."
+      },
+      "LearningSettingsResponse": {
+        "properties": {
+          "default_difficulty_level": {
+            "$ref": "#/components/schemas/TutorialLevel"
+          },
+          "daily_learning_goal": {
+            "type": "integer",
+            "title": "Daily Learning Goal"
+          },
+          "auto_play_next_module": {
+            "type": "boolean",
+            "title": "Auto Play Next Module"
+          },
+          "show_code_hints": {
+            "type": "boolean",
+            "title": "Show Code Hints"
+          },
+          "quiz_mode": {
+            "type": "boolean",
+            "title": "Quiz Mode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "default_difficulty_level",
+          "daily_learning_goal",
+          "auto_play_next_module",
+          "show_code_hints",
+          "quiz_mode"
+        ],
+        "title": "LearningSettingsResponse"
+      },
+      "LearningSettingsUpdate": {
+        "properties": {
+          "default_difficulty_level": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TutorialLevel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "daily_learning_goal": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 1440.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Learning Goal"
+          },
+          "auto_play_next_module": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auto Play Next Module"
+          },
+          "show_code_hints": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Show Code Hints"
+          },
+          "quiz_mode": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quiz Mode"
+          }
+        },
+        "type": "object",
+        "title": "LearningSettingsUpdate"
+      },
+      "MarkAsReadResponse": {
+        "properties": {
+          "updated": {
+            "type": "integer",
+            "title": "Updated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "updated"
+        ],
+        "title": "MarkAsReadResponse"
+      },
+      "ModuleProgressDetail": {
+        "properties": {
+          "progress_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Progress Id"
+          },
+          "module_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Module Id"
+          },
+          "module_title": {
+            "type": "string",
+            "title": "Module Title"
+          },
+          "module_order_index": {
+            "type": "integer",
+            "title": "Module Order Index"
+          },
+          "tutorial_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Tutorial Id"
+          },
+          "tutorial_title": {
+            "type": "string",
+            "title": "Tutorial Title"
+          },
+          "tutorial_level": {
+            "$ref": "#/components/schemas/TutorialLevel"
+          },
+          "completed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Completed At"
+          },
+          "quiz_score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quiz Score"
+          }
+        },
+        "type": "object",
+        "required": [
+          "progress_id",
+          "module_id",
+          "module_title",
+          "module_order_index",
+          "tutorial_id",
+          "tutorial_title",
+          "tutorial_level",
+          "completed_at"
+        ],
+        "title": "ModuleProgressDetail"
+      },
+      "ModuleReorder": {
+        "properties": {
+          "module_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Module Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "module_ids"
+        ],
+        "title": "ModuleReorder"
+      },
+      "ModuleWrite": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "content_markdown": {
+            "type": "string",
+            "maxLength": 200000,
+            "minLength": 1,
+            "title": "Content Markdown"
+          },
+          "code_snippet": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code Snippet"
+          },
+          "file_path": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Path"
+          },
+          "diagram_mermaid": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diagram Mermaid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "content_markdown"
+        ],
+        "title": "ModuleWrite"
+      },
+      "NotificationResponse": {
+        "properties": {
+          "notification_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Notification Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "$ref": "#/components/schemas/NotificationType"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "read": {
+            "type": "boolean",
+            "title": "Read"
+          },
+          "read_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read At"
+          },
+          "link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link"
+          }
+        },
+        "type": "object",
+        "required": [
+          "notification_id",
+          "title",
+          "message",
+          "type",
+          "created_at",
+          "read"
+        ],
+        "title": "NotificationResponse"
+      },
+      "NotificationSettingsResponse": {
+        "properties": {
+          "email_notifications_enabled": {
+            "type": "boolean",
+            "title": "Email Notifications Enabled"
+          },
+          "tutorial_completions": {
+            "type": "boolean",
+            "title": "Tutorial Completions"
+          },
+          "new_features": {
+            "type": "boolean",
+            "title": "New Features"
+          },
+          "weekly_digest": {
+            "type": "boolean",
+            "title": "Weekly Digest"
+          },
+          "browser_notifications": {
+            "type": "boolean",
+            "title": "Browser Notifications"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email_notifications_enabled",
+          "tutorial_completions",
+          "new_features",
+          "weekly_digest",
+          "browser_notifications"
+        ],
+        "title": "NotificationSettingsResponse"
+      },
+      "NotificationSettingsUpdate": {
+        "properties": {
+          "email_notifications_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email Notifications Enabled"
+          },
+          "tutorial_completions": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tutorial Completions"
+          },
+          "new_features": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Features"
+          },
+          "weekly_digest": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weekly Digest"
+          },
+          "browser_notifications": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Browser Notifications"
+          }
+        },
+        "type": "object",
+        "title": "NotificationSettingsUpdate"
+      },
+      "NotificationType": {
+        "type": "string",
+        "enum": [
+          "default",
+          "info",
+          "success",
+          "warning"
+        ],
+        "title": "NotificationType"
+      },
+      "OAuthAuthorizeResponse": {
+        "properties": {
+          "authorization_url": {
+            "type": "string",
+            "title": "Authorization Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "authorization_url"
+        ],
+        "title": "OAuthAuthorizeResponse",
+        "description": "The consent-screen URL for one provider.\n\n`state` is embedded in the URL (a signed JWT) rather than returned separately,\nso the frontend cannot forget to pass it through \u2014 the CSRF protection is not\nleft to a caller's diligence."
+      },
+      "OAuthProvider": {
+        "type": "string",
+        "enum": [
+          "github",
+          "google"
+        ],
+        "title": "OAuthProvider",
+        "description": "Login providers (D10a: password + GitHub + Google, all interchangeable).\n\nValues are the URL slugs used in `/api/user/oauth/{provider}/...` and the\nstrings stored in `user_oauth_identities.provider`. That column is a plain\nVARCHAR, not a PG enum, so adding a provider is a code change only \u2014 the\nrouter validates against this enum before the value reaches the DB."
+      },
+      "Page_AuthorTutorialListItem_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AuthorTutorialListItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          },
+          "has_more": {
+            "type": "boolean",
+            "title": "Has More"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset",
+          "has_more"
+        ],
+        "title": "Page[AuthorTutorialListItem]"
+      },
+      "Page_ExploreTutorialItem_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ExploreTutorialItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          },
+          "has_more": {
+            "type": "boolean",
+            "title": "Has More"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset",
+          "has_more"
+        ],
+        "title": "Page[ExploreTutorialItem]"
+      },
+      "Page_ModuleProgressDetail_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ModuleProgressDetail"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          },
+          "has_more": {
+            "type": "boolean",
+            "title": "Has More"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset",
+          "has_more"
+        ],
+        "title": "Page[ModuleProgressDetail]"
+      },
+      "Page_NotificationResponse_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          },
+          "has_more": {
+            "type": "boolean",
+            "title": "Has More"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset",
+          "has_more"
+        ],
+        "title": "Page[NotificationResponse]"
+      },
+      "Page_RepoResponse_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RepoResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          },
+          "has_more": {
+            "type": "boolean",
+            "title": "Has More"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset",
+          "has_more"
+        ],
+        "title": "Page[RepoResponse]"
+      },
+      "Page_TutorialListItem_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TutorialListItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          },
+          "has_more": {
+            "type": "boolean",
+            "title": "Has More"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset",
+          "has_more"
+        ],
+        "title": "Page[TutorialListItem]"
+      },
+      "PasswordChangeRequest": {
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Current Password"
+          },
+          "new_password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "New Password"
+          },
+          "confirm_new_password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Confirm New Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "current_password",
+          "new_password",
+          "confirm_new_password"
+        ],
+        "title": "PasswordChangeRequest"
+      },
+      "PasswordChangeResponse": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "PasswordChangeResponse"
+      },
+      "ProfileSettingsResponse": {
+        "properties": {
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "bio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bio"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "website": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Website"
+          },
+          "profile_picture_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Picture Url"
+          },
+          "connected_accounts": {
+            "items": {
+              "$ref": "#/components/schemas/ConnectedAccount"
+            },
+            "type": "array",
+            "title": "Connected Accounts"
+          }
+        },
+        "type": "object",
+        "title": "ProfileSettingsResponse"
+      },
+      "ProfileSettingsUpdate": {
+        "properties": {
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
+          },
+          "bio": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bio"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "website": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Website"
+          },
+          "profile_picture_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Picture Url"
+          }
+        },
+        "type": "object",
+        "title": "ProfileSettingsUpdate"
+      },
+      "ProgressOverview": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "stats": {
+            "$ref": "#/components/schemas/UserProgressStats"
+          },
+          "tutorials": {
+            "items": {
+              "$ref": "#/components/schemas/TutorialProgressSummary"
+            },
+            "type": "array",
+            "title": "Tutorials"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "stats",
+          "tutorials"
+        ],
+        "title": "ProgressOverview",
+        "description": "Fixed-size dashboard payload.\n\nThe completion history used to be inlined here and was unbounded \u2014 it now\nlives at `GET /api/progress/modules`, paginated."
+      },
+      "ProgressResponse": {
+        "properties": {
+          "progress_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Progress Id"
+          },
+          "module_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Module Id"
+          },
+          "completed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Completed At"
+          },
+          "quiz_score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quiz Score"
+          }
+        },
+        "type": "object",
+        "required": [
+          "progress_id",
+          "module_id",
+          "completed_at"
+        ],
+        "title": "ProgressResponse"
+      },
+      "ProgressUpdate": {
+        "properties": {
+          "module_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Module Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "module_id"
+        ],
+        "title": "ProgressUpdate"
+      },
+      "QuestionType": {
+        "type": "string",
+        "enum": [
+          "multiple_choice",
+          "true_false"
+        ],
+        "title": "QuestionType"
+      },
+      "QuizOption": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "QuizOption",
+        "description": "One selectable answer, **stripped of the answer key**.\n\n`quizzes.options` is freeform JSONB and the option dicts written by\n`routers/author.py` carry `is_correct` \u2014 that flag *is* the answer key\n(`correct_answer` is derived from it, `quiz.correct_answer = the option whose\nis_correct is true`).\n\nOmitting the `correct_answer` column is therefore not enough on its own: the\nold inline schema declared `options: list[dict]` and passed the raw JSONB\nstraight through, so every quiz shipped its own answer to the browser before\nthe question was attempted.\n\nThis model is an allowlist \u2014 `extra=\"ignore\"` means any key not named below is\ndropped on the way out, so a new answer-revealing field added to the JSON\nlater cannot leak by default. It fails closed."
+      },
+      "QuizOptionInput": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Text"
+          },
+          "is_correct": {
+            "type": "boolean",
+            "title": "Is Correct",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "QuizOptionInput",
+        "description": "An option as submitted by the author. `is_correct` is the answer key.\n\nIt is accepted here and stripped on the way out \u2014 see\n`schemas/tutorial.py::QuizOption`."
+      },
+      "QuizResult": {
+        "properties": {
+          "is_correct": {
+            "type": "boolean",
+            "title": "Is Correct"
+          },
+          "correct_answer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correct Answer"
+          },
+          "module_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Module Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "is_correct",
+          "module_id"
+        ],
+        "title": "QuizResult",
+        "description": "Returned after an attempt.\n\n`correct_answer` is included **here and only here**. Revealing it in response\nto a submission is the point of the feature; revealing it in the quiz body\nbeforehand is the leak (see `schemas/tutorial.py::QuizOption`)."
+      },
+      "QuizSubmit": {
+        "properties": {
+          "quiz_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Quiz Id"
+          },
+          "submitted_answer": {
+            "type": "string",
+            "title": "Submitted Answer"
+          }
+        },
+        "type": "object",
+        "required": [
+          "quiz_id",
+          "submitted_answer"
+        ],
+        "title": "QuizSubmit"
+      },
+      "QuizWrite": {
+        "properties": {
+          "question_text": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Question Text"
+          },
+          "question_type": {
+            "$ref": "#/components/schemas/QuestionType",
+            "default": "multiple_choice"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/QuizOptionInput"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "minItems": 2,
+            "title": "Options"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question_text",
+          "options"
+        ],
+        "title": "QuizWrite"
+      },
+      "RecentActivityItem": {
+        "properties": {
+          "instance_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Instance Id"
+          },
+          "repo_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repo Id"
+          },
+          "repo_name": {
+            "type": "string",
+            "title": "Repo Name"
+          },
+          "repo_url": {
+            "type": "string",
+            "title": "Repo Url"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RunStatus"
+          },
+          "generation_progress": {
+            "type": "integer",
+            "title": "Generation Progress"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "tutorial_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tutorial Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "instance_id",
+          "repo_name",
+          "repo_url",
+          "status",
+          "generation_progress",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "RecentActivityItem"
+      },
+      "RecentActivityResponse": {
+        "properties": {
+          "activities": {
+            "items": {
+              "$ref": "#/components/schemas/RecentActivityItem"
+            },
+            "type": "array",
+            "title": "Activities"
+          }
+        },
+        "type": "object",
+        "required": [
+          "activities"
+        ],
+        "title": "RecentActivityResponse"
+      },
+      "RefreshTokenRequest": {
+        "properties": {
+          "refresh_token": {
+            "type": "string",
+            "title": "Refresh Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "refresh_token"
+        ],
+        "title": "RefreshTokenRequest"
+      },
+      "RepoCreate": {
+        "properties": {
+          "github_url": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Github Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "github_url"
+        ],
+        "title": "RepoCreate"
+      },
+      "RepoDetailResponse": {
+        "properties": {
+          "repository": {
+            "$ref": "#/components/schemas/RepoResponse"
+          },
+          "tutorials": {
+            "items": {
+              "$ref": "#/components/schemas/TutorialBrief"
+            },
+            "type": "array",
+            "title": "Tutorials"
+          }
+        },
+        "type": "object",
+        "required": [
+          "repository",
+          "tutorials"
+        ],
+        "title": "RepoDetailResponse"
+      },
+      "RepoFileContentResponse": {
+        "properties": {
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          }
+        },
+        "type": "object",
+        "required": [
+          "content",
+          "path",
+          "size"
+        ],
+        "title": "RepoFileContentResponse"
+      },
+      "RepoFileTreeResponse": {
+        "properties": {
+          "tree": {
+            "items": {
+              "$ref": "#/components/schemas/FileTreeNode"
+            },
+            "type": "array",
+            "title": "Tree"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tree"
+        ],
+        "title": "RepoFileTreeResponse"
+      },
+      "RepoResponse": {
+        "properties": {
+          "repo_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Repo Id"
+          },
+          "github_url": {
+            "type": "string",
+            "title": "Github Url"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RepositoryStatus"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "repo_id",
+          "github_url",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "RepoResponse"
+      },
+      "RepositoryStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "analyzing",
+          "completed",
+          "failed"
+        ],
+        "title": "RepositoryStatus"
+      },
+      "RunStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "running",
+          "completed",
+          "failed"
+        ],
+        "title": "RunStatus",
+        "description": "Shared by TutorialInstance, TutorialExecution and TutorialStepExecution.\n\nOne vocabulary for one concept \u2014 the three tables previously each declared\ntheir own overlapping-but-not-identical set of strings."
+      },
+      "SearchEntity": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "type": {
+            "$ref": "#/components/schemas/SearchEntityKind"
+          },
+          "tutorial_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tutorial Id"
+          },
+          "module_index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Module Index"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "type"
+        ],
+        "title": "SearchEntity"
+      },
+      "SearchEntityKind": {
+        "type": "string",
+        "enum": [
+          "repository",
+          "tutorial",
+          "module",
+          "quiz"
+        ],
+        "title": "SearchEntityKind"
+      },
+      "SearchResponse": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "title": "Query"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/SearchEntity"
+            },
+            "type": "array",
+            "title": "Results"
+          }
+        },
+        "type": "object",
+        "required": [
+          "query",
+          "results"
+        ],
+        "title": "SearchResponse"
+      },
+      "StatusResponse": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/RunStatus"
+          },
+          "current_step": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Step"
+          },
+          "step_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RunStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "stream_ticket": {
+            "type": "string",
+            "title": "Stream Ticket"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "created_at",
+          "updated_at",
+          "stream_ticket"
+        ],
+        "title": "StatusResponse"
+      },
+      "TokenWithUser": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token"
+          },
+          "refresh_token": {
+            "type": "string",
+            "title": "Refresh Token"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type",
+            "default": "bearer"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserPublic"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token",
+          "refresh_token",
+          "user"
+        ],
+        "title": "TokenWithUser",
+        "description": "Login/refresh response. Bundling the user saves the client an immediate\nfollow-up request just to render a header."
+      },
+      "TutorialBrief": {
+        "properties": {
+          "tutorial_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Tutorial Id"
+          },
+          "level": {
+            "$ref": "#/components/schemas/TutorialLevel"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tutorial_id",
+          "level",
+          "title"
+        ],
+        "title": "TutorialBrief"
+      },
+      "TutorialLevel": {
+        "type": "string",
+        "enum": [
+          "beginner",
+          "intermediate",
+          "advanced"
+        ],
+        "title": "TutorialLevel"
+      },
+      "TutorialListItem": {
+        "properties": {
+          "tutorial_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Tutorial Id"
+          },
+          "repo_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Repo Id"
+          },
+          "level": {
+            "$ref": "#/components/schemas/TutorialLevel"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "overview": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overview"
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/TutorialVisibility"
+          },
+          "slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slug"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "module_count": {
+            "type": "integer",
+            "title": "Module Count",
+            "default": 0
+          },
+          "completed_modules": {
+            "type": "integer",
+            "title": "Completed Modules",
+            "default": 0
+          },
+          "progress_percentage": {
+            "type": "integer",
+            "title": "Progress Percentage",
+            "default": 0
+          },
+          "repo_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repo Name"
+          },
+          "repo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repo Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tutorial_id",
+          "repo_id",
+          "level",
+          "title",
+          "visibility",
+          "generated_at"
+        ],
+        "title": "TutorialListItem"
+      },
+      "TutorialMetaResponse": {
+        "properties": {
+          "tutorial_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Tutorial Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "level": {
+            "$ref": "#/components/schemas/TutorialLevel"
+          },
+          "overview": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overview"
+          },
+          "overview_diagram_mermaid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overview Diagram Mermaid"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tutorial_id",
+          "title",
+          "level",
+          "updated_at"
+        ],
+        "title": "TutorialMetaResponse"
+      },
+      "TutorialProgressSummary": {
+        "properties": {
+          "tutorial_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Tutorial Id"
+          },
+          "tutorial_title": {
+            "type": "string",
+            "title": "Tutorial Title"
+          },
+          "tutorial_level": {
+            "$ref": "#/components/schemas/TutorialLevel"
+          },
+          "total_modules": {
+            "type": "integer",
+            "title": "Total Modules"
+          },
+          "completed_modules": {
+            "type": "integer",
+            "title": "Completed Modules"
+          },
+          "progress_percentage": {
+            "type": "number",
+            "title": "Progress Percentage"
+          },
+          "average_quiz_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average Quiz Score"
+          },
+          "last_completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Completed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tutorial_id",
+          "tutorial_title",
+          "tutorial_level",
+          "total_modules",
+          "completed_modules",
+          "progress_percentage"
+        ],
+        "title": "TutorialProgressSummary"
+      },
+      "TutorialResponse": {
+        "properties": {
+          "tutorial_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Tutorial Id"
+          },
+          "repo_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Repo Id"
+          },
+          "level": {
+            "$ref": "#/components/schemas/TutorialLevel"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "overview": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overview"
+          },
+          "overview_diagram_mermaid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overview Diagram Mermaid"
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/TutorialVisibility"
+          },
+          "slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slug"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "modules": {
+            "items": {
+              "$ref": "#/components/schemas/app__schemas__tutorial__ModuleResponse"
+            },
+            "type": "array",
+            "title": "Modules"
+          },
+          "repo_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repo Name"
+          },
+          "repo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repo Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tutorial_id",
+          "repo_id",
+          "level",
+          "title",
+          "visibility",
+          "generated_at",
+          "modules"
+        ],
+        "title": "TutorialResponse"
+      },
+      "TutorialStatusCounts": {
+        "properties": {
+          "completed": {
+            "type": "integer",
+            "title": "Completed"
+          },
+          "in_progress": {
+            "type": "integer",
+            "title": "In Progress"
+          },
+          "not_started": {
+            "type": "integer",
+            "title": "Not Started"
+          }
+        },
+        "type": "object",
+        "required": [
+          "completed",
+          "in_progress",
+          "not_started"
+        ],
+        "title": "TutorialStatusCounts"
+      },
+      "TutorialStatusResponse": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/TutorialStatusCounts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "TutorialStatusResponse"
+      },
+      "TutorialUpdate": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "overview": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overview"
+          },
+          "level": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TutorialLevel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "overview_diagram_mermaid": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overview Diagram Mermaid"
+          }
+        },
+        "type": "object",
+        "title": "TutorialUpdate",
+        "description": "All fields optional \u2014 this is a partial update.\n\n`level` is typed as the enum rather than `str`. The old handler took a string,\ncalled `.upper()` on it and wrote `\"BEGINNER\"`, which the `ck_tutorials_level`\nCHECK constraint rejects \u2014 so every save including a level returned a 500.\nPydantic now rejects an unknown level with a 422 that names the field, and a\nvalid one can only be written in the stored lowercase form."
+      },
+      "TutorialVisibility": {
+        "type": "string",
+        "enum": [
+          "private",
+          "public",
+          "unlisted"
+        ],
+        "title": "TutorialVisibility",
+        "description": "Public tutorials are the growth channel (see docs/DECISIONS.md D8).\n\nPresent from the first Phase 2 migration rather than retrofitted, because\nadding it later would mean touching the auth model, the router, the schema\nand apps/site simultaneously."
+      },
+      "UnreadCountResponse": {
+        "properties": {
+          "unread_count": {
+            "type": "integer",
+            "title": "Unread Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "unread_count"
+        ],
+        "title": "UnreadCountResponse",
+        "description": "Its own endpoint so a bell badge can poll the count without pulling a\npage of notification bodies every few seconds."
+      },
+      "UserCreate": {
+        "properties": {
+          "first_name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "First Name"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "first_name",
+          "email",
+          "password"
+        ],
+        "title": "UserCreate"
+      },
+      "UserProgressStats": {
+        "properties": {
+          "total_modules_completed": {
+            "type": "integer",
+            "title": "Total Modules Completed"
+          },
+          "total_quizzes_attempted": {
+            "type": "integer",
+            "title": "Total Quizzes Attempted"
+          },
+          "total_quizzes_correct": {
+            "type": "integer",
+            "title": "Total Quizzes Correct"
+          },
+          "average_quiz_score": {
+            "type": "number",
+            "title": "Average Quiz Score"
+          },
+          "total_tutorials_with_progress": {
+            "type": "integer",
+            "title": "Total Tutorials With Progress"
+          },
+          "last_activity_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Activity At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_modules_completed",
+          "total_quizzes_attempted",
+          "total_quizzes_correct",
+          "average_quiz_score",
+          "total_tutorials_with_progress"
+        ],
+        "title": "UserProgressStats"
+      },
+      "UserPublic": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active",
+            "default": true
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "email"
+        ],
+        "title": "UserPublic",
+        "description": "A user as returned to that user. Never includes password material."
+      },
+      "UserSettingsResponse": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/ProfileSettingsResponse"
+          },
+          "notifications": {
+            "$ref": "#/components/schemas/NotificationSettingsResponse"
+          },
+          "appearance": {
+            "$ref": "#/components/schemas/AppearanceSettingsResponse"
+          },
+          "learning": {
+            "$ref": "#/components/schemas/LearningSettingsResponse"
+          },
+          "sessions_valid_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sessions Valid From"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "profile",
+          "notifications",
+          "appearance",
+          "learning"
+        ],
+        "title": "UserSettingsResponse"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "VisibilityUpdate": {
+        "properties": {
+          "visibility": {
+            "$ref": "#/components/schemas/TutorialVisibility"
+          }
+        },
+        "type": "object",
+        "required": [
+          "visibility"
+        ],
+        "title": "VisibilityUpdate"
+      },
+      "WeeklyActivityResponse": {
+        "properties": {
+          "activities": {
+            "items": {
+              "$ref": "#/components/schemas/ActivityCell"
+            },
+            "type": "array",
+            "title": "Activities"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          }
+        },
+        "type": "object",
+        "required": [
+          "activities",
+          "timezone"
+        ],
+        "title": "WeeklyActivityResponse"
+      },
+      "app__schemas__author__ModuleResponse": {
+        "properties": {
+          "module_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Module Id"
+          },
+          "tutorial_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Tutorial Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "order_index": {
+            "type": "integer",
+            "title": "Order Index"
+          },
+          "content_markdown": {
+            "type": "string",
+            "title": "Content Markdown"
+          },
+          "code_snippet": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code Snippet"
+          },
+          "file_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Path"
+          },
+          "diagram_mermaid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diagram Mermaid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "module_id",
+          "tutorial_id",
+          "title",
+          "order_index",
+          "content_markdown"
+        ],
+        "title": "ModuleResponse"
+      },
+      "app__schemas__author__QuizResponse": {
+        "properties": {
+          "quiz_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Quiz Id"
+          },
+          "module_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Module Id"
+          },
+          "question_text": {
+            "type": "string",
+            "title": "Question Text"
+          },
+          "question_type": {
+            "$ref": "#/components/schemas/QuestionType"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/QuizOptionInput"
+            },
+            "type": "array",
+            "title": "Options"
+          },
+          "correct_answer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correct Answer"
+          }
+        },
+        "type": "object",
+        "required": [
+          "quiz_id",
+          "module_id",
+          "question_text",
+          "question_type",
+          "options"
+        ],
+        "title": "QuizResponse",
+        "description": "The authoring view \u2014 the owner wrote the answer key, so it is returned.\n\nThis is why it is a separate model from `schemas/tutorial.py::QuizResponse`,\nwhich is the *learner* view and strips it."
+      },
+      "app__schemas__tutorial__ModuleResponse": {
+        "properties": {
+          "module_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Module Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "order_index": {
+            "type": "integer",
+            "title": "Order Index"
+          },
+          "content_markdown": {
+            "type": "string",
+            "title": "Content Markdown"
+          },
+          "file_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Path"
+          },
+          "code_snippet": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code Snippet"
+          },
+          "diagram_mermaid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diagram Mermaid"
+          },
+          "quiz": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/app__schemas__tutorial__QuizResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "module_id",
+          "title",
+          "order_index",
+          "content_markdown"
+        ],
+        "title": "ModuleResponse"
+      },
+      "app__schemas__tutorial__QuizResponse": {
+        "properties": {
+          "quiz_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Quiz Id"
+          },
+          "question_text": {
+            "type": "string",
+            "title": "Question Text"
+          },
+          "question_type": {
+            "$ref": "#/components/schemas/QuestionType"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/QuizOption"
+            },
+            "type": "array",
+            "title": "Options"
+          }
+        },
+        "type": "object",
+        "required": [
+          "quiz_id",
+          "question_text",
+          "question_type"
+        ],
+        "title": "QuizResponse"
+      }
+    },
+    "securitySchemes": {
+      "OAuth2PasswordBearer": {
+        "type": "oauth2",
+        "flows": {
+          "password": {
+            "scopes": {},
+            "tokenUrl": "api/user/login"
+          }
+        }
+      }
+    }
+  }
+}

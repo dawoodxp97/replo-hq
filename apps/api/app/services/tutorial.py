@@ -24,6 +24,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..core import security
 from ..core.exceptions import ConflictError, ExternalServiceError, NotFoundError
 from ..core.ownership import get_owned_tutorial, get_readable_tutorial
 from ..core.pagination import PageParams
@@ -35,6 +36,7 @@ from ..models.repositories import Repository
 from ..models.tutorials import Tutorial
 from ..models.user_progress import UserProgress
 from ..schemas.tutorial import (
+    ExploreTutorialItem,
     GenerateRequest,
     ModuleResponse,
     QuizResponse,
@@ -150,14 +152,47 @@ async def get_tutorial(
 
     `get_readable_tutorial` is the wider check — it admits the owner, and admits
     anyone (including anonymous callers) for public and unlisted tutorials. That
-    is what will back the public `/t/{slug}` pages without a second code path.
+    is what backs the public `/t/{slug}` pages without a second code path.
 
     Three queries total, all bounded by one tutorial. The alternative — a single
     join across modules and quizzes — multiplies the module's `content_markdown`
     across rows, and that column is the largest in the schema.
     """
     tutorial = await get_readable_tutorial(db, tutorial_id, user_id)
+    return await _render_tutorial(db, tutorial)
 
+
+async def get_public_tutorial_by_slug(db: AsyncSession, slug: str) -> TutorialResponse:
+    """The public `/t/{slug}` page payload (Phase 5.3).
+
+    Strictly `visibility == 'public'`: unlisted is *readable* (a holder of the
+    link may open it) but is deliberately absent from discovery surfaces, and a
+    slug is a discovery surface. `get_readable_tutorial` would admit unlisted
+    rows here, so the lookup does not go through it.
+
+    404 rather than 403 when the slug exists but is not public — same reasoning
+    as core/ownership.py: confirming a slug exists is confirmation an attacker
+    cannot otherwise get.
+    """
+    tutorial = (
+        await db.execute(
+            select(Tutorial).where(
+                Tutorial.slug == slug,
+                Tutorial.visibility == TutorialVisibility.PUBLIC,
+            )
+        )
+    ).scalar_one_or_none()
+    if tutorial is None:
+        raise NotFoundError("Tutorial not found.")
+    return await _render_tutorial(db, tutorial)
+
+
+async def _render_tutorial(db: AsyncSession, tutorial: Tutorial) -> TutorialResponse:
+    """Assemble the full response for a tutorial row already access-checked.
+
+    Everything after "may this caller see this row?" lives here, so the
+    id-based, owner-based and slug-based lookups render identically.
+    """
     repo = (
         await db.execute(select(Repository).where(Repository.repo_id == tutorial.repo_id))
     ).scalar_one_or_none()
@@ -218,6 +253,83 @@ async def get_tutorial(
         repo_name=repo.name if repo else None,
         repo_url=repo.github_url if repo else None,
     )
+
+
+# --- Public browse (Phase 5.5) ----------------------------------------------
+
+
+async def list_public_tutorials(
+    db: AsyncSession,
+    params: PageParams,
+    language: str | None = None,
+) -> tuple[list[ExploreTutorialItem], int]:
+    """One page of the public catalogue behind `/explore`.
+
+    Public rows only — private and unlisted are structurally excluded by the
+    `visibility` filter, not by a caller-provided flag. Ordered by
+    `published_at` descending, newest first, matching `idx_tutorial_public_published`.
+
+    `language` filters on `Repository.language` (the pipeline's analyze step
+    records it). Comparison is case-insensitive: users type "Python", the
+    pipeline stores "python", and a filter that depends on that distinction
+    silently returns an empty page.
+    """
+    module_count = (
+        select(func.count(Module.module_id))
+        .where(Module.tutorial_id == Tutorial.tutorial_id)
+        .correlate(Tutorial)
+        .scalar_subquery()
+    )
+
+    base = (
+        select(
+            Tutorial,
+            Repository.name.label("repo_name"),
+            Repository.github_url.label("repo_url"),
+            Repository.language.label("language"),
+            module_count.label("module_count"),
+        )
+        .join(Repository, Tutorial.repo_id == Repository.repo_id)
+        .where(Tutorial.visibility == TutorialVisibility.PUBLIC)
+    )
+
+    count_filter = [Tutorial.visibility == TutorialVisibility.PUBLIC]
+    if language:
+        base = base.where(func.lower(Repository.language) == language.strip().lower())
+        count_filter.append(func.lower(Repository.language) == language.strip().lower())
+
+    count_stmt = select(func.count()).select_from(
+        select(Tutorial.tutorial_id)
+        .join(Repository, Tutorial.repo_id == Repository.repo_id)
+        .where(*count_filter)
+        .subquery()
+    )
+    total = (await db.execute(count_stmt)).scalar_one()
+
+    rows = (
+        await db.execute(
+            base.order_by(Tutorial.published_at.desc().nulls_last())
+            .limit(params.limit)
+            .offset(params.offset)
+        )
+    ).all()
+
+    items = [
+        ExploreTutorialItem(
+            tutorial_id=row.Tutorial.tutorial_id,
+            slug=row.Tutorial.slug,
+            level=row.Tutorial.level,
+            title=row.Tutorial.title,
+            overview=row.Tutorial.overview,
+            published_at=row.Tutorial.published_at,
+            module_count=row.module_count,
+            repo_name=row.repo_name,
+            repo_url=row.repo_url,
+            language=row.language,
+        )
+        for row in rows
+    ]
+    return items, total
 
 
 async def delete_tutorial(db: AsyncSession, tutorial_id: UUID, user_id: UUID) -> None:
@@ -433,6 +545,12 @@ async def get_generation_status(db: AsyncSession, instance_id: UUID, user_id: UU
         "error_message": error_message,
         "created_at": instance.created_at,
         "updated_at": instance.updated_at,
+        # Short-lived ticket for GET /{instance_id}/stream. EventSource cannot
+        # send an Authorization header, so the streaming endpoint authenticates
+        # with this instead — minted here, where the caller has already
+        # authenticated, and bound to this instance and user. See
+        # core/security.py (stream tickets) and docs/adr/.
+        "stream_ticket": security.create_stream_ticket(str(instance.id), str(user_id)),
     }
 
 

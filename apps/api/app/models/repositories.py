@@ -50,3 +50,10 @@ class Repository(Base, TimestampMixin):
         nullable=False,
         server_default=RepositoryStatus.PENDING.value,
     )
+
+    # Primary language as reported by the pipeline's analyze step. Nullable:
+    # unknown until a generation for this repo has run the analysis, and older
+    # rows predate the column. Backs the /explore language filter (Phase 5).
+    # Index lives in the migration — a plain B-tree on a low-cardinality column
+    # only pays off combined with the public-tutorials filter.
+    language = Column(String(100), nullable=True)

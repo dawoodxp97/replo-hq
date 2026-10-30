@@ -50,7 +50,6 @@
 apps/
 ├── api/           # FastAPI backend
 ├── web/           # React 19 app (Phase 4)
-└── web-legacy/    # Reference only, not built
 
 packages/
 ├── api-client/    # Generated from OpenAPI (Phase 4)

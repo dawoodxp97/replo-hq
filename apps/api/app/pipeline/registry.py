@@ -1,20 +1,8 @@
 """Phase 3: Step registry for declarative step discovery."""
 
-from typing import Type
+from pydantic import BaseModel
 
 from .base_step import Step
-from .contracts import (
-    AnalyzeRepoStepInput,
-    AnalyzeRepoStepOutput,
-    GenerateContentStepInput,
-    GenerateContentStepOutput,
-    GenerateOutlineStepInput,
-    GenerateOutlineStepOutput,
-    RefineStepInput,
-    RefineStepOutput,
-    SaveTutorialStepInput,
-    SaveTutorialStepOutput,
-)
 
 # Default step order for a complete pipeline
 DEFAULT_STEP_ORDER = [
@@ -26,20 +14,20 @@ DEFAULT_STEP_ORDER = [
 ]
 
 # Registry: step_type -> Step class
-STEP_REGISTRY: dict[str, Type[Step]] = {}
+STEP_REGISTRY: dict[str, type[Step]] = {}
 
 # Registry: step_type -> (Input class, Output class)
-STEP_CONTRACTS: dict[str, tuple[Type[BaseModel], Type[BaseModel]]] = {}
+STEP_CONTRACTS: dict[str, tuple[type[BaseModel], type[BaseModel]]] = {}
 
 
 def register_step(
     step_type: str,
-    input_class: Type[BaseModel],
-    output_class: Type[BaseModel],
+    input_class: type[BaseModel],
+    output_class: type[BaseModel],
 ):
     """Decorator to register a step class."""
 
-    def decorator(cls: Type[Step]) -> Type[Step]:
+    def decorator(cls: type[Step]) -> type[Step]:
         STEP_REGISTRY[step_type] = cls
         STEP_CONTRACTS[step_type] = (input_class, output_class)
         return cls
@@ -47,12 +35,12 @@ def register_step(
     return decorator
 
 
-def get_step_class(step_type: str) -> Type[Step] | None:
+def get_step_class(step_type: str) -> type[Step] | None:
     """Get the step class for a given step type."""
     return STEP_REGISTRY.get(step_type)
 
 
-def get_step_contract(step_type: str) -> tuple[Type[BaseModel], Type[BaseModel]] | None:
+def get_step_contract(step_type: str) -> tuple[type[BaseModel], type[BaseModel]] | None:
     """Get the input/output contract for a given step type."""
     return STEP_CONTRACTS.get(step_type)
 

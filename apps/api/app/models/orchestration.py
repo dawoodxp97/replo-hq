@@ -1,4 +1,15 @@
-from sqlalchemy import JSON, Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    Text,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func, text
@@ -54,6 +65,13 @@ class TutorialExecution(Base):
     # failed run gave no top-level explanation.
     error_message = Column(Text, nullable=True)
 
+    # --- LLM cost tracking (Phase 6, D7) -------------------------------------
+    # Visibility only — there is no billing (D7), so this is a rounded estimate
+    # computed from MODEL_REGISTRY's published rates, never a ledger.
+    input_tokens = Column(Integer, nullable=True)
+    output_tokens = Column(Integer, nullable=True)
+    estimated_cost_usd = Column(Numeric(12, 6), nullable=True)
+
     instance = relationship("TutorialInstance", back_populates="executions")
     step_executions = relationship(
         "TutorialStepExecution", back_populates="execution", cascade="all, delete-orphan"
@@ -78,6 +96,9 @@ class TutorialStepExecution(Base):
     )
     input_data = Column(JSON, nullable=True)
     output_data = Column(JSON, nullable=True)
+    # Token usage as reported by the provider for this step, if it reported any.
+    input_tokens = Column(Integer, nullable=True)
+    output_tokens = Column(Integer, nullable=True)
     prompt_used = Column(Text, nullable=True)
     llm_response = Column(Text, nullable=True)
     error_message = Column(Text, nullable=True)

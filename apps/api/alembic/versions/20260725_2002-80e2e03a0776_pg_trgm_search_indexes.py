@@ -50,8 +50,7 @@ def upgrade() -> None:
         # run inside alembic's transaction and needs its own migration with
         # `op.get_context().autocommit_block()`.
         op.execute(
-            f"CREATE INDEX IF NOT EXISTS {name} "
-            f"ON {table} USING gin ({column} gin_trgm_ops)"
+            f"CREATE INDEX IF NOT EXISTS {name} ON {table} USING gin ({column} gin_trgm_ops)"
         )
 
 

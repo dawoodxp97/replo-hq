@@ -46,6 +46,9 @@ class User(Base, TimestampMixin):
     # Add relationships later if needed, e.g.:
     # tutorials = relationship("Tutorial", back_populates="owner")
     settings = relationship("UserSettings", back_populates="user", uselist=False)
+    oauth_identities = relationship(
+        "UserOAuthIdentity", back_populates="user", cascade="all, delete-orphan"
+    )
     notifications = relationship(
         "Notification", back_populates="user", cascade="all, delete-orphan"
     )

@@ -135,9 +135,18 @@ def register_exception_handlers(app: FastAPI) -> None:
             logger.exception("%s: %s", exc.code, exc.message)
         else:
             logger.info("%s: %s", exc.code, exc.message)
+
+        headers: dict[str, str] = {}
+        retry_after = exc.details.get("retry_after")
+        # 429 without Retry-After makes every client poll on its own schedule,
+        # which is exactly the behaviour the limit exists to stop.
+        if isinstance(retry_after, int) and retry_after > 0:
+            headers["Retry-After"] = str(retry_after)
+
         return JSONResponse(
             status_code=exc.status_code,
             content=_body(exc.code, exc.message, exc.details),
+            headers=headers or None,
         )
 
     @app.exception_handler(RequestValidationError)

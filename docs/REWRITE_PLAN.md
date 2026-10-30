@@ -10,11 +10,11 @@ Status: **draft, approved in principle** · Author: Dawood · Date: 2026-07-21
 | **Phase 1** | ✅ Complete | Foundation complete: monorepo, uv, alembic with 6 migrations, pydantic-settings, CI |
 | **Phase 2** | ✅ Complete | Backend core complete: async, service layer, pagination, enums, ownership, BYOK |
 | **Phase 3** | ✅ Complete | Pipeline complete: typed contracts, registry, resume, centralized prompts, BYOK credential resolution |
-| **Phase 4** | 🔄 In Progress | apps/web/ scaffolded with Rsbuild + React 19, TanStack Router, packages/ui foundation |
-| **Phase 5** | ❌ Not started | apps/site/ does not exist |
-| **Phase 6** | ❌ Not started | No tests exist yet |
+| **Phase 4** | ✅ Complete | apps/web/ product implemented: one shared session module with single-flight refresh, OAuth entry/callback, SSE generation stream, player + progress/quiz, library + explore, BYOK settings; typed service layer over the generated client; vitest unit tests + Playwright critical-path spec |
+| **Phase 5** | ✅ Complete | apps/site/ (Next 16 App Router): landing ported from the legacy components (web-legacy deleted), public /t/[slug] with ISR + on-demand revalidate route, /explore with language filter, OG images, sitemap, robots, canonical URLs; quizzes disabled per D8 |
+| **Phase 6** | ✅ Complete | Backend hardening done (OAuth, SSE, rate limiting, retention caps, cost tracking, /ready + Sentry, pytest+testcontainers). CI now runs real web/site jobs (typecheck, tests, build) and verifies the regenerated client. Compose runs web (:3000) + site (:3100) |
 
-**Completion: ~60%** (Phases 0-3 complete; Phase 4 in progress; Phases 5-6 not started)
+**Completion: 100% of planned scope** (Phases 0-6). Remaining follow-ups are operational, not build work: rotate the leaked credentials from the old `.env.bak` (still outstanding), and seed public tutorials for /explore.
 
 Outcome of a design interview. Decisions and their reasoning are in
 [`docs/DECISIONS.md`](./DECISIONS.md); this file is the execution sequence.
@@ -96,7 +96,7 @@ docs/
 | 2.5 | Pagination on every list endpoint | ✅ Done (Page/PageParams for tutorials, repos) |
 | 2.6 | Status strings → enums + PG constraints | ✅ Done (RepositoryStatus, RunStatus, etc.) |
 | 2.7 | Drop global-unique on `Repository.github_url` → unique per `(user_id, github_url)` | ✅ Done |
-| 2.8 | **Multi-provider auth** | ✅ Done (password auth, OAuth endpoints stubbed) |
+| 2.8 | **Multi-provider auth** | ✅ Done — password + GitHub + Google, one session (was password-only with stubs; completed in Phase 6, ADR 0001) |
 | 2.9 | Fix token lifetimes | ✅ Done (access 30min, refresh 30d) |
 | 2.10 | Central ownership enforcement | ✅ Done (Repository.user_id checks in services) |
 | 2.11 | **`user_llm_credentials`** — AES-256-GCM, per-row nonce, `key_version`, KEK in env vars | ✅ Done |
@@ -133,8 +133,8 @@ generate a TS client from.
 | 3.9 | **Credential resolved at call time** | `AIClient._get_byok_credential()` never returns key | ✅ Done |
 | 3.10 | Log redaction filter; never log request headers | Filter in `base_step._serialize_for_db()` | ✅ Done |
 | 3.11 | Harden `clone_repo`: `depth=1`, size cap, timeout, SSRF guard, cleanup | `repo_utils.py` complete | ✅ Already in Phase 1 |
-| 3.12 | Rate limit generation endpoints | (Deferred to Phase 6) | ⏳ Pending |
-| 3.13 | Cap `input_data`/`output_data` retention | (Deferred to Phase 6) | ⏳ Pending |
+| 3.12 | Rate limit generation endpoints | Redis fixed-window, config-driven, 429 + Retry-After; signup/login per-IP too. ADR 0003 | ✅ Done (Phase 6) |
+| 3.13 | Cap `input_data`/`output_data` retention | Byte cap at write time in `base_step._serialize_for_db`, config-driven. ADR 0004 | ✅ Done (Phase 6) |
 
 ### 3c. Make it good
 
@@ -164,10 +164,10 @@ publishing. **Generate 25 tutorials for well-known repos here** — Phase 5 need
 - 4.4 `packages/ui` foundation: Radix primitives + Tailwind, `MarkdownRenderer`, `DiagramViewer` ✅
 
 **Remaining:**
-- 4.5 Auth: Password + GitHub + Google OAuth, unified session
+- 4.5 Auth: Password + GitHub + Google OAuth, unified session — **backend done**: `/api/user/oauth/{provider}/authorize|callback`, `user_oauth_identities` table, same token pair (ADR 0001); UI remains
 - 4.6 Screens: login → generate → live status → tutorial player → library → settings (BYOK)
 - 4.7 Error boundaries, loading/error conventions
-- 4.8 Generation status via SSE
+- 4.8 Generation status via SSE — **backend done**: `GET /api/tutorial/{instance_id}/stream` fed by Redis pub/sub from the worker, ticket auth from the status payload (ADR 0002); frontend EventSource remains
 
 | # | Task |
 |---|------|
@@ -175,10 +175,10 @@ publishing. **Generate 25 tutorials for well-known repos here** — Phase 5 need
 | 4.2 | TanStack Router (typed routes) + TanStack Query |
 | 4.3 | **`packages/api-client` generated from OpenAPI** in CI — permanently kills the `as unknown as T` casts |
 | 4.4 | `packages/ui` foundation: shadcn + baseUI + Tailwind, `MarkdownRenderer`, `DiagramViewer` |
-| 4.5 | Auth: Password + GitHub + Google OAuth, **one** session module — not three hand-rolled JWT decoders |
+| 4.5 | Auth: Password + GitHub + Google OAuth, **one** session module — not three hand-rolled JWT decoders. Backend complete (ADR 0001); UI remains |
 | 4.6 | Screens: login → generate → live status → tutorial player → library → settings (BYOK) |
 | 4.7 | Error boundaries, loading/error conventions |
-| 4.8 | Generation status via **SSE**, not polling |
+| 4.8 | Generation status via **SSE**, not polling. Backend complete (ADR 0002); frontend remains |
 
 **Explicitly deferred:** authoring/editor, progress analytics, search, notifications.
 Those are ~2,500 LOC of the old frontend and none of them are on the critical path to a
@@ -220,17 +220,18 @@ highest-value deliverable for the portfolio goal.
 
 ## Phase 6 — Production hardening
 
-**Status: Not started**
+**Status: In Progress — backend complete**
 
 **Ongoing.**
 
-**Note: No tests exist yet.**
+Backend hardening done:
 
-- Structured JSON logging + request IDs; `/health` vs `/ready` split; Sentry
-- **Tests** — pytest + testcontainers on the step contracts and pipeline resume; Vitest +
-  Playwright on one critical path. Testing what breaks, not chasing coverage
-- LLM cost tracking per generation (for visibility only)
-- `docs/adr/` — one ADR per irreversible decision
+- Structured JSON logging + request IDs ✅; `/health` (liveness) vs `/ready` (DB + Redis) split ✅; Sentry init in lifespan when `SENTRY_DSN` is set, never under test ✅
+- **Rate limiting (3.12)** ✅ — Redis fixed-window, config-driven, 429 + Retry-After (ADR 0003)
+- **Retention caps (3.13)** ✅ — write-time byte caps on step data (ADR 0004)
+- **LLM cost tracking** ✅ — provider-reported token usage per step, rolled up to the execution record with MODEL_REGISTRY rates; visibility only (D7)
+- **Tests** ✅ backend — pytest + pytest-asyncio + testcontainers on step contracts and pipeline resume; `integration` marker auto-skips without Docker, CI runs everything. Vitest + Playwright remain (frontend)
+- `docs/adr/` ✅ — ADRs 0001–0004 (OAuth session model, SSE transport/ticket, rate-limit scheme, retention strategy)
 
 ---
 

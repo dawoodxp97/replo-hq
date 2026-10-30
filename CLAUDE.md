@@ -12,7 +12,6 @@ runs a 5-step LLM chain → persists a tutorial (modules + quizzes) → user rea
 | Path | What |
 |------|------|
 | `apps/api/` | FastAPI API + ARQ worker + SQLAlchemy models. See `apps/api/CLAUDE.md`. |
-| `apps/web-legacy/` | Pre-rewrite Next.js client. **Reference only** — outside the pnpm workspace, not built by CI. Deleted after Phase 5 ports the landing components. |
 | `apps/web/` | (Phase 4) Rsbuild + React 19 + TanStack Router — the authenticated product. |
 | `apps/site/` | (Phase 5) Next.js — marketing, public tutorials, `/explore`, docs. |
 | `packages/api-client/` | (Phase 4) TS client **generated** from the API's OpenAPI schema. |

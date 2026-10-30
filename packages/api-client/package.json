@@ -5,19 +5,23 @@
   "main": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./schemas": "./src/schemas.ts"
+    "./schemas": "./src/schemas.gen.ts",
+    "./markdown": "./src/index.ts"
   },
   "scripts": {
-    "generate": "openapi-ts -i ../api/openapi.json -o ./src && prettier --write ./src",
+    "generate": "openapi-ts -i ../api/openapi.json -o ./src && prettier --write ./src && node ./scripts/patch-client.mjs",
     "build": "tsc",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "postgenerate": null
   },
   "dependencies": {
-    "fetch-wrapper": "^1.1.0",
+    "@hey-api/client-fetch": "^0.13.1",
+    "fetch-wrapper": "^1.0.2",
     "type-fest": "^4.30.0"
   },
   "devDependencies": {
-    "@hey-api/openapi-ts": "^0.54.0",
+    "@hey-api/openapi-ts": "latest",
+    "prettier": "^3.4.2",
     "typescript": "^5.7.0"
   }
 }

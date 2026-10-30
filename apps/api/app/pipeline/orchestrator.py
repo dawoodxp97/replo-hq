@@ -1,11 +1,24 @@
-"""Phase 3: Pipeline orchestrator with resume support."""
+"""Phase 3: Pipeline orchestrator with resume support.
+
+Phase 6 additions, both funnel through `execute()` so steps stay dumb:
+
+- **Step events** are published to Redis pub/sub (app/pipeline/events.py) when a
+  Redis pool is supplied — the ARQ worker passes its job pool, and the SSE
+  stream endpoint forwards them to browsers. None of this is wired when no pool
+  is passed, e.g. in tests.
+- **Cost rollup.** Each step's provider-reported token usage is accumulated onto
+  the execution record with an estimate from MODEL_REGISTRY's published rates
+  (visibility only — D7).
+"""
 
 import logging
 from typing import Any
 
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.orchestration import TutorialExecution, TutorialInstance
+from . import events as generation_events
+from .prompts import estimate_cost_usd
 
 logger = logging.getLogger(__name__)
 
@@ -28,14 +41,20 @@ class PipelineOrchestrator:
         "save_tutorial": "SaveTutorialStep",
     }
 
-    def __init__(self, tutorial_instance_id: str, db: Session):
+    def __init__(self, tutorial_instance_id: str, db: AsyncSession, redis_pool=None):
         self.tutorial_instance_id = tutorial_instance_id
         self.db = db
+        # Optional: events are best-effort telemetry, not a pipeline dependency.
+        self.redis_pool = redis_pool
         self.execution: TutorialExecution | None = None
         self.instance: TutorialInstance | None = None
         self.current_step_order: int = 0
         self.aggregated_output: dict[str, Any] = {}
         self._step_classes: dict[str, type] | None = None
+        # Cumulative provider-reported usage for this execution.
+        self.total_input_tokens: int = 0
+        self.total_output_tokens: int = 0
+        self.model_used: str | None = None
 
     async def setup(self) -> None:
         """Initialize execution and check for resume."""
@@ -90,8 +109,8 @@ class PipelineOrchestrator:
         if self._step_classes is None:
             from .steps import (
                 AnalyzeRepoStep,
-                GenerateOutlineStep,
                 GenerateContentStep,
+                GenerateOutlineStep,
                 RefineStep,
                 SaveTutorialStep,
             )
@@ -116,7 +135,7 @@ class PipelineOrchestrator:
             "save_tutorial",
         ]
         # Skip already completed steps
-        return all_steps[self.current_step_order:]
+        return all_steps[self.current_step_order :]
 
     async def execute(self) -> dict[str, Any]:
         """Execute the pipeline, resuming from where it left off."""
@@ -138,13 +157,29 @@ class PipelineOrchestrator:
             await step.create_execution_record()
 
             logger.info(f"Executing step: {step_type}")
+            await generation_events.publish_generation_event(
+                self.redis_pool,
+                self.tutorial_instance_id,
+                generation_events.STEP_STARTED,
+                step=step_type,
+                step_order=actual_order,
+            )
             try:
                 result = await step.execute_with_retry()
                 await step.update_execution_record(result)
+                self._record_step_cost(step)
 
                 # Merge result into aggregated output
                 if result.status == "success":
                     self._merge_output(result)
+                    await generation_events.publish_generation_event(
+                        self.redis_pool,
+                        self.tutorial_instance_id,
+                        generation_events.STEP_COMPLETED,
+                        step=step_type,
+                        step_order=actual_order,
+                        step_status=result.status,
+                    )
                 else:
                     # Record failure at execution level
                     self.execution.error_message = result.error_message
@@ -154,7 +189,16 @@ class PipelineOrchestrator:
             except Exception as e:
                 logger.error(f"Step {step_type} failed: {str(e)}")
                 self.execution.status = "failed"
+                self._write_cost_totals()
                 await self.db.commit()
+                await generation_events.publish_generation_event(
+                    self.redis_pool,
+                    self.tutorial_instance_id,
+                    generation_events.FAILED,
+                    step=step_type,
+                    step_order=actual_order,
+                    error_message=str(e),
+                )
                 raise
 
         # Mark execution complete
@@ -162,10 +206,43 @@ class PipelineOrchestrator:
         self.execution.completed_at = self._utcnow()
         self.instance.status = "completed"
         self.instance.updated_at = self._utcnow()
+        self._write_cost_totals()
         await self.db.commit()
+
+        await generation_events.publish_generation_event(
+            self.redis_pool,
+            self.tutorial_instance_id,
+            generation_events.COMPLETED,
+        )
 
         logger.info(f"Pipeline complete. Tutorial: {self.aggregated_output.get('tutorial_id')}")
         return self.aggregated_output
+
+    def _record_step_cost(self, step) -> None:
+        """Add one completed step's provider-reported usage to the totals."""
+        usage = getattr(step, "usage", None)
+        if usage:
+            self.total_input_tokens += usage.get("input_tokens") or 0
+            self.total_output_tokens += usage.get("output_tokens") or 0
+        client_model = getattr(getattr(step, "_ai_client", None), "model", None)
+        if client_model:
+            # Last model wins: a run uses one model throughout today.
+            self.model_used = client_model
+
+    def _write_cost_totals(self) -> None:
+        """Persist usage + estimated cost onto the execution record.
+
+        Cost is computed from cumulative totals and the (single) model used;
+        None when the model is unregistered or no usage was reported — an
+        absent estimate must not read as free.
+        """
+        if self.execution is None:
+            return
+        self.execution.input_tokens = self.total_input_tokens or None
+        self.execution.output_tokens = self.total_output_tokens or None
+        self.execution.estimated_cost_usd = estimate_cost_usd(
+            self.model_used, self.total_input_tokens or None, self.total_output_tokens or None
+        )
 
     def _create_step(self, step_type: str, step_classes: dict[str, type]) -> Any:
         """Create a step instance."""
@@ -189,4 +266,5 @@ class PipelineOrchestrator:
 
     def _utcnow(self):
         from datetime import datetime
+
         return datetime.utcnow()

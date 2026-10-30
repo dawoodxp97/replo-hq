@@ -114,6 +114,19 @@ class TutorialVisibility(StrEnum):
     UNLISTED = "unlisted"
 
 
+class OAuthProvider(StrEnum):
+    """Login providers (D10a: password + GitHub + Google, all interchangeable).
+
+    Values are the URL slugs used in `/api/user/oauth/{provider}/...` and the
+    strings stored in `user_oauth_identities.provider`. That column is a plain
+    VARCHAR, not a PG enum, so adding a provider is a code change only — the
+    router validates against this enum before the value reaches the DB.
+    """
+
+    GITHUB = "github"
+    GOOGLE = "google"
+
+
 def enum_column(enum_cls: type[Enum], name: str) -> SAEnum:
     """Build a VARCHAR+CHECK column type storing enum *values*, not names.
 

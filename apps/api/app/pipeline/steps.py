@@ -1,15 +1,9 @@
 """Phase 3: Step implementations."""
 
-import asyncio
 import logging
-import shutil
-from pathlib import Path
 from typing import Any
 
-from sqlalchemy.orm import Session
-
 from ..core.exceptions import InvalidInputError
-from ..models.orchestration import TutorialExecution
 from ..utils.repo_utils import (
     build_file_tree,
     clone_repository,
@@ -23,25 +17,25 @@ from .contracts import (
     AnalyzeRepoStepOutput,
     GenerateContentStepInput,
     GenerateContentStepOutput,
+    GeneratedModule,
     GenerateOutlineStepInput,
     GenerateOutlineStepOutput,
+    OutlineChapter,
     RefineStepInput,
     RefineStepOutput,
+    RepoAnalysis,
     SaveTutorialStepInput,
     SaveTutorialStepOutput,
-    RepoAnalysis,
     TutorialOutline,
-    OutlineChapter,
-    GeneratedModule,
     TutorialSaveResult,
 )
 from .prompts import (
     ANALYZE_REPO_SYSTEM,
     ANALYZE_REPO_USER,
-    GENERATE_OUTLINE_SYSTEM,
-    GENERATE_OUTLINE_USER,
     GENERATE_CONTENT_SYSTEM,
     GENERATE_CONTENT_USER,
+    GENERATE_OUTLINE_SYSTEM,
+    GENERATE_OUTLINE_USER,
     REFINE_SYSTEM,
     REFINE_USER,
 )
@@ -70,6 +64,7 @@ class AnalyzeRepoStep(Step):
         # Clone repository
         repo_url = normalise_repo_url(repo_url)
         import uuid
+
         repo_path = await clone_repository(repo_url, uuid.UUID(instance_id))
 
         # Build file tree
@@ -137,8 +132,15 @@ class AnalyzeRepoStep(Step):
                 queue.extend(node["children"])
 
         priority = [
-            "readme.md", "main.py", "index.js", "app.py", "server.js",
-            "package.json", "requirements.txt", "Cargo.toml", "go.mod",
+            "readme.md",
+            "main.py",
+            "index.js",
+            "app.py",
+            "server.js",
+            "package.json",
+            "requirements.txt",
+            "Cargo.toml",
+            "go.mod",
         ]
 
         def score(file):
@@ -149,20 +151,6 @@ class AnalyzeRepoStep(Step):
             return 100
 
         return sorted(files, key=score)
-
-    async def _call_ai(self, messages: list[dict], **kwargs) -> str:
-        """Delegate to AIClient."""
-        from ..ai.client import AIClient
-        client = AIClient()
-        return await client.send_message(messages, **kwargs)
-
-    def _parse_json_response(self, response: str) -> dict[str, Any]:
-        """Parse JSON from AI response."""
-        import json
-        import re
-        match = re.search(r"```(?:json)?\s*(.*?)```", response, re.DOTALL)
-        json_str = match.group(1).strip() if match else response.strip()
-        return json.loads(json_str)
 
 
 class GenerateOutlineStep(Step):
@@ -208,24 +196,13 @@ class GenerateOutlineStep(Step):
                 estimated_duration=parsed.get("estimated_duration", "30 mins"),
                 chapters=[
                     OutlineChapter(
-                        title=c.get("title", f"Chapter {i+1}"),
+                        title=c.get("title", f"Chapter {i + 1}"),
                         sections=c.get("sections", []),
                     )
                     for i, c in enumerate(parsed.get("chapters", []))
                 ],
             ),
         )
-
-    async def _call_ai(self, messages: list[dict], **kwargs) -> str:
-        from ..ai.client import AIClient
-        return await AIClient().send_message(messages, **kwargs)
-
-    def _parse_json_response(self, response: str) -> dict[str, Any]:
-        import json
-        import re
-        match = re.search(r"```(?:json)?\s*(.*?)```", response, re.DOTALL)
-        json_str = match.group(1).strip() if match else response.strip()
-        return json.loads(json_str)
 
 
 class GenerateContentStep(Step):
@@ -253,9 +230,7 @@ class GenerateContentStep(Step):
 
         return GenerateContentStepOutput(modules=generated)
 
-    async def _generate_chapter_content(
-        self, title: str, sections: list[str], context: str
-    ) -> str:
+    async def _generate_chapter_content(self, title: str, sections: list[str], context: str) -> str:
         prompt_data = {
             "chapter_title": title,
             "sections": ", ".join(sections),
@@ -273,10 +248,6 @@ class GenerateContentStep(Step):
         response = await self._call_ai(messages)
         return response
 
-    async def _call_ai(self, messages: list[dict], **kwargs) -> str:
-        from ..ai.client import AIClient
-        return await AIClient().send_message(messages, **kwargs)
-
 
 class RefineStep(Step):
     """Refines and polishes the tutorial content."""
@@ -293,7 +264,9 @@ class RefineStep(Step):
 
         for module in modules:
             refined_content = await self._refine_content(module.title, module.content)
-            refined.append(GeneratedModule(title=module.title, content=refined_content, order=module.order))
+            refined.append(
+                GeneratedModule(title=module.title, content=refined_content, order=module.order)
+            )
 
         return RefineStepOutput(modules=refined)
 
@@ -311,10 +284,6 @@ class RefineStep(Step):
         response = await self._call_ai(messages)
         return response
 
-    async def _call_ai(self, messages: list[dict], **kwargs) -> str:
-        from ..ai.client import AIClient
-        return await AIClient().send_message(messages, **kwargs)
-
 
 class SaveTutorialStep(Step):
     """Saves the generated tutorial to the database atomically."""
@@ -326,26 +295,34 @@ class SaveTutorialStep(Step):
         return SaveTutorialStepOutput(**data)
 
     async def _execute_impl(self) -> SaveTutorialStepOutput:
+        from sqlalchemy import select
+
+        from ..models.enums import RepositoryStatus
         from ..models.modules import Module
+        from ..models.orchestration import TutorialInstance
         from ..models.repositories import Repository
         from ..models.tutorials import Tutorial
-        from sqlalchemy import select
 
         title = self.input.title or "Generated Tutorial"
         overview = self.input.overview
         modules_data = self.input.modules
-        user_id = self.input.user_id
-        repo_id = self.input.repo_id
 
-        if not user_id:
-            raise InvalidInputError("user_id is required for SaveTutorialStep")
-
-        # Find the associated tutorial execution's instance
-        instance = self.execution.instance
+        # Find the associated tutorial execution's instance.
+        #
+        # Fetched by query, not via `self.execution.instance`: lazy loading is
+        # synchronous IO, which AsyncSession forbids (MissingGreenlet). The
+        # worker runs this pipeline on an async session, so any implicit lazy
+        # load here would crash the save step exactly when the tutorial is
+        # finished — after every LLM token has been spent.
+        instance = (
+            await self.db.execute(
+                select(TutorialInstance).where(
+                    TutorialInstance.id == self.execution.tutorial_instance_id
+                )
+            )
+        ).scalar_one_or_none()
         if not instance:
             raise InvalidInputError("Tutorial instance not found")
-
-        user_id = str(instance.user_id)
 
         # Find or create repository
         repo = (
@@ -363,17 +340,17 @@ class SaveTutorialStep(Step):
                 user_id=instance.user_id,
                 github_url=instance.repo_url,
                 name=repo_name,
-                status="COMPLETED",
+                status=RepositoryStatus.COMPLETED,
             )
             self.db.add(repo)
             await self.db.flush()
         else:
-            repo.status = "COMPLETED"
+            repo.status = RepositoryStatus.COMPLETED
 
         # Create tutorial atomically
         tutorial = Tutorial(
             repo_id=repo.repo_id,
-            level=self.input.difficulty or "INTERMEDIATE",
+            level=self.input.difficulty or "intermediate",
             title=title,
             overview=overview,
         )

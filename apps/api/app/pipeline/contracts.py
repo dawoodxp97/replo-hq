@@ -4,14 +4,13 @@ Each step defines explicit input/output schemas via Pydantic. This replaces the
 implicit dict-passing pattern and makes failures from renamed keys visible at startup.
 """
 
-from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 
-class StepFailureReason(str, Enum):
+class StepFailureReason(StrEnum):
     """Categorized failure reasons for per-step retry logic."""
 
     LLM_INVALID_JSON = "llm_invalid_json"

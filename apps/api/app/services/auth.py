@@ -8,6 +8,7 @@ with no HTTP involved.
 import logging
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core import security
@@ -46,6 +47,36 @@ async def create_user(db: AsyncSession, user_in: UserCreate) -> User:
     )
     db.add(user)
     await db.commit()
+    await db.refresh(user)
+    return user
+
+
+async def create_oauth_user(
+    db: AsyncSession,
+    *,
+    email: str,
+    first_name: str,
+    last_name: str | None,
+) -> User:
+    """Create a passwordless account for a first-time OAuth identity.
+
+    `hashed_password` stays NULL — the column is nullable for exactly this — and
+    `authenticate` refuses login for passwordless accounts, so NULL is not a
+    bypass but the absence of a credential.
+
+    Callers must pass an already-normalised email and have verified no user with
+    that address exists (services.oauth does both before calling). The unique
+    constraint is still the arbiter: two concurrent callbacks for the same new
+    email would race here, and one of them loses cleanly instead of silently
+    creating two accounts.
+    """
+    user = User(email=email, first_name=first_name, last_name=last_name, hashed_password=None)
+    db.add(user)
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise ConflictError("That email is already registered.") from exc
     await db.refresh(user)
     return user
 

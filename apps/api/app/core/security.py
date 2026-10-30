@@ -35,6 +35,19 @@ class TokenData(BaseModel):
     issued_at: datetime | None = None
 
 
+class StreamTicketData(BaseModel):
+    """Claims carried by an SSE stream ticket."""
+
+    instance_id: str
+    user_id: str
+
+
+class OAuthStateData(BaseModel):
+    """Claims carried by the OAuth `state` parameter."""
+
+    provider: str
+
+
 def _encode(data: dict, token_type: str, expires_delta: timedelta) -> str:
     now = datetime.now(UTC)
     to_encode = {
@@ -90,6 +103,82 @@ def decode_access_token(token: str) -> TokenData | None:
 
 def decode_refresh_token(token: str) -> TokenData | None:
     return _decode(token, "refresh")
+
+
+def _decode_claims(token: str, expected_type: str) -> dict | None:
+    """Decode a non-session JWT (stream ticket, OAuth state) and return its raw claims.
+
+    Distinct from `_decode`, which is built around the `sub`-is-an-email session
+    shape. Tickets and states carry other claim sets and must never be accepted
+    where a session token is expected — the `type` check keeps the families apart
+    in both directions.
+    """
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        return None
+    if payload.get("type") != expected_type:
+        return None
+    return payload
+
+
+# --- SSE stream tickets (Phase 4.8) -------------------------------------------
+#
+# EventSource cannot set an Authorization header, so the stream endpoint
+# authenticates with a short-lived ticket minted by an *authenticated* status
+# request. The ticket is a JWT signed with the same key as sessions but a
+# different `type`, so it is not interchangeable with one.
+
+STREAM_TICKET_TYPE = "stream_ticket"
+
+
+def create_stream_ticket(instance_id: str, user_id: str) -> str:
+    """Mint a ticket permitting one SSE stream for one generation instance."""
+    return _encode(
+        {"instance_id": instance_id, "user_id": user_id},
+        STREAM_TICKET_TYPE,
+        timedelta(seconds=settings.stream_ticket_expire_seconds),
+    )
+
+
+def decode_stream_ticket(token: str) -> StreamTicketData | None:
+    claims = _decode_claims(token, STREAM_TICKET_TYPE)
+    if claims is None:
+        return None
+    instance_id = claims.get("instance_id")
+    user_id = claims.get("user_id")
+    if not instance_id or not user_id:
+        return None
+    return StreamTicketData(instance_id=instance_id, user_id=user_id)
+
+
+# --- OAuth state (D10) ----------------------------------------------------------
+
+OAUTH_STATE_TYPE = "oauth_state"
+OAUTH_STATE_EXPIRE_MINUTES = 10
+
+
+def create_oauth_state(provider: str) -> str:
+    """Mint the CSRF `state` value for one OAuth authorization attempt.
+
+    The provider echoes it back on the callback. A JWT is used rather than a
+    random nonce precisely so no server-side session store is needed: the
+    signature proves *we* started this flow, the expiry bounds it, and the
+    provider claim binds it to the flow it belongs to.
+    """
+    return _encode(
+        {"provider": provider},
+        OAUTH_STATE_TYPE,
+        timedelta(minutes=OAUTH_STATE_EXPIRE_MINUTES),
+    )
+
+
+def decode_oauth_state(token: str, provider: str) -> bool:
+    """True when `state` is a valid, unexpired state token for `provider`."""
+    claims = _decode_claims(token, OAUTH_STATE_TYPE)
+    if claims is None:
+        return False
+    return claims.get("provider") == provider
 
 
 def is_session_revoked(token_data: TokenData, sessions_valid_from: datetime | None) -> bool:

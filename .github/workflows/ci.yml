@@ -131,16 +131,112 @@ jobs:
           print(f'OK: {len(app.routes)} routes')
           "
 
-      # `|| [ $? -eq 5 ]` tolerates exit code 5 = 'no tests collected'. There are
-      # no tests yet (Phase 6). Remove this escape hatch once there are.
+      # Real tests now exist: unit tests run everywhere, integration tests start
+      # Postgres/Redis via testcontainers against this job's Docker.
       - name: Tests
-        run: uv run pytest -q || [ $? -eq 5 ]
+        run: uv run pytest -q
 
-  # apps/web and apps/site do not exist yet (Phases 4 and 5). apps/web-legacy is
-  # deliberately excluded from CI — it is reference code, not live code.
+  # Regenerates packages/api-client from the exported OpenAPI schema and fails
+  # when the committed generated code is stale. apps/web and apps/site consume
+  # the committed types — they never hand-write API shapes (D6).
+  api-client:
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: apps/api/uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen
+        working-directory: apps/api
+
+      - name: Export OpenAPI schema
+        run: uv run python -c "import json; from app.main import app; print(json.dumps(app.openapi(), indent=2))" > openapi.json
+        working-directory: apps/api
+
+      # npx rather than `pnpm --filter @replo/api-client generate`: a full
+      # workspace install must not be a prerequisite for regenerating one
+      # package's types.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The package's own generate script: openapi-ts + prettier + the
+      # compatibility patcher, so what CI verifies is what devs commit.
+      - name: Regenerate packages/api-client from the schema
+        run: pnpm --filter @replo/api-client generate
+
+      - name: Generated client is committed and current
+        run: git diff --exit-code packages/api-client/src apps/api/openapi.json
+
+  # Product frontend: typecheck, build, unit tests. Playwright e2e runs
+  # against live services and belongs to a deploy-preview workflow, not PR CI.
   web:
     needs: changes
     if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     steps:
-      - run: echo "apps/web lands in Phase 4."
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm --filter @replo/api-client typecheck && pnpm --filter @replo/web typecheck
+
+      - name: Unit tests
+        run: pnpm --filter @replo/web test
+
+      - name: Build
+        run: pnpm --filter @replo/web build
+
+  # Public site (Next.js): typecheck, data-layer tests, production build.
+  site:
+    needs: changes
+    if: needs.changes.outputs.site == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm --filter @replo/site typecheck
+
+      - name: Unit tests
+        run: pnpm --filter @replo/site test
+
+      - name: Build
+        run: pnpm --filter @replo/site build

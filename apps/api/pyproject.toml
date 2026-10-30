@@ -33,6 +33,7 @@ dependencies = [
     # Auth
     "passlib[bcrypt]>=1.7.4",
     "python-jose[cryptography]>=3.3",
+    "sentry-sdk>=2.73.0",
 ]
 
 # Dropped in Phase 1 — verified unimported across the whole package:
@@ -51,6 +52,7 @@ dev = [
     "pytest-asyncio>=0.25",
     "pytest-cov>=6.0",
     "httpx>=0.28",
+    "testcontainers[postgres,redis]>=4.8",
 ]
 
 [tool.uv]
@@ -117,3 +119,12 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# `app` is not an installed package ([tool.uv] package = false), so pytest is
+# told where it lives rather than relying on the cwd accident.
+pythonpath = ["."]
+markers = [
+    # Tests that need real Postgres/Redis (testcontainers). They skip themselves
+    # when Docker is unavailable, so a plain `pytest -q` works on any laptop;
+    # CI runs everything because its runner has Docker.
+    "integration: requires Docker; starts Postgres/Redis via testcontainers",
+]

@@ -209,3 +209,23 @@ reason.
 - **Deployment status** (2026-07-21): not deployed anywhere, no production data. The rewrite
   has no cutover constraint — no backup, no data migration, no dual-running period. This is
   why the plan can move the schema freely in Phase 2 (D1 keeps the *design*, not the rows).
+
+## D12 — Generated client compatibility shim (`packages/api-client/src/runtime.ts`)
+
+**Decision:** The generated SDK targets a client surface newer than the published
+`@hey-api/client-fetch` (0.13.1): its `Options` type does not surface the per-request
+`headers`/`bodySerializer` the runtime honours, requires `url` on `TDataShape` while the
+generated `*Data` types carry it only at the call site, and its `RequestResult` collapses
+`data` to `TData[keyof TData]`, losing the response structure. Rather than hand-editing
+generated files, `scripts/patch-client.mjs` applies the three mechanical deviations after
+every `generate` run and `src/runtime.ts` re-exports the client with corrected types. Both
+are deleted when the published types catch up. CI verifies the patched output is what is
+committed.
+
+## D13 — One session module, generated contracts only
+
+**Decision:** `apps/web/src/lib/api.ts` is the single owner of transport + session
+(base URL, bearer injection, single-flight refresh with request replay, AppError →
+`ApiError` mapping). Pages never call the raw client; services own endpoint calls and are
+typed entirely from the generated client — no `as unknown as T` anywhere. `apps/site`
+mirrors the same boundary server-side in `lib/api.ts` with fetch tags + ISR revalidation.

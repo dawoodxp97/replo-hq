@@ -29,6 +29,20 @@ _PATTERNS: list[tuple[re.Pattern[str], str]] = [
     # Any Authorization header value, however it was formatted.
     (re.compile(r"(?i)(authorization\"?\s*[:=]\s*\"?)(bearer\s+)?\S+"), r"\1***REDACTED***"),
     (re.compile(r"(?i)bearer\s+[A-Za-z0-9\-._~+/]{16,}=*"), "Bearer ***REDACTED***"),
+    # OAuth callback parameters (D10): the authorization code is bearer-equivalent
+    # until exchanged, and `state` is a signed token. The callback URL arrives in
+    # provider error messages and debug traces.
+    (
+        re.compile(r"(?i)([?&])(code|state)=[A-Za-z0-9\-._~]{8,}"),
+        r"\1\2=***REDACTED***",
+    ),
+    # JWT-shaped values (access/refresh/stream tickets/oauth state). Three
+    # base64url segments, dot-separated. Not every session token reaches a log
+    # through a named pattern; this catches the shape itself.
+    (
+        re.compile(r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{5,}\b"),
+        "***JWT***",
+    ),
     # Postgres/Redis URLs carrying inline credentials.
     (re.compile(r"(?i)(postgres(?:ql)?|redis)://([^:/@\s]+):([^@\s]+)@"), r"\1://\2:***@"),
 ]

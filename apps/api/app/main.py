@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -25,6 +26,8 @@ from .routers import (
 from .routers import settings as settings_router
 from .workers.worker import get_redis_pool
 
+logger = logging.getLogger(__name__)
+
 # Installs the secret-redaction filter before the app can emit a record.
 configure_logging()
 
@@ -34,12 +37,37 @@ async def lifespan(app: FastAPI):
     """Startup/shutdown. Replaces the deprecated @app.on_event hooks, which
     could not dispose the async engine — that leaks connections on reload and
     on every redeploy."""
+    _init_sentry()
     app.state.redis_pool = await get_redis_pool()
     yield
     if getattr(app.state, "redis_pool", None) is not None:
         app.state.redis_pool.close()
         await app.state.redis_pool.wait_closed()
     await async_engine.dispose()
+
+
+def _init_sentry() -> None:
+    """Initialise Sentry only when a DSN is configured, and never under test.
+
+    Both guards matter: without the DSN check the SDK would idle harmlessly but
+    log noise on every boot; without the test check a stubbed network call or a
+    misconfigured DSN could fail a test run for observability's sake.
+    Import is deferred so the SDK never loads (or slows boot) when unused.
+    """
+    if settings.sentry_dsn is None or settings.is_test:
+        return
+
+    import sentry_sdk
+    from sentry_sdk.integrations.fastapi import FastApiIntegration
+    from sentry_sdk.integrations.starlette import StarletteIntegration
+
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn.get_secret_value(),
+        environment=settings.environment,
+        traces_sample_rate=settings.sentry_traces_sample_rate,
+        integrations=[StarletteIntegration(), FastApiIntegration()],
+    )
+    logger.info("Sentry initialised (environment=%s)", settings.environment)
 
 
 app = FastAPI(

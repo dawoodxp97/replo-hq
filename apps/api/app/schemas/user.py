@@ -63,3 +63,14 @@ class TokenWithUser(Token):
     follow-up request just to render a header."""
 
     user: UserPublic
+
+
+class OAuthAuthorizeResponse(BaseModel):
+    """The consent-screen URL for one provider.
+
+    `state` is embedded in the URL (a signed JWT) rather than returned separately,
+    so the frontend cannot forget to pass it through — the CSRF protection is not
+    left to a caller's diligence.
+    """
+
+    authorization_url: str

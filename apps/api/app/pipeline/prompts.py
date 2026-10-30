@@ -95,9 +95,7 @@ $repo_context
 # RefineStep Prompts
 # =============================================================================
 
-REFINE_SYSTEM = Template(
-    "You are an expert editor. Improve clarity, flow, and technical accuracy."
-)
+REFINE_SYSTEM = Template("You are an expert editor. Improve clarity, flow, and technical accuracy.")
 
 REFINE_USER = Template(
     """Review and refine the following tutorial chapter: "$title".
@@ -115,35 +113,48 @@ $content
 )
 
 # =============================================================================
-# Model Registry (Phase 3.18)
+# Model Registry (Phase 3.18) + published rates (Phase 6 cost tracking, D7)
 # =============================================================================
 
-# Map model names to their capabilities and tier
+# Map model names to their capabilities and tier. `*_cost_per_1m` are the
+# provider's published USD rates per 1M tokens, used to produce the *estimated*
+# cost stored on TutorialExecution. Estimates only — no billing exists (D7), and
+# unknown models simply yield no estimate rather than a made-up one.
 MODEL_REGISTRY = {
     "kwaipilot/kat-coder-pro:free": {
         "tier": "free",
         "context_window": 8192,
         "supports_json": True,
+        "input_cost_per_1m": 0.0,
+        "output_cost_per_1m": 0.0,
     },
     "kwaipilot/kat-coder-pro:standard": {
         "tier": "paid",
         "context_window": 32768,
         "supports_json": True,
+        "input_cost_per_1m": 0.20,
+        "output_cost_per_1m": 0.80,
     },
     "kwaipilot/kat-coder-pro:fast": {
         "tier": "paid",
         "context_window": 16384,
         "supports_json": True,
+        "input_cost_per_1m": 0.10,
+        "output_cost_per_1m": 0.40,
     },
     "openai/gpt-4o-mini": {
         "tier": "paid",
         "context_window": 128000,
         "supports_json": True,
+        "input_cost_per_1m": 0.15,
+        "output_cost_per_1m": 0.60,
     },
     "anthropic/claude-3-haiku": {
         "tier": "paid",
         "context_window": 200000,
         "supports_json": True,
+        "input_cost_per_1m": 0.25,
+        "output_cost_per_1m": 1.25,
     },
 }
 
@@ -156,3 +167,24 @@ def get_model_tier(model_name: str) -> str:
 def is_free_tier(model_name: str) -> bool:
     """Check if a model is on the free tier."""
     return get_model_tier(model_name) == "free"
+
+
+def estimate_cost_usd(
+    model_name: str,
+    input_tokens: int | None,
+    output_tokens: int | None,
+) -> float | None:
+    """Estimated USD cost for one generation's token counts, or None.
+
+    None — not 0.0 — when the model is unregistered or usage was never
+    reported: a 0.0 estimate reads as "this was free", which we do not know.
+    """
+    rates = MODEL_REGISTRY.get(model_name)
+    if rates is None or input_tokens is None or output_tokens is None:
+        return None
+    cost = (
+        input_tokens * rates.get("input_cost_per_1m", 0.0)
+        + output_tokens * rates.get("output_cost_per_1m", 0.0)
+    ) / 1_000_000
+    # Rounded to the micro-dollar: display granularity, nothing more.
+    return round(cost, 6)

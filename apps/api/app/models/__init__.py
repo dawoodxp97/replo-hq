@@ -12,6 +12,7 @@ from .quizzes import Quiz
 from .repositories import Repository
 from .tutorials import Tutorial
 from .user import User
+from .user_oauth import UserOAuthIdentity
 from .user_progress import UserProgress
 from .user_settings import UserSettings
 
@@ -29,6 +30,7 @@ __all__ = [
     "TutorialStepConfig",
     "TutorialStepExecution",
     "User",
+    "UserOAuthIdentity",
     "UserCreditBalance",
     "UserLLMCredential",
     "UserProgress",

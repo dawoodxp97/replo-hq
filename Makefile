@@ -1,4 +1,4 @@
-.PHONY: help setup services api worker web dev migrate migration build start stop logs clean
+.PHONY: help setup services api worker web dev migrate migration openapi build start stop logs clean
 
 # Root .env is the single source of config. pydantic-settings (apps/api) and
 # Next/Rsbuild read it directly — no `export $(grep ...)` shell hack, which
@@ -50,6 +50,22 @@ migrate:
 migration:
 	@test -n "$(m)" || (echo "Usage: make migration m='describe the change'" && exit 1)
 	@cd apps/api && uv run alembic revision --autogenerate -m "$(m)"
+
+# Exports the OpenAPI schema and regenerates packages/api-client from it.
+# Run after every contract change and COMMIT both outputs — apps/web and
+# apps/site are built against the generated types, not hand-written ones.
+#
+# npx rather than the workspace script: a broken @tanstack/router spec in
+# apps/web currently fails any full `pnpm install`, and client generation must
+# not depend on every workspace package installing cleanly. The api-client
+# package's own `generate` script does the same thing once the workspace
+# installs.
+openapi:
+	@cd apps/api && uv run python -c "import json; from app.main import app; print(json.dumps(app.openapi(), indent=2))" > openapi.json
+	@echo "==> apps/api/openapi.json written"
+	@npx --yes @hey-api/openapi-ts@0.54.0 -i apps/api/openapi.json -o packages/api-client/src -c @hey-api/client-fetch
+	@npx --yes prettier@3.4.2 --write "packages/api-client/src/**/*" >/dev/null
+	@echo "==> packages/api-client/src regenerated"
 
 build:
 	@docker compose build

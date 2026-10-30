@@ -98,6 +98,28 @@ class TutorialListItem(BaseModel):
     repo_url: str | None = None
 
 
+class ExploreTutorialItem(BaseModel):
+    """A public tutorial in the `/explore` catalogue (Phase 5.5).
+
+    Deliberately not `TutorialListItem`: that shape carries per-viewer progress
+    fields (`completed_modules`, `progress_percentage`) which have no meaning for
+    an anonymous visitor, and it has no `language`/`published_at`, which are the
+    two things a browse page is *for*. Separate model rather than a union of
+    optional fields — every field here is always present and meaningful.
+    """
+
+    tutorial_id: UUID
+    slug: str | None = None
+    level: TutorialLevel
+    title: str
+    overview: str | None = None
+    published_at: datetime | None = None
+    module_count: int = 0
+    repo_name: str | None = None
+    repo_url: str | None = None
+    language: str | None = None
+
+
 class VisibilityUpdate(BaseModel):
     visibility: TutorialVisibility
 
@@ -123,6 +145,11 @@ class StatusResponse(BaseModel):
     error_message: str | None = None
     created_at: datetime
     updated_at: datetime
+    # Short-lived ticket authenticating GET /{instance_id}/stream (4.8).
+    # EventSource cannot send Authorization headers, so the client takes this
+    # from an already-authenticated status call and passes it as a query param.
+    # Expire bound: settings.stream_ticket_expire_seconds.
+    stream_ticket: str
 
 
 class GenerationStatusResponse(BaseModel):
