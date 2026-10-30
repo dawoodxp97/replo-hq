@@ -10,7 +10,8 @@ help:
 	@echo "  make services  - Start Postgres + Redis only"
 	@echo "  make api       - Start API server (auto-starts services)"
 	@echo "  make worker    - Start ARQ worker (auto-starts services)"
-	@echo "  make web       - Start frontend"
+	@echo "  make web       - Start frontend (apps/web, port 3000)"
+	@echo "  make site      - Start public site (apps/site, port 3100)"
 	@echo "  make dev       - Start api + worker + web together"
 	@echo ""
 	@echo "Database:"
@@ -36,10 +37,11 @@ api: services
 worker: services
 	@cd apps/api && uv run python run_worker.py
 
-# web-legacy sits outside the pnpm workspace on purpose, so it uses npm directly.
-# Phase 4 replaces this target with `pnpm --filter web dev`.
 web:
-	@cd apps/web-legacy && npm run dev
+	@pnpm --filter @replo/web dev
+
+site:
+	@pnpm --filter @replo/site dev
 
 dev: services
 	@trap 'kill 0' EXIT; $(MAKE) -j3 api worker web

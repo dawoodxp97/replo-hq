@@ -1,7 +1,7 @@
 # Static SPA build served by nginx with SPA fallback routing.
 FROM node:22-alpine AS build
 WORKDIR /app
-COPY pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY apps/web/package.json apps/web/
 COPY packages/api-client/package.json packages/api-client/
 COPY packages/ui/package.json packages/ui/

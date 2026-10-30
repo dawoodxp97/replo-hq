@@ -1,7 +1,7 @@
 # Next standalone output (see next.config.mjs) — run the server bundle directly.
 FROM node:22-alpine AS build
 WORKDIR /app
-COPY pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY apps/site/package.json apps/site/
 COPY packages/api-client/package.json packages/api-client/
 COPY packages/ui/package.json packages/ui/
